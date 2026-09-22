@@ -18,7 +18,6 @@ const state = {
   drafts: new Map(),
   pending: false
 };
-const pendingRequests = new Map();
 
 function todayInTashkent() {
   const parts = new Intl.DateTimeFormat("en", {
@@ -102,54 +101,41 @@ function updateAccess() {
     : "Add the web app URL from your Apps Script deployment. It stays on this device.";
 }
 
-function request(action, fields = {}) {
-  if (!state.endpoint) return Promise.reject(new Error("Add your Apps Script URL first."));
-  const id = crypto.randomUUID();
-  const payload = JSON.stringify({
-    action, ...fields, requestId: id, replyOrigin: location.origin
-  });
-  return new Promise((resolve, reject) => {
-    const frame = document.createElement("iframe");
-    const form = document.createElement("form");
-    const input = document.createElement("input");
-    frame.name = "dashboard-request-" + id;
-    frame.hidden = true;
-    frame.setAttribute("aria-hidden", "true");
-    form.hidden = true;
-    form.method = "POST";
-    form.action = state.endpoint;
-    form.target = frame.name;
-    form.enctype = "application/x-www-form-urlencoded";
-    input.name = "payload";
-    input.value = payload;
-    form.append(input);
-    document.body.append(frame, form);
-    const cleanup = () => {
-      clearTimeout(timeout);
-      pendingRequests.delete(id);
-      form.remove();
-      frame.remove();
-    };
-    const timeout = setTimeout(() => {
-      cleanup();
-      reject(new Error("The request timed out. Check the Apps Script URL, deployment access, and ALLOWED_ORIGIN setting."));
-    }, 60000);
-    pendingRequests.set(id, {resolve, reject, cleanup});
-    form.submit();
-  });
-}
-
-window.addEventListener("message", event => {
-  const isGoogleOrigin = /^https:\/\/(?:script\.google\.com|[a-z0-9-]+\.googleusercontent\.com)$/.test(event.origin);
-  if (!isGoogleOrigin || !event.data || event.data.type !== "teaching-dashboard-response") return;
+async function request(action, fields = {}) {
+  if (!state.endpoint) throw new Error("Add your Apps Script URL first.");
+  const requestId = crypto.randomUUID();
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 30000);
+  let response;
+  try {
+    response = await fetch(state.endpoint, {
+      method: "POST",
+      headers: {"Content-Type": "text/plain;charset=utf-8"},
+      body: JSON.stringify({action, ...fields, requestId}),
+      redirect: "follow",
+      cache: "no-store",
+      signal: controller.signal
+    });
+  } catch (error) {
+    throw new Error(error.name === "AbortError"
+      ? "The request timed out. Try again."
+      : "Could not reach Apps Script. Check the web app URL and deployment access.");
+  } finally {
+    clearTimeout(timeout);
+  }
+  if (!response.ok || response.type === "opaque") {
+    throw new Error("Apps Script returned an unreadable response. Check the web app deployment.");
+  }
   let result;
-  try { result = JSON.parse(event.data.payload); } catch { return; }
-  const pending = pendingRequests.get(result.requestId);
-  if (!pending) return;
-  pending.cleanup();
-  if (result.ok) pending.resolve(result.data);
-  else pending.reject(new Error(result.error || "The request failed."));
-});
+  try {
+    result = await response.json();
+  } catch {
+    throw new Error("Apps Script did not return JSON. Check the web app URL and deployment.");
+  }
+  if (result.requestId !== requestId) throw new Error("Apps Script returned a mismatched response.");
+  if (!result.ok) throw new Error(result.error || "The request failed.");
+  return result.data;
+}
 
 function isSessionError(error) {
   return /session expired/i.test(error.message);
