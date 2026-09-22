@@ -8,7 +8,7 @@
   <title>Teaching Dashboard</title>
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%231b4ca1'/%3E%3Cpath d='M16 18h32v30H16z' fill='none' stroke='white' stroke-width='4'/%3E%3Cpath d='M22 12v12m20-12v12M16 29h32M24 37h7' stroke='white' stroke-width='4' stroke-linecap='round'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="./styles.css">
-  <script src="./script.js?v=3bbf0b8" defer></script>
+  <script src="./script.js?v=students1" defer></script>
 </head>
 <body>
   <div class="app-shell">
@@ -130,6 +130,22 @@
                 <button type="submit" class="button button-primary" id="save-lesson-button">Save lesson</button>
               </div>
             </form>
+            <section id="student-panel" class="student-panel" aria-labelledby="student-panel-title" hidden>
+              <div class="student-panel-heading">
+                <div>
+                  <h3 id="student-panel-title">Student checklist</h3>
+                  <p id="checklist-summary">Attendance and participation for this class.</p>
+                </div>
+                <button type="button" class="button button-quiet" id="add-student-button">Add student</button>
+              </div>
+              <form id="checklist-form">
+                <div id="student-list" class="student-list"></div>
+                <div class="lesson-actions checklist-actions">
+                  <span id="checklist-status" role="status" aria-live="polite"></span>
+                  <button type="submit" class="button button-primary" id="save-checklist-button">Save checklist</button>
+                </div>
+              </form>
+            </section>
           </aside>
         </div>
       </div>
@@ -168,6 +184,43 @@
         <button type="submit" class="button button-primary" id="save-class-button">Save class</button>
       </div>
     </form>
+  </dialog>
+  <dialog id="student-dialog" aria-labelledby="student-dialog-title">
+    <form id="student-form" class="class-form">
+      <div class="dialog-heading">
+        <h2 id="student-dialog-title">Add student</h2>
+        <button type="button" class="icon-button close-button" id="close-student-dialog" aria-label="Close">×</button>
+      </div>
+      <label for="student-choice">Student</label>
+      <select id="student-choice"><option value="new">Create a new student</option></select>
+      <button type="button" class="button button-text" id="view-student-profile" hidden>View student history</button>
+      <div id="new-student-fields">
+        <label for="student-name">Student name</label>
+        <input id="student-name" maxlength="120" placeholder="Student name">
+      </div>
+      <p class="field-hint">Class membership starts today. Earlier meetings keep their earlier roster.</p>
+      <p class="dialog-error" id="student-error" role="alert" hidden></p>
+      <div class="dialog-actions">
+        <button type="button" class="button button-quiet" id="cancel-student-dialog">Cancel</button>
+        <button type="submit" class="button button-primary" id="save-student-button">Add to class</button>
+      </div>
+    </form>
+  </dialog>
+  <dialog id="history-dialog" aria-labelledby="history-title">
+    <div class="history-content">
+      <div class="dialog-heading">
+        <h2 id="history-title">Student history</h2>
+        <button type="button" class="icon-button close-button" id="close-history-dialog" aria-label="Close">×</button>
+      </div>
+      <form id="rename-student-form" class="rename-student-form">
+        <label for="rename-student-name">Name</label>
+        <div class="input-action"><input id="rename-student-name" maxlength="120" required><button type="submit" class="button button-quiet">Rename</button></div>
+      </form>
+      <div id="student-totals" class="student-totals"></div>
+      <div id="student-history" class="student-history"></div>
+      <p class="dialog-error" id="history-error" role="alert" hidden></p>
+      <div class="dialog-actions"><button type="button" class="button button-danger" id="remove-student-button">Remove from class</button></div>
+    </div>
   </dialog>
 </body>
 </html>
