@@ -12,10 +12,17 @@ const state = {
   token: "",
   classes: [],
   logs: [],
+  students: [],
+  enrollments: [],
+  checklists: [],
+  studentRecords: [],
+  studentsReady: false,
   selectedDate: todayInTashkent(),
   selectedClassId: "",
+  selectedStudentId: "",
   view: "day",
   drafts: new Map(),
+  checklistDrafts: new Map(),
   pending: false
 };
 
@@ -146,6 +153,11 @@ function handleError(error, target = "global") {
     state.token = "";
     state.classes = [];
     state.logs = [];
+    state.students = [];
+    state.enrollments = [];
+    state.checklists = [];
+    state.studentRecords = [];
+    state.studentsReady = false;
     updateAccess();
     setAccessError("Your session expired. Please sign in again.");
     return;
@@ -157,8 +169,18 @@ function handleError(error, target = "global") {
 async function loadData() {
   const data = await request("load", {token: state.token});
   if (!Array.isArray(data.classes) || !Array.isArray(data.logs)) throw new Error("The spreadsheet returned unexpected data.");
+  const studentKeys = ["students", "enrollments", "checklists", "studentRecords"];
+  const hasStudentData = studentKeys.every(key => Array.isArray(data[key]));
+  if (!hasStudentData && studentKeys.some(key => data[key] !== undefined)) {
+    throw new Error("Student records are incomplete. Run setupDashboard and redeploy Apps Script.");
+  }
   state.classes = data.classes;
   state.logs = data.logs;
+  state.students = hasStudentData ? data.students : [];
+  state.enrollments = hasStudentData ? data.enrollments : [];
+  state.checklists = hasStudentData ? data.checklists : [];
+  state.studentRecords = hasStudentData ? data.studentRecords : [];
+  state.studentsReady = hasStudentData;
   render();
 }
 
@@ -177,12 +199,21 @@ function lessonsOn(date) {
       : {...item, date, archived: false};
   });
   const activeIds = new Set(active.map(item => item.id));
-  const historical = state.logs.filter(log => log.date === date && !activeIds.has(log.classId))
-    .map(log => ({
-      id: log.classId, name: log.className, subject: log.subject,
-      start: log.start, end: log.end, room: log.room, date,
-      archived: true
-    }));
+  const historicalIds = new Set([
+    ...state.logs.filter(log => log.date === date).map(log => log.classId),
+    ...state.checklists.filter(item => item.date === date).map(item => item.classId)
+  ]);
+  const historical = [...historicalIds].filter(id => !activeIds.has(id)).map(id => {
+    const log = logFor(id, date);
+    const original = state.classes.find(item => item.id === id);
+    return {
+      id, name: log?.className || original?.name || "Class",
+      subject: log?.subject || original?.subject || "",
+      start: log?.start || original?.start || "00:00",
+      end: log?.end || original?.end || "00:00",
+      room: log?.room || original?.room || "", date, archived: true
+    };
+  });
   return [...active, ...historical].sort((a, b) =>
     String(a.start).localeCompare(String(b.start)) || String(a.name).localeCompare(String(b.name)));
 }
@@ -193,6 +224,7 @@ function logFor(id, date) {
 
 function statusFor(item, date) {
   if (logFor(item.id, date)) return ["Logged", "logged"];
+  if (state.checklists.some(value => value.classId === item.id && value.date === date)) return ["Checklist saved", "logged"];
   if (date !== todayInTashkent()) return [item.archived ? "Archived" : "Scheduled", ""];
   const now = timeNowInTashkent();
   if (now >= minutes(item.start) && now < minutes(item.end)) return ["In progress", "current"];
@@ -230,6 +262,7 @@ function classCard(item, date) {
   button.append(time, main, status);
   button.addEventListener("click", () => {
     saveDraft();
+    saveChecklistDraft();
     state.selectedDate = date;
     state.selectedClassId = item.id;
     render();
@@ -344,7 +377,221 @@ function renderLesson() {
   });
   $("#lesson-status").classList.remove("error");
   $("#lesson-status").textContent = draft ? "Unsaved changes" : saved ? "Saved " + (saved.updatedAt || "") : "Not saved yet";
-  $("#save-lesson-button").disabled = false;
+  $("#save-lesson-button").disabled = Boolean(item.archived && !saved);
+}
+
+function selectedLesson() {
+  return lessonsOn(state.selectedDate).find(item => item.id === state.selectedClassId);
+}
+
+function checklistKey() {
+  return state.selectedClassId + "|" + state.selectedDate;
+}
+
+function savedChecklist() {
+  return state.checklists.find(item => item.classId === state.selectedClassId && item.date === state.selectedDate);
+}
+
+function savedStudentRows() {
+  return state.studentRecords.filter(item => item.classId === state.selectedClassId && item.date === state.selectedDate);
+}
+
+function checklistRows() {
+  const saved = savedChecklist();
+  const base = saved ? savedStudentRows() : state.enrollments
+    .filter(item => item.classId === state.selectedClassId &&
+      (!item.joinedOn || item.joinedOn <= state.selectedDate) &&
+      (!item.leftOn || state.selectedDate < item.leftOn))
+    .map(item => ({studentId: item.studentId, attendance: "present", participation: 0, note: ""}));
+  const draft = state.checklistDrafts.get(checklistKey());
+  return base.map(item => ({...item, ...(draft?.find(value => value.studentId === item.studentId) || {})}))
+    .sort((a, b) => studentName(a.studentId).localeCompare(studentName(b.studentId)));
+}
+
+function studentName(id) {
+  return state.students.find(item => item.id === id)?.name || "Unknown student";
+}
+
+function markScore(item) {
+  return item.attendance === "absent" ? -1 : Number(item.participation);
+}
+
+function markReason(item) {
+  if (item.attendance === "absent") return "Absent −1";
+  if (Number(item.participation) === 1) return "Participation +1";
+  if (Number(item.participation) === -1) return "Noise −1";
+  return "Present 0";
+}
+
+function pointLabel(value) {
+  return value + (Math.abs(value) === 1 ? " point" : " points");
+}
+
+function readChecklistForm() {
+  return [...$("#student-list").querySelectorAll(".student-row")].map(row => ({
+    studentId: row.dataset.studentId,
+    attendance: row.querySelector(".attendance-select").value,
+    participation: Number(row.querySelector(".participation-select").value),
+    note: row.querySelector(".student-note").value
+  }));
+}
+
+function saveChecklistDraft() {
+  if (!state.selectedClassId || $("#student-panel").hidden) return;
+  const rows = readChecklistForm();
+  const saved = savedChecklist() ? savedStudentRows() : rows.map(item =>
+    ({studentId: item.studentId, attendance: "present", participation: 0, note: ""}));
+  const same = rows.length === saved.length && rows.every(item => {
+    const previous = saved.find(value => value.studentId === item.studentId);
+    return previous && item.attendance === previous.attendance &&
+      item.participation === Number(previous.participation) && item.note === (previous.note || "");
+  });
+  if (same) state.checklistDrafts.delete(checklistKey());
+  else state.checklistDrafts.set(checklistKey(), rows);
+  $("#checklist-status").textContent = same
+    ? savedChecklist() ? "Saved " + savedChecklist().updatedAt : "Not saved yet"
+    : "Unsaved changes";
+  $("#checklist-status").classList.remove("error");
+}
+
+function renderStudents() {
+  const lesson = selectedLesson();
+  $("#student-panel").hidden = !lesson;
+  if (!lesson) return;
+  $("#checklist-form").hidden = !state.studentsReady;
+  $("#add-student-button").hidden = !state.studentsReady || lesson.archived;
+  if (!state.studentsReady) {
+    $("#checklist-summary").textContent = "Student records need the updated Apps Script. Run setupDashboard and deploy its new version.";
+    return;
+  }
+  const saved = savedChecklist();
+  const rows = checklistRows();
+  const list = $("#student-list");
+  list.replaceChildren();
+  $("#checklist-summary").textContent = saved
+    ? "Saved roster for this class meeting."
+    : "Everyone starts present. Save to count attendance and points.";
+  if (!rows.length) {
+    const empty = document.createElement("p");
+    empty.className = "student-empty";
+    empty.textContent = lesson.archived ? "No saved student checklist for this class." : "Add a student to start the checklist.";
+    list.append(empty);
+  }
+  rows.forEach(item => {
+    const row = document.createElement("div");
+    row.className = "student-row";
+    row.dataset.studentId = item.studentId;
+    const heading = document.createElement("div");
+    heading.className = "student-row-heading";
+    const history = document.createElement("button");
+    history.type = "button";
+    history.className = "student-name-button";
+    history.textContent = studentName(item.studentId);
+    history.setAttribute("aria-label", "View history for " + studentName(item.studentId));
+    history.addEventListener("click", () => openStudentHistory(item.studentId));
+    const score = document.createElement("span");
+    score.className = "student-score";
+    score.textContent = markReason(item);
+    heading.append(history, score);
+    const controls = document.createElement("div");
+    controls.className = "student-controls";
+    const attendanceLabel = document.createElement("label");
+    attendanceLabel.textContent = "Attendance";
+    const attendance = document.createElement("select");
+    attendance.className = "attendance-select";
+    [["present", "Present"], ["absent", "Absent"]].forEach(([value, label]) => {
+      const option = document.createElement("option");
+      option.value = value;
+      option.textContent = label;
+      attendance.append(option);
+    });
+    attendance.value = item.attendance;
+    attendanceLabel.append(attendance);
+    const participationLabel = document.createElement("label");
+    participationLabel.textContent = "Participation";
+    const participation = document.createElement("select");
+    participation.className = "participation-select";
+    [["0", "No change · 0"], ["1", "Participated · +1"], ["-1", "Noise · −1"]].forEach(([value, label]) => {
+      const option = document.createElement("option");
+      option.value = value;
+      option.textContent = label;
+      participation.append(option);
+    });
+    participation.value = String(item.participation);
+    participation.disabled = item.attendance === "absent";
+    participationLabel.append(participation);
+    controls.append(attendanceLabel, participationLabel);
+    const noteLabel = document.createElement("label");
+    noteLabel.textContent = "Student note";
+    const note = document.createElement("textarea");
+    note.className = "student-note";
+    note.rows = 2;
+    note.maxLength = 300;
+    note.placeholder = "Something to remember from this class…";
+    note.value = item.note || "";
+    noteLabel.append(note);
+    attendance.addEventListener("change", () => {
+      if (attendance.value === "absent") participation.value = "0";
+      participation.disabled = attendance.value === "absent";
+      score.textContent = markReason({attendance: attendance.value, participation: participation.value});
+      saveChecklistDraft();
+    });
+    participation.addEventListener("change", () => {
+      score.textContent = markReason({attendance: attendance.value, participation: participation.value});
+      saveChecklistDraft();
+    });
+    note.addEventListener("input", saveChecklistDraft);
+    row.append(heading, controls, noteLabel);
+    list.append(row);
+  });
+  $("#save-checklist-button").hidden = lesson.archived && !saved;
+  $("#save-checklist-button").disabled = !rows.length;
+  $("#checklist-status").classList.remove("error");
+  $("#checklist-status").textContent = state.checklistDrafts.has(checklistKey())
+    ? "Unsaved changes" : saved ? "Saved " + saved.updatedAt : "Not saved yet";
+}
+
+function openStudentHistory(studentId) {
+  saveChecklistDraft();
+  state.selectedStudentId = studentId;
+  const student = state.students.find(item => item.id === studentId);
+  if (!student) return;
+  $("#history-title").textContent = student.name + " · history";
+  $("#rename-student-name").value = student.name;
+  $("#history-error").hidden = true;
+  const records = state.studentRecords.filter(item => item.studentId === studentId)
+    .sort((a, b) => b.date.localeCompare(a.date));
+  const currentTotal = records.filter(item => item.classId === state.selectedClassId)
+    .reduce((sum, item) => sum + markScore(item), 0);
+  const overallTotal = records.reduce((sum, item) => sum + markScore(item), 0);
+  $("#student-totals").textContent = "This class: " + pointLabel(currentTotal) +
+    " · Overall: " + pointLabel(overallTotal);
+  const list = $("#student-history");
+  list.replaceChildren();
+  if (!records.length) {
+    const empty = document.createElement("p");
+    empty.textContent = "No saved class meetings yet.";
+    list.append(empty);
+  }
+  records.forEach(item => {
+    const entry = document.createElement("div");
+    entry.className = "history-entry";
+    const title = document.createElement("strong");
+    const className = state.classes.find(value => value.id === item.classId)?.name || "Class";
+    title.textContent = formatDate(item.date, {month: "short", day: "numeric", year: "numeric"}) + " · " + className;
+    const reason = document.createElement("span");
+    reason.textContent = markReason(item);
+    entry.append(title, reason);
+    if (item.note) {
+      const note = document.createElement("p");
+      note.textContent = item.note;
+      entry.append(note);
+    }
+    list.append(entry);
+  });
+  const enrollment = state.enrollments.find(item => item.classId === state.selectedClassId && item.studentId === studentId);
+  $("#remove-student-button").hidden = !enrollment?.active || Boolean(selectedLesson()?.archived);
+  $("#history-dialog").showModal();
 }
 
 function render() {
@@ -357,10 +604,12 @@ function render() {
   renderWeekStrip();
   renderSchedule();
   renderLesson();
+  renderStudents();
 }
 
 function changeDate(date) {
   saveDraft();
+  saveChecklistDraft();
   state.selectedDate = date;
   if (!lessonsOn(date).some(item => item.id === state.selectedClassId)) state.selectedClassId = "";
   render();
@@ -456,8 +705,15 @@ $("#sign-out-button").addEventListener("click", () => {
   state.token = "";
   state.classes = [];
   state.logs = [];
+  state.students = [];
+  state.enrollments = [];
+  state.checklists = [];
+  state.studentRecords = [];
+  state.studentsReady = false;
   state.selectedClassId = "";
+  state.selectedStudentId = "";
   state.drafts.clear();
+  state.checklistDrafts.clear();
   updateAccess();
   setNotice("");
   request("logout", {token}).catch(() => {});
@@ -466,8 +722,8 @@ $("#sign-out-button").addEventListener("click", () => {
 $("#previous-date").addEventListener("click", () => changeDate(addDays(state.selectedDate, state.view === "week" ? -7 : -1)));
 $("#next-date").addEventListener("click", () => changeDate(addDays(state.selectedDate, state.view === "week" ? 7 : 1)));
 $("#today-button").addEventListener("click", () => changeDate(todayInTashkent()));
-$("#day-view-button").addEventListener("click", () => { saveDraft(); state.view = "day"; render(); });
-$("#week-view-button").addEventListener("click", () => { saveDraft(); state.view = "week"; render(); });
+$("#day-view-button").addEventListener("click", () => { saveDraft(); saveChecklistDraft(); state.view = "day"; render(); });
+$("#week-view-button").addEventListener("click", () => { saveDraft(); saveChecklistDraft(); state.view = "week"; render(); });
 $("#add-class-button").addEventListener("click", () => openClassDialog(null));
 $("#edit-class-button").addEventListener("click", () => {
   const item = state.classes.find(value => value.id === state.selectedClassId && value.active);
@@ -545,6 +801,155 @@ $("#archive-class-button").addEventListener("click", async () => {
   } finally {
     state.pending = false;
     $("#archive-class-button").disabled = false;
+  }
+});
+
+$("#add-student-button").addEventListener("click", () => {
+  saveChecklistDraft();
+  const choice = $("#student-choice");
+  choice.replaceChildren();
+  const create = document.createElement("option");
+  create.value = "new";
+  create.textContent = "Create a new student";
+  choice.append(create);
+  const enrolled = new Set(state.enrollments
+    .filter(item => item.classId === state.selectedClassId && item.active)
+    .map(item => item.studentId));
+  state.students.filter(item => !enrolled.has(item.id))
+    .sort((a, b) => a.name.localeCompare(b.name)).forEach(item => {
+      const option = document.createElement("option");
+      option.value = item.id;
+      option.textContent = item.name;
+      choice.append(option);
+    });
+  $("#student-form").reset();
+  $("#new-student-fields").hidden = false;
+  $("#view-student-profile").hidden = true;
+  $("#student-error").hidden = true;
+  $("#student-dialog").showModal();
+  $("#student-name").focus();
+});
+$("#student-choice").addEventListener("change", () => {
+  const existing = $("#student-choice").value !== "new";
+  $("#new-student-fields").hidden = existing;
+  $("#view-student-profile").hidden = !existing;
+});
+$("#view-student-profile").addEventListener("click", () => {
+  const id = $("#student-choice").value;
+  if (id === "new") return;
+  $("#student-dialog").close();
+  openStudentHistory(id);
+});
+$("#close-student-dialog").addEventListener("click", () => $("#student-dialog").close());
+$("#cancel-student-dialog").addEventListener("click", () => $("#student-dialog").close());
+$("#student-form").addEventListener("submit", async event => {
+  event.preventDefault();
+  if (state.pending) return;
+  const newStudent = $("#student-choice").value === "new";
+  const name = $("#student-name").value.trim();
+  if (newStudent && !name) {
+    $("#student-error").textContent = "Enter the student's name.";
+    $("#student-error").hidden = false;
+    return;
+  }
+  state.pending = true;
+  $("#save-student-button").disabled = true;
+  $("#student-error").hidden = true;
+  try {
+    if (newStudent) await request("saveStudent", {token: state.token, student: {name, classId: state.selectedClassId}});
+    else await request("setEnrollment", {token: state.token, classId: state.selectedClassId,
+      studentId: $("#student-choice").value, active: true});
+    $("#student-dialog").close();
+    await refreshAfterWrite("Student added to class.");
+  } catch (error) {
+    if (isSessionError(error)) {
+      $("#student-dialog").close();
+      handleError(error);
+    } else {
+      $("#student-error").textContent = error.message;
+      $("#student-error").hidden = false;
+    }
+  } finally {
+    state.pending = false;
+    $("#save-student-button").disabled = false;
+  }
+});
+
+$("#close-history-dialog").addEventListener("click", () => $("#history-dialog").close());
+$("#rename-student-form").addEventListener("submit", async event => {
+  event.preventDefault();
+  if (state.pending || !state.selectedStudentId) return;
+  state.pending = true;
+  $("#history-error").hidden = true;
+  try {
+    await request("saveStudent", {token: state.token,
+      student: {id: state.selectedStudentId, name: $("#rename-student-name").value.trim()}});
+    await refreshAfterWrite("Student renamed.");
+    $("#history-title").textContent = studentName(state.selectedStudentId) + " · history";
+  } catch (error) {
+    if (isSessionError(error)) {
+      $("#history-dialog").close();
+      handleError(error);
+    } else {
+      $("#history-error").textContent = error.message;
+      $("#history-error").hidden = false;
+    }
+  } finally {
+    state.pending = false;
+  }
+});
+$("#remove-student-button").addEventListener("click", async () => {
+  if (state.pending || !state.selectedStudentId) return;
+  if (!confirm("Remove this student from future class checklists? Past records will remain.")) return;
+  saveChecklistDraft();
+  state.pending = true;
+  $("#history-error").hidden = true;
+  try {
+    await request("setEnrollment", {token: state.token, classId: state.selectedClassId,
+      studentId: state.selectedStudentId, active: false});
+    $("#history-dialog").close();
+    await refreshAfterWrite("Student removed from class.");
+  } catch (error) {
+    if (isSessionError(error)) {
+      $("#history-dialog").close();
+      handleError(error);
+    } else {
+      $("#history-error").textContent = error.message;
+      $("#history-error").hidden = false;
+    }
+  } finally {
+    state.pending = false;
+  }
+});
+
+$("#checklist-form").addEventListener("submit", async event => {
+  event.preventDefault();
+  if (state.pending || !state.selectedClassId) return;
+  saveChecklistDraft();
+  const key = checklistKey();
+  const records = readChecklistForm();
+  if (!records.length) return;
+  const checklist = {classId: state.selectedClassId, date: state.selectedDate, records};
+  state.pending = true;
+  $("#save-checklist-button").disabled = true;
+  $("#save-checklist-button").textContent = "Saving…";
+  $("#checklist-status").textContent = "Saving checklist…";
+  $("#checklist-status").classList.remove("error");
+  try {
+    await request("saveChecklist", {token: state.token, checklist});
+    state.checklistDrafts.delete(key);
+    await refreshAfterWrite("Checklist saved.");
+  } catch (error) {
+    state.checklistDrafts.set(key, records);
+    if (isSessionError(error)) handleError(error);
+    else {
+      $("#checklist-status").textContent = error.message;
+      $("#checklist-status").classList.add("error");
+    }
+  } finally {
+    state.pending = false;
+    $("#save-checklist-button").disabled = false;
+    $("#save-checklist-button").textContent = "Save checklist";
   }
 });
 
