@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f5f7fc">
+  <meta name="description" content="A private teaching timetable and lesson log.">
+  <title>Teaching Dashboard</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%231b4ca1'/%3E%3Cpath d='M16 18h32v30H16z' fill='none' stroke='white' stroke-width='4'/%3E%3Cpath d='M22 12v12m20-12v12M16 29h32M24 37h7' stroke='white' stroke-width='4' stroke-linecap='round'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="./styles.css">
+  <script src="./script.js" defer></script>
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true">T</span>
+        <div>
+          <div class="brand-name">Teaching dashboard</div>
+          <div class="brand-caption">Timetable & lesson log</div>
+        </div>
+      </div>
+      <div class="topbar-actions">
+        <span class="connection-state" id="connection-state">Not connected</span>
+        <button type="button" class="button button-quiet" id="settings-button" aria-label="Connection settings">Settings</button>
+        <button type="button" class="button button-quiet" id="sign-out-button" hidden>Sign out</button>
+      </div>
+    </header>
+
+    <main class="main-content">
+      <section class="page-heading">
+        <div>
+          <p class="eyebrow">YOUR TEACHING WEEK</p>
+          <h1 id="page-title">Today’s classes</h1>
+          <p class="heading-detail" id="page-subtitle">Your schedule and lesson notes in one place.</p>
+        </div>
+        <button type="button" class="button button-primary" id="add-class-button" disabled>
+          <span aria-hidden="true">＋</span> Add class
+        </button>
+      </section>
+
+      <div class="notice" id="global-notice" role="status" aria-live="polite" hidden></div>
+
+      <section class="access-panel" id="access-panel" aria-labelledby="access-title">
+        <div class="access-content">
+          <p class="eyebrow">PRIVATE WORKSPACE</p>
+          <h2 id="access-title">Connect your teaching records</h2>
+          <p id="access-description">Add the web app URL from your Apps Script deployment. It stays on this device.</p>
+          <form id="endpoint-form" class="access-form">
+            <label for="endpoint-input">Apps Script web app URL</label>
+            <div class="input-action">
+              <input id="endpoint-input" type="url" inputmode="url" placeholder="https://script.google.com/macros/s/…/exec" autocomplete="url" required>
+              <button type="submit" class="button button-primary">Connect</button>
+            </div>
+            <p class="field-hint">Use the deployed URL ending in <code>/exec</code>.</p>
+          </form>
+          <form id="login-form" class="access-form" hidden>
+            <label for="username-input">Username</label>
+            <input id="username-input" name="username" type="text" autocomplete="username" required>
+            <label for="password-input">Password</label>
+            <input id="password-input" name="password" type="password" autocomplete="current-password" required>
+            <button type="submit" class="button button-primary button-wide" id="login-button">Sign in</button>
+          </form>
+          <p class="access-error" id="access-error" role="alert" hidden></p>
+        </div>
+      </section>
+
+      <div id="workspace" hidden>
+        <section class="schedule-controls" aria-label="Timetable controls">
+          <div class="date-controls">
+            <button type="button" class="icon-button" id="previous-date" aria-label="Previous day">‹</button>
+            <button type="button" class="button button-quiet today-button" id="today-button">Today</button>
+            <button type="button" class="icon-button" id="next-date" aria-label="Next day">›</button>
+            <span class="chosen-date" id="chosen-date"></span>
+          </div>
+          <div class="view-switch" role="group" aria-label="Timetable view">
+            <button type="button" id="day-view-button" aria-pressed="true">Day</button>
+            <button type="button" id="week-view-button" aria-pressed="false">Week</button>
+          </div>
+        </section>
+
+        <section class="week-strip" id="week-strip" aria-label="Choose a day"></section>
+
+        <div class="dashboard-grid">
+          <section class="surface schedule-surface" aria-labelledby="schedule-title">
+            <div class="surface-heading">
+              <div>
+                <p class="eyebrow" id="schedule-kicker">TODAY’S TIMETABLE</p>
+                <h2 id="schedule-title">Your classes</h2>
+              </div>
+              <span class="count-chip" id="class-count">0 classes</span>
+            </div>
+            <div id="schedule-list" class="schedule-list"></div>
+          </section>
+
+          <aside class="surface lesson-surface" aria-labelledby="lesson-title">
+            <div class="surface-heading lesson-heading">
+              <div>
+                <p class="eyebrow">LESSON RECORD</p>
+                <h2 id="lesson-title">Select a class</h2>
+              </div>
+              <button type="button" class="button button-text" id="edit-class-button" hidden>Edit class</button>
+            </div>
+            <div id="lesson-empty" class="lesson-empty">
+              <div class="empty-icon" aria-hidden="true">✎</div>
+              <p>Choose a class to write your lesson log.</p>
+            </div>
+            <form id="lesson-form" hidden>
+              <div class="lesson-context">
+                <span class="subject-dot" aria-hidden="true"></span>
+                <div>
+                  <strong id="lesson-class-name"></strong>
+                  <span id="lesson-class-detail"></span>
+                </div>
+              </div>
+              <label class="field-label" for="lesson-notes">What did you do with your students?</label>
+              <textarea id="lesson-notes" rows="7" maxlength="5000" placeholder="Activities, progress, and anything to remember next time…"></textarea>
+              <fieldset class="rating-fieldset">
+                <legend>How did the class go?</legend>
+                <div class="rating-options">
+                  <label><input type="radio" name="rating" value="1"><span>1<small>Poor</small></span></label>
+                  <label><input type="radio" name="rating" value="2"><span>2<small>Fair</small></span></label>
+                  <label><input type="radio" name="rating" value="3"><span>3<small>Okay</small></span></label>
+                  <label><input type="radio" name="rating" value="4"><span>4<small>Good</small></span></label>
+                  <label><input type="radio" name="rating" value="5"><span>5<small>Excellent</small></span></label>
+                </div>
+              </fieldset>
+              <div class="lesson-actions">
+                <span id="lesson-status" role="status" aria-live="polite"></span>
+                <button type="submit" class="button button-primary" id="save-lesson-button">Save lesson</button>
+              </div>
+            </form>
+          </aside>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <dialog id="class-dialog" aria-labelledby="class-dialog-title">
+    <form id="class-form" class="class-form">
+      <div class="dialog-heading">
+        <div>
+          <p class="eyebrow">WEEKLY TIMETABLE</p>
+          <h2 id="class-dialog-title">Add class</h2>
+        </div>
+        <button type="button" class="icon-button close-button" id="close-dialog" aria-label="Close">×</button>
+      </div>
+      <input type="hidden" id="class-id">
+      <label for="class-name">Class name</label>
+      <input id="class-name" maxlength="120" placeholder="e.g. Grade 5A" required>
+      <label for="class-subject">Subject</label>
+      <input id="class-subject" maxlength="120" placeholder="e.g. Mathematics" required>
+      <div class="form-row">
+        <div><label for="class-weekday">Weekday</label><select id="class-weekday" required>
+          <option value="1">Monday</option><option value="2">Tuesday</option><option value="3">Wednesday</option>
+          <option value="4">Thursday</option><option value="5">Friday</option><option value="6">Saturday</option><option value="7">Sunday</option>
+        </select></div>
+        <div><label for="class-room">Room (optional)</label><input id="class-room" maxlength="120" placeholder="e.g. 201"></div>
+      </div>
+      <div class="form-row">
+        <div><label for="class-start">Starts</label><input id="class-start" type="time" required></div>
+        <div><label for="class-end">Ends</label><input id="class-end" type="time" required></div>
+      </div>
+      <p class="dialog-error" id="class-error" role="alert" hidden></p>
+      <div class="dialog-actions">
+        <button type="button" class="button button-danger" id="archive-class-button" hidden>Archive class</button>
+        <button type="button" class="button button-quiet" id="cancel-class-button">Cancel</button>
+        <button type="submit" class="button button-primary" id="save-class-button">Save class</button>
+      </div>
+    </form>
+  </dialog>
+</body>
+</html>
