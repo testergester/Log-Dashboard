@@ -147,6 +147,37 @@ input::placeholder, textarea::placeholder { color: #8b99a9; }
 .lesson-actions { padding-top: .95rem; border-top: 1px solid var(--line); }
 #lesson-status { color: var(--muted); font-size: .82rem; }
 #lesson-status.error { color: var(--danger); }
+.student-panel { border-top: 1px solid var(--line); padding: 1.25rem 1.4rem 1.4rem; }
+.student-panel-heading, .student-row-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: .8rem; }
+.student-panel-heading { margin-bottom: 1rem; }
+.student-panel-heading h3 { margin: 0; color: var(--navy); font-size: 1.08rem; }
+.student-panel-heading p { margin: .2rem 0 0; color: var(--muted); font-size: .82rem; }
+.student-panel-heading .button { flex: 0 0 auto; }
+.student-list { display: grid; gap: .75rem; }
+.student-empty { margin: 0; padding: 1.3rem; color: var(--muted); background: #f7f9fd; border-radius: 10px; text-align: center; }
+.student-row { padding: 1rem; border: 1px solid var(--line); border-radius: 12px; background: #fff; }
+.student-row-heading { margin-bottom: .75rem; }
+.student-name-button { padding: 0; border: 0; background: none; color: var(--blue); font-size: .95rem; font-weight: 750; text-align: left; text-decoration: underline; text-underline-offset: 2px; }
+.student-score { color: var(--muted); font-size: .8rem; font-weight: 700; white-space: nowrap; }
+.student-controls { display: grid; grid-template-columns: 1fr 1fr; gap: .65rem; margin-bottom: .7rem; }
+.student-controls label, .student-row > label { display: block; color: var(--navy); font-size: .8rem; font-weight: 700; }
+.student-controls select { margin-top: .3rem; }
+.student-note { min-height: 72px; margin-top: .3rem; font-size: .88rem; }
+.checklist-actions { margin-top: 1rem; }
+#checklist-status { color: var(--muted); font-size: .82rem; }
+#checklist-status.error { color: var(--danger); }
+.history-content { padding: 1.45rem; }
+.history-content .dialog-heading { margin-bottom: 1rem; }
+.rename-student-form { margin-bottom: 1rem; }
+.rename-student-form label { display: block; margin-bottom: .35rem; }
+.student-totals { margin: .9rem 0; padding: .8rem; border-radius: 10px; background: var(--blue-pale); color: var(--navy); font-weight: 750; }
+.student-history { max-height: 40vh; overflow: auto; }
+.history-entry { padding: .75rem 0; border-bottom: 1px solid var(--line); }
+.history-entry strong, .history-entry span { display: block; }
+.history-entry strong { color: var(--navy); font-size: .88rem; }
+.history-entry span { color: var(--blue); font-size: .82rem; font-weight: 700; }
+.history-entry p { margin: .35rem 0 0; white-space: pre-wrap; font-size: .88rem; }
+#new-student-fields label { display: block; margin-bottom: .4rem; }
 dialog { width: min(100% - 2rem, 560px); max-height: min(90vh, 740px); padding: 0; border: 1px solid var(--line); border-radius: 16px; box-shadow: 0 25px 70px #102b5360; }
 dialog::backdrop { background: #13284a8c; }
 .class-form { display: grid; gap: .45rem; padding: 1.45rem; }
@@ -183,7 +214,9 @@ dialog::backdrop { background: #13284a8c; }
   .week-day .day-count { display: none; }
   .schedule-card { grid-template-columns: 65px minmax(0, 1fr); gap: .55rem; }
   .status-pill { grid-column: 2; justify-self: start; }
-  .surface-heading, #lesson-form { padding-inline: 1rem; }
+  .surface-heading, #lesson-form, .student-panel { padding-inline: 1rem; }
+  .student-panel-heading { flex-wrap: wrap; }
+  .student-controls { grid-template-columns: 1fr; }
   .rating-options { gap: .25rem; }
   .rating-options span { min-height: 60px; }
   .rating-options small { font-size: .75rem; }
