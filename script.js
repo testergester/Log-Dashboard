@@ -474,6 +474,10 @@ function updateChecklistStats() {
       chip.textContent = label;
       container.append(chip);
     });
+  const bulkButton = $("#bulk-attendance-button");
+  const markAbsent = records.length > 0 && present === records.length;
+  bulkButton.dataset.attendance = markAbsent ? "absent" : "present";
+  bulkButton.textContent = markAbsent ? "Mark whole group absent" : "Mark whole group present";
 }
 
 function filterStudentRows() {
@@ -616,7 +620,7 @@ function renderStudents() {
   updateChecklistStats();
   $("#save-checklist-button").hidden = lesson.archived && !saved;
   $("#save-checklist-button").disabled = !rows.length;
-  $("#all-present-button").disabled = !rows.length;
+  $("#bulk-attendance-button").disabled = !rows.length;
   saveChecklistDraft();
 }
 
@@ -845,9 +849,11 @@ $("#back-to-schedule").addEventListener("click", () => {
   $("#schedule-view").scrollIntoView({behavior: "smooth", block: "start"});
 });
 $("#student-search").addEventListener("input", filterStudentRows);
-$("#all-present-button").addEventListener("click", () => {
+$("#bulk-attendance-button").addEventListener("click", event => {
+  const attendance = event.currentTarget.dataset.attendance === "absent" ? "absent" : "present";
   [...$("#student-list").querySelectorAll(".student-row")].forEach(row => {
-    row.dataset.attendance = "present";
+    row.dataset.attendance = attendance;
+    if (attendance === "absent") row.dataset.participation = "0";
     updateStudentRow(row);
   });
   saveChecklistDraft();
