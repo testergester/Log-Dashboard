@@ -215,8 +215,9 @@ function saveLog_(request) {
   const classId = String(input.classId || '');
   const date = date_(input.date);
   const notes = text_(input.notes, 'Notes', 5000, false);
-  const rating = Number(input.rating);
-  if (!Number.isInteger(rating) || rating < 1 || rating > 5) throw new Error('Choose a rating from 1 to 5.');
+  const rating = input.rating === null || input.rating === undefined || input.rating === '' ? '' : Number(input.rating);
+  if (rating !== '' && (!Number.isInteger(rating) || rating < 1 || rating > 5)) throw new Error('Choose a rating from 1 to 5.');
+  if (!notes && rating === '') throw new Error('Write a note or choose a rating before saving.');
   const lock = LockService.getScriptLock();
   lock.waitLock(30000);
   try {
@@ -342,13 +343,14 @@ function saveChecklist_(request) {
     if (!checklistRowNumber && String(classRow[7]).toLowerCase() === 'false') throw new Error('Cannot start a checklist for an archived class.');
     if (!checklistRowNumber && Number(classRow[3]) !== weekdayOf_(date)) throw new Error('This class is not scheduled for that weekday.');
     const previousRevision = checklistRowNumber ? checklistSheet.getRange(checklistRowNumber, 3).getDisplayValue() : '';
-    const expected = checklistRowNumber
+    const savedIds = checklistRowNumber
       ? rows_(spreadsheet.getSheetByName(DASHBOARD.studentRecords)).filter(function(row) {
           return row[0] === classId && row[1] === date && row[2] === previousRevision;
-        }).map(function(row) { return row[3]; })
-      : rows_(spreadsheet.getSheetByName(DASHBOARD.enrollments)).filter(function(row) {
-          return row[0] === classId && enrolledOn_(row, date);
-        }).map(function(row) { return row[1]; });
+        }).map(function(row) { return row[3]; }) : [];
+    const enrolledIds = rows_(spreadsheet.getSheetByName(DASHBOARD.enrollments)).filter(function(row) {
+      return row[0] === classId && enrolledOn_(row, date);
+    }).map(function(row) { return row[1]; });
+    const expected = Array.from(new Set(savedIds.concat(enrolledIds)));
     if (expected.length !== ids.length || expected.some(function(id) { return ids.indexOf(id) < 0; })) {
       throw new Error('The class roster changed. Reload the dashboard before saving.');
     }
