@@ -8,7 +8,7 @@
   <title>Teaching Dashboard</title>
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%231b4ca1'/%3E%3Cpath d='M16 18h32v30H16z' fill='none' stroke='white' stroke-width='4'/%3E%3Cpath d='M22 12v12m20-12v12M16 29h32M24 37h7' stroke='white' stroke-width='4' stroke-linecap='round'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="./styles.css">
-  <script src="./script.js?v=students1" defer></script>
+  <script src="./script.js?v=group2" defer></script>
 </head>
 <body>
   <div class="app-shell">
@@ -81,7 +81,7 @@
 
         <section class="week-strip" id="week-strip" aria-label="Choose a day"></section>
 
-        <div class="dashboard-grid">
+        <div class="dashboard-grid" id="schedule-view">
           <section class="surface schedule-surface" aria-labelledby="schedule-title">
             <div class="surface-heading">
               <div>
@@ -92,7 +92,17 @@
             </div>
             <div id="schedule-list" class="schedule-list"></div>
           </section>
-
+        </div>
+        <div id="group-view" class="group-view" hidden>
+          <div class="group-view-heading">
+            <button type="button" class="button button-quiet" id="back-to-schedule">← All classes</button>
+            <div><p class="eyebrow">GROUP VIEW</p><h2 id="group-name"></h2><p id="group-detail"></p></div>
+          </div>
+          <div class="group-notes-grid">
+            <section class="surface previous-notes-surface" aria-labelledby="previous-notes-title">
+              <div class="surface-heading"><div><p class="eyebrow">CLASS HISTORY</p><h2 id="previous-notes-title">Previous notes</h2></div></div>
+              <div id="previous-notes-list" class="previous-notes-list"></div>
+            </section>
           <aside class="surface lesson-surface" aria-labelledby="lesson-title">
             <div class="surface-heading lesson-heading">
               <div>
@@ -116,7 +126,7 @@
               <label class="field-label" for="lesson-notes">What did you do with your students?</label>
               <textarea id="lesson-notes" rows="7" maxlength="5000" placeholder="Activities, progress, and anything to remember next time…"></textarea>
               <fieldset class="rating-fieldset">
-                <legend>How did the class go?</legend>
+                <legend>How did the class go? (optional)</legend>
                 <div class="rating-options">
                   <label><input type="radio" name="rating" value="1"><span>1<small>Poor</small></span></label>
                   <label><input type="radio" name="rating" value="2"><span>2<small>Fair</small></span></label>
@@ -130,23 +140,34 @@
                 <button type="submit" class="button button-primary" id="save-lesson-button">Save lesson</button>
               </div>
             </form>
-            <section id="student-panel" class="student-panel" aria-labelledby="student-panel-title" hidden>
-              <div class="student-panel-heading">
-                <div>
-                  <h3 id="student-panel-title">Student checklist</h3>
-                  <p id="checklist-summary">Attendance and participation for this class.</p>
-                </div>
-                <button type="button" class="button button-quiet" id="add-student-button">Add student</button>
-              </div>
-              <form id="checklist-form">
-                <div id="student-list" class="student-list"></div>
-                <div class="lesson-actions checklist-actions">
-                  <span id="checklist-status" role="status" aria-live="polite"></span>
-                  <button type="submit" class="button button-primary" id="save-checklist-button">Save checklist</button>
-                </div>
-              </form>
-            </section>
           </aside>
+          </div>
+        <section id="student-panel" class="surface student-panel" aria-labelledby="student-panel-title" hidden>
+          <div class="student-panel-heading">
+            <div>
+              <p class="eyebrow">STUDENT RECORD</p>
+              <h2 id="student-panel-title">Attendance & participation</h2>
+              <p id="checklist-summary">Choose a class to take attendance.</p>
+            </div>
+            <button type="button" class="button button-quiet" id="add-student-button">Add student</button>
+          </div>
+          <div id="checklist-stats" class="checklist-stats" aria-live="polite"></div>
+          <div class="attendance-toolbar">
+            <label class="attendance-search-label" for="student-search">Find a student
+              <input id="student-search" type="search" placeholder="Search roster…" autocomplete="off">
+            </label>
+            <button type="button" class="button button-quiet" id="all-present-button">Mark whole group present</button>
+            <span id="checklist-status" role="status" aria-live="polite"></span>
+            <button type="submit" form="checklist-form" class="button button-primary" id="save-checklist-button">Save checklist</button>
+          </div>
+          <form id="checklist-form">
+            <p class="table-scroll-hint">Swipe the table sideways to see participation and notes.</p>
+            <div class="attendance-table-scroll">
+              <div class="student-list-head" aria-hidden="true"><span>Student</span><span>Attendance</span><span>Participation</span><span>Note</span></div>
+              <div id="student-list" class="student-list"></div>
+            </div>
+          </form>
+        </section>
         </div>
       </div>
     </main>
