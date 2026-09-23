@@ -18,7 +18,6 @@
 
 const DASHBOARD = Object.freeze({
   timezone: 'Asia/Tashkent',
-  sessionSeconds: 21600,
   loginBlockSeconds: 900,
   loginLimit: 5,
   hashRounds: 12000,
@@ -118,8 +117,12 @@ function login_(request) {
     }
     cache.remove('LOGIN_FAILURES');
     const token = Utilities.getUuid() + Utilities.getUuid() + Utilities.getUuid();
-    cache.put(sessionKey_(token), expectedUser, DASHBOARD.sessionSeconds);
-    return {token: token, expiresIn: DASHBOARD.sessionSeconds};
+    // Store only a hash-derived key, never the bearer token itself. Script
+    // properties are durable, so this session remains valid until logout.
+    // Tying it to the password hash also invalidates every session after a
+    // password change.
+    props.setProperty(sessionKey_(token), expectedHash);
+    return {token: token};
   } finally {
     lock.releaseLock();
   }
@@ -127,13 +130,15 @@ function login_(request) {
 
 function logout_(request) {
   const token = String(request.token || '');
-  if (token) CacheService.getScriptCache().remove(sessionKey_(token));
+  if (token && token.length <= 200) PropertiesService.getScriptProperties().deleteProperty(sessionKey_(token));
   return {signedOut: true};
 }
 
 function requireSession_(request) {
   const token = String(request.token || '');
-  if (!token || token.length > 200 || !CacheService.getScriptCache().get(sessionKey_(token))) {
+  const props = PropertiesService.getScriptProperties();
+  const passwordHash = props.getProperty('PASSWORD_HASH');
+  if (!token || token.length > 200 || !passwordHash || props.getProperty(sessionKey_(token)) !== passwordHash) {
     throw new Error('Session expired. Please sign in again.');
   }
 }
