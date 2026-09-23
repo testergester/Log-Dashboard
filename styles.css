@@ -191,7 +191,7 @@ input::placeholder, textarea::placeholder { color: #8b99a9; }
 .note-toggle { min-height: 38px; padding: .35rem .55rem; border: 1px solid var(--line); border-radius: 9px; background: white; color: var(--blue); font-size: .8rem; font-weight: 750; }
 .note-toggle.has-note { border-color: #b5cef5; background: var(--blue-pale); }
 .student-note-wrap { grid-column: 1 / -1; display: block; padding: .3rem 0 .2rem; font-size: .8rem; }
-.student-note-wrap[hidden] { display: none; }
+.student-note-wrap.is-collapsed { display: none; }
 .student-note { display: block; min-height: 72px; margin-top: .3rem; font-size: .88rem; }
 .student-empty { margin: 0; padding: 1.5rem; color: var(--muted); text-align: center; }
 .history-content { padding: 1.45rem; }
@@ -252,7 +252,34 @@ dialog::backdrop { background: #13284a8c; }
   .attendance-search-label { flex-basis: 100%; }
   #checklist-status { order: 3; flex: 1 1 100%; margin-left: 0; text-align: left; }
   .group-view-heading { align-items: flex-start; flex-direction: column; }
-  .student-list-head, .student-row { padding-inline: 1rem; }
+  .table-scroll-hint, .student-list-head { display: none; }
+  .attendance-table-scroll { overflow: visible; }
+  .student-list { display: grid; gap: .8rem; padding: .8rem 1rem 1rem; }
+  .student-row {
+    display: grid; grid-template-columns: minmax(0, 1fr); gap: .8rem; min-width: 0;
+    min-height: 0; padding: 1rem; border: 1px solid var(--line); border-radius: 12px;
+    background: white;
+  }
+  .student-row:hover { background: white; }
+  .student-identity {
+    position: static; left: auto; z-index: auto; padding-bottom: .15rem;
+    background: transparent; box-shadow: none;
+  }
+  .student-name-button { overflow: visible; font-size: 1rem; text-overflow: clip; white-space: normal; }
+  .choice-group { display: grid; gap: .35rem; padding: .45rem; }
+  .attendance-group { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .participation-group { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .choice-group::before {
+    grid-column: 1 / -1; padding: .05rem .2rem .2rem; color: var(--navy);
+    font-size: .76rem; font-weight: 800;
+  }
+  .attendance-group::before { content: "Attendance"; }
+  .participation-group::before { content: "Participation points"; }
+  .choice-button { min-height: 44px; }
+  .note-toggle { display: none; }
+  .student-note-wrap, .student-note-wrap.is-collapsed { display: block; grid-column: 1; padding: 0; }
+  .student-note-wrap { font-size: .76rem; font-weight: 800; }
+  .student-note { min-height: 88px; margin-top: .35rem; font-size: .9rem; font-weight: 400; }
   .rating-options { gap: .25rem; }
   .rating-options span { min-height: 60px; }
   .rating-options small { font-size: .75rem; }
