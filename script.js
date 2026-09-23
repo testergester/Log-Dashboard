@@ -4,12 +4,13 @@
 // button also lets you enter it in the browser without editing this file.
 const CONFIGURED_ENDPOINT = "https://script.google.com/macros/s/AKfycbzzpBeitHNCriLtUU68x_CiFw8pAJ_iWopODGpuhBEnyEnoDyfvVcpbhrnWoOWr-CKD/exec";
 const ENDPOINT_STORAGE_KEY = "teaching-dashboard-endpoint";
+const SESSION_STORAGE_KEY = "teaching-dashboard-session";
 const TZ = "Asia/Tashkent";
 const WEEKDAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 const $ = (selector) => document.querySelector(selector);
 const state = {
   endpoint: CONFIGURED_ENDPOINT || localStorage.getItem(ENDPOINT_STORAGE_KEY) || "",
-  token: "",
+  token: localStorage.getItem(SESSION_STORAGE_KEY) || "",
   classes: [],
   logs: [],
   students: [],
@@ -148,9 +149,14 @@ function isSessionError(error) {
   return /session expired/i.test(error.message);
 }
 
+function clearSession() {
+  state.token = "";
+  localStorage.removeItem(SESSION_STORAGE_KEY);
+}
+
 function handleError(error, target = "global") {
   if (isSessionError(error)) {
-    state.token = "";
+    clearSession();
     state.classes = [];
     state.logs = [];
     state.students = [];
@@ -807,10 +813,11 @@ $("#login-form").addEventListener("submit", async event => {
     state.token = response.token;
     $("#password-input").value = "";
     await loadData();
+    localStorage.setItem(SESSION_STORAGE_KEY, state.token);
     updateAccess();
     setNotice("");
   } catch (error) {
-    state.token = "";
+    clearSession();
     handleError(error, "access");
   } finally {
     state.pending = false;
@@ -821,7 +828,7 @@ $("#login-form").addEventListener("submit", async event => {
 
 $("#sign-out-button").addEventListener("click", () => {
   const token = state.token;
-  state.token = "";
+  clearSession();
   state.classes = [];
   state.logs = [];
   state.students = [];
@@ -1142,4 +1149,20 @@ $("#lesson-form").addEventListener("submit", async event => {
   }
 });
 
-updateAccess();
+async function restoreSession() {
+  updateAccess();
+  if (!state.token) return;
+  setNotice("Restoring your session…");
+  try {
+    await loadData();
+    setNotice("");
+  } catch (error) {
+    if (isSessionError(error)) handleError(error);
+    else {
+      updateAccess();
+      setNotice("You are still signed in, but the dashboard could not refresh. Reload the page to try again.", true);
+    }
+  }
+}
+
+restoreSession();
