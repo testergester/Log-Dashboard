@@ -599,7 +599,7 @@ function renderStudents() {
     const noteLabel = document.createElement("label");
     noteLabel.id = noteId;
     noteLabel.className = "student-note-wrap";
-    noteLabel.hidden = true;
+    noteLabel.classList.add("is-collapsed");
     noteLabel.textContent = "Note for " + studentName(item.studentId);
     const note = document.createElement("textarea");
     note.className = "student-note";
@@ -609,9 +609,9 @@ function renderStudents() {
     note.value = item.note || "";
     noteLabel.append(note);
     noteButton.addEventListener("click", () => {
-      noteLabel.hidden = !noteLabel.hidden;
-      noteButton.setAttribute("aria-expanded", String(!noteLabel.hidden));
-      if (!noteLabel.hidden) note.focus();
+      const isOpen = noteLabel.classList.toggle("is-collapsed") === false;
+      noteButton.setAttribute("aria-expanded", String(isOpen));
+      if (isOpen) note.focus();
     });
     note.addEventListener("input", () => {
       noteButton.textContent = note.value ? "Edit note" : "+ Note";
