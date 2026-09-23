@@ -143,22 +143,22 @@ function loadDashboard_() {
   const classes = rows_(spreadsheet.getSheetByName(DASHBOARD.timetable)).map(function(row) {
     return {id: row[0], name: row[1], subject: row[2], weekday: Number(row[3]), start: row[4], end: row[5], room: row[6], active: String(row[7]).toLowerCase() !== 'false', updatedAt: row[8]};
   }).filter(function(item) { return item.id; });
-  const logs = rows_(spreadsheet.getSheetByName(DASHBOARD.logs)).map(function(row) {
+  const logs = rowsWithDates_(spreadsheet.getSheetByName(DASHBOARD.logs), [1]).map(function(row) {
     return {classId: row[0], date: row[1], className: row[2], subject: row[3], start: row[4], end: row[5], room: row[6], notes: row[7], rating: Number(row[8]) || null, updatedAt: row[9]};
   }).filter(function(item) { return item.classId && item.date; });
   const students = rows_(spreadsheet.getSheetByName(DASHBOARD.students)).map(function(row) {
     return {id: row[0], name: row[1], updatedAt: row[2]};
   }).filter(function(item) { return item.id; });
-  const enrollments = rows_(spreadsheet.getSheetByName(DASHBOARD.enrollments)).map(function(row) {
+  const enrollments = rowsWithDates_(spreadsheet.getSheetByName(DASHBOARD.enrollments), [2, 3]).map(function(row) {
     return {classId: row[0], studentId: row[1], joinedOn: row[2], leftOn: row[3],
       active: String(row[4]).toLowerCase() !== 'false'};
   }).filter(function(item) { return item.classId && item.studentId; });
-  const checklists = rows_(spreadsheet.getSheetByName(DASHBOARD.checklists)).map(function(row) {
+  const checklists = rowsWithDates_(spreadsheet.getSheetByName(DASHBOARD.checklists), [1]).map(function(row) {
     return {classId: row[0], date: row[1], revision: row[2], updatedAt: row[3]};
   }).filter(function(item) { return item.classId && item.date && item.revision; });
   const current = {};
   checklists.forEach(function(item) { current[item.classId + '|' + item.date] = item.revision; });
-  const studentRecords = rows_(spreadsheet.getSheetByName(DASHBOARD.studentRecords)).filter(function(row) {
+  const studentRecords = rowsWithDates_(spreadsheet.getSheetByName(DASHBOARD.studentRecords), [1]).filter(function(row) {
     return row[2] === current[row[0] + '|' + row[1]];
   }).map(function(row) {
     return {classId: row[0], date: row[1], studentId: row[3], attendance: row[4], participation: Number(row[5]), note: row[6], updatedAt: row[7]};
@@ -227,7 +227,7 @@ function saveLog_(request) {
     if (!classRowNumber) throw new Error('Class no longer exists. Reload the dashboard.');
     const classRow = classSheet.getRange(classRowNumber, 1, 1, DASHBOARD.timetableHeaders.length).getDisplayValues()[0];
     const logSheet = spreadsheet.getSheetByName(DASHBOARD.logs);
-    const rowNumber = findRow_(logSheet, function(row) { return row[0] === classId && row[1] === date; });
+    const rowNumber = findDateRow_(logSheet, classId, date);
     if (!rowNumber && String(classRow[7]).toLowerCase() === 'false') throw new Error('Cannot create a new log for an archived class.');
     if (!rowNumber && Number(classRow[3]) !== weekdayOf_(date)) throw new Error('This class is not scheduled for that weekday.');
     const previous = rowNumber ? logSheet.getRange(rowNumber, 1, 1, DASHBOARD.logHeaders.length).getDisplayValues()[0] : null;
@@ -339,15 +339,16 @@ function saveChecklist_(request) {
     if (!classRowNumber) throw new Error('Class no longer exists. Reload the dashboard.');
     const classRow = classSheet.getRange(classRowNumber, 1, 1, DASHBOARD.timetableHeaders.length).getDisplayValues()[0];
     const checklistSheet = spreadsheet.getSheetByName(DASHBOARD.checklists);
-    const checklistRowNumber = findRow_(checklistSheet, function(row) { return row[0] === classId && row[1] === date; });
+    const checklistRowNumber = findDateRow_(checklistSheet, classId, date);
     if (!checklistRowNumber && String(classRow[7]).toLowerCase() === 'false') throw new Error('Cannot start a checklist for an archived class.');
-    if (!checklistRowNumber && Number(classRow[3]) !== weekdayOf_(date)) throw new Error('This class is not scheduled for that weekday.');
+    // The dashboard controls which meetings can be opened. Do not reject a
+    // correction merely because the weekly timetable was edited afterwards.
     const previousRevision = checklistRowNumber ? checklistSheet.getRange(checklistRowNumber, 3).getDisplayValue() : '';
     const savedIds = checklistRowNumber
-      ? rows_(spreadsheet.getSheetByName(DASHBOARD.studentRecords)).filter(function(row) {
+      ? rowsWithDates_(spreadsheet.getSheetByName(DASHBOARD.studentRecords), [1]).filter(function(row) {
           return row[0] === classId && row[1] === date && row[2] === previousRevision;
         }).map(function(row) { return row[3]; }) : [];
-    const enrolledIds = rows_(spreadsheet.getSheetByName(DASHBOARD.enrollments)).filter(function(row) {
+    const enrolledIds = rowsWithDates_(spreadsheet.getSheetByName(DASHBOARD.enrollments), [2, 3]).filter(function(row) {
       return row[0] === classId && enrolledOn_(row, date);
     }).map(function(row) { return row[1]; });
     const expected = Array.from(new Set(savedIds.concat(enrolledIds)));
@@ -408,6 +409,34 @@ function rows_(sheet) {
   const last = sheet.getLastRow();
   if (last < 2) return [];
   return sheet.getRange(2, 1, last - 1, sheet.getLastColumn()).getDisplayValues();
+}
+
+function rowsWithDates_(sheet, dateColumns) {
+  const displayRows = rows_(sheet);
+  if (!displayRows.length) return displayRows;
+  const rawRows = sheet.getRange(2, 1, displayRows.length, sheet.getLastColumn()).getValues();
+  displayRows.forEach(function(row, rowIndex) {
+    dateColumns.forEach(function(columnIndex) {
+      row[columnIndex] = sheetDate_(rawRows[rowIndex][columnIndex]) || row[columnIndex];
+    });
+  });
+  return displayRows;
+}
+
+function sheetDate_(value) {
+  if (Object.prototype.toString.call(value) === '[object Date]' && !isNaN(value.getTime())) {
+    return Utilities.formatDate(value, DASHBOARD.timezone, 'yyyy-MM-dd');
+  }
+  const text = String(value == null ? '' : value).trim();
+  return /^\d{4}-\d{2}-\d{2}$/.test(text) ? text : '';
+}
+
+function findDateRow_(sheet, classId, date) {
+  const data = rowsWithDates_(sheet, [1]);
+  for (let index = 0; index < data.length; index++) {
+    if (data[index][0] === classId && data[index][1] === date) return index + 2;
+  }
+  return 0;
 }
 
 function findRow_(sheet, match) {
