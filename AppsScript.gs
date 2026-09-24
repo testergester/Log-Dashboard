@@ -42,6 +42,9 @@ function setupDashboard() {
   const props = PropertiesService.getScriptProperties();
   props.setProperty('SPREADSHEET_ID', spreadsheet.getId());
   ensureDashboardTabs_(spreadsheet);
+  normalizeTimetableTimes_(spreadsheet.getSheetByName(DASHBOARD.timetable));
+  sortTimetable_(spreadsheet.getSheetByName(DASHBOARD.timetable));
+  SpreadsheetApp.flush();
   refreshWeeklyView_(spreadsheet);
 
   const username = (props.getProperty('OWNER_USERNAME') || '').trim();
@@ -145,14 +148,17 @@ function loadDashboard_() {
   // Older installations may not have every supporting tab yet. Repair those
   // tabs on authenticated load instead of passing null into the row readers.
   ensureDashboardTabs_(spreadsheet);
+  normalizeTimetableTimes_(spreadsheet.getSheetByName(DASHBOARD.timetable));
+  sortTimetable_(spreadsheet.getSheetByName(DASHBOARD.timetable));
+  SpreadsheetApp.flush();
   // Rebuild on load as a self-healing fallback for classes added by an older
   // deployment or while a previous refresh was interrupted.
   refreshWeeklyView_(spreadsheet);
   const classes = rows_(spreadsheet.getSheetByName(DASHBOARD.timetable)).map(function(row) {
-    return {id: row[0], name: row[1], subject: row[2], weekday: Number(row[3]), start: row[4], end: row[5], room: row[6], active: String(row[7]).toLowerCase() !== 'false', updatedAt: row[8]};
+    return {id: row[0], name: row[1], subject: row[2], weekday: Number(row[3]), start: storedTime_(row[4]), end: storedTime_(row[5]), room: row[6], active: String(row[7]).toLowerCase() !== 'false', updatedAt: row[8]};
   }).filter(function(item) { return item.id; });
   const logs = rowsWithDates_(spreadsheet.getSheetByName(DASHBOARD.logs), [1]).map(function(row) {
-    return {classId: row[0], date: row[1], className: row[2], subject: row[3], start: row[4], end: row[5], room: row[6], notes: row[7], rating: Number(row[8]) || null, updatedAt: row[9], lessonType: row[10] || 'Lesson', lessonStatus: row[11] || 'Done'};
+    return {classId: row[0], date: row[1], className: row[2], subject: row[3], start: storedTime_(row[4]), end: storedTime_(row[5]), room: row[6], notes: row[7], rating: Number(row[8]) || null, updatedAt: row[9], lessonType: row[10] || 'Lesson', lessonStatus: row[11] || 'Done'};
   }).filter(function(item) { return item.classId && item.date; });
   const students = rows_(spreadsheet.getSheetByName(DASHBOARD.students)).map(function(row) {
     return {id: row[0], name: row[1], updatedAt: row[2]};
@@ -221,6 +227,14 @@ function saveClass_(request) {
     if (editingId && !rowNumber) throw new Error('Class no longer exists. Reload the dashboard.');
     if (!editingId && rowNumber) throw new Error('That group ID is already in use. Choose another one.');
     if (rowNumber && String(sheet.getRange(rowNumber, 8).getValue()).toLowerCase() === 'false') throw new Error('Archived classes cannot be edited.');
+    const conflict = rows_(sheet).map(function(row) {
+      return {id: row[0], name: row[1], weekday: Number(row[3]), start: storedTime_(row[4]),
+        end: storedTime_(row[5]), active: String(row[7]).toLowerCase() !== 'false'};
+    }).find(function(existing) {
+      return existing.active && existing.id !== id && existing.weekday === weekday &&
+        timeMinutes_(start) < timeMinutes_(existing.end) && timeMinutes_(end) > timeMinutes_(existing.start);
+    });
+    if (conflict) throw new Error('This time overlaps with ' + conflict.name + ' (' + conflict.start + '–' + conflict.end + ').');
     const row = [id, name, subject, weekday, start, end, room, true, timestamp_()];
     if (rowNumber) sheet.getRange(rowNumber, 1, 1, row.length).setValues([row]);
     else sheet.appendRow(row);
@@ -520,6 +534,9 @@ function onEdit(e) {
   const lock = LockService.getScriptLock();
   if (!lock.tryLock(5000)) return;
   try {
+    normalizeTimetableTimes_(e.source.getSheetByName(DASHBOARD.timetable));
+    sortTimetable_(e.source.getSheetByName(DASHBOARD.timetable));
+    SpreadsheetApp.flush();
     refreshWeeklyView_(e.source);
   } finally {
     lock.releaseLock();
@@ -534,7 +551,7 @@ function refreshWeeklyView_(spreadsheet) {
   if (!view) view = spreadsheet.insertSheet(DASHBOARD.weeklyView);
 
   const classes = rows_(source).map(function(row) {
-    return {name: row[1], subject: row[2], weekday: Number(row[3]), start: row[4], end: row[5],
+    return {name: row[1], subject: row[2], weekday: Number(row[3]), start: storedTime_(row[4]), end: storedTime_(row[5]),
       room: row[6], active: String(row[7]).toLowerCase() !== 'false'};
   }).filter(function(item) {
     return item.active && item.name && item.weekday >= 1 && item.weekday <= 5 &&
@@ -545,7 +562,7 @@ function refreshWeeklyView_(spreadsheet) {
     periodsByKey[item.start + '|' + item.end] = {start: item.start, end: item.end};
   });
   const periods = Object.keys(periodsByKey).map(function(key) { return periodsByKey[key]; }).sort(function(left, right) {
-    return left.start.localeCompare(right.start) || left.end.localeCompare(right.end);
+    return timeMinutes_(left.start) - timeMinutes_(right.start) || timeMinutes_(left.end) - timeMinutes_(right.end);
   });
   const headers = ['Beginning', 'End', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
   const values = [headers].concat(periods.map(function(period) {
@@ -600,6 +617,17 @@ function sortTimetable_(sheet) {
     {column: 4, ascending: true},
     {column: 2, ascending: true}
   ]);
+}
+
+function normalizeTimetableTimes_(sheet) {
+  if (!sheet) throw new Error('The Timetable tab is missing. Run setupDashboard again.');
+  const rowCount = sheet.getLastRow() - 1;
+  if (rowCount < 1) return;
+  const range = sheet.getRange(2, 5, rowCount, 2);
+  const values = range.getDisplayValues().map(function(row) {
+    return [storedTime_(row[0]), storedTime_(row[1])];
+  });
+  range.setNumberFormat('@').setValues(values);
 }
 
 function ensureDashboardTabs_(spreadsheet) {
@@ -714,9 +742,27 @@ function jsonText_(value, label, max, required) {
 }
 
 function time_(value, label) {
-  const result = String(value || '');
+  const result = storedTime_(value);
   if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(result)) throw new Error(label + ' must use HH:MM.');
   return result;
+}
+
+function storedTime_(value) {
+  const text = String(value == null ? '' : value).trim();
+  const match = text.match(/^(\d{1,2}):(\d{2})(?::\d{2})?\s*(AM|PM)?$/i);
+  if (!match) return text;
+  let hour = Number(match[1]);
+  const minute = Number(match[2]);
+  const meridiem = String(match[3] || '').toUpperCase();
+  if (minute > 59 || (!meridiem && hour > 23) || (meridiem && (hour < 1 || hour > 12))) return text;
+  if (meridiem) hour = hour % 12 + (meridiem === 'PM' ? 12 : 0);
+  return ('0' + hour).slice(-2) + ':' + ('0' + minute).slice(-2);
+}
+
+function timeMinutes_(value) {
+  const parts = storedTime_(value).split(':').map(Number);
+  return parts.length === 2 && parts.every(function(part) { return Number.isFinite(part); })
+    ? parts[0] * 60 + parts[1] : Number.MAX_SAFE_INTEGER;
 }
 
 function date_(value) {

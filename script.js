@@ -71,6 +71,17 @@ function minutes(time) {
   return hour * 60 + minute;
 }
 
+function canonicalTime(value) {
+  const match = String(value || "").trim().match(/^(\d{1,2}):(\d{2})(?::\d{2})?\s*(AM|PM)?$/i);
+  if (!match) return String(value || "").trim();
+  let hour = Number(match[1]);
+  const minute = Number(match[2]);
+  const meridiem = String(match[3] || "").toUpperCase();
+  if (minute > 59 || (!meridiem && hour > 23) || (meridiem && (hour < 1 || hour > 12))) return String(value || "").trim();
+  if (meridiem) hour = hour % 12 + (meridiem === "PM" ? 12 : 0);
+  return String(hour).padStart(2, "0") + ":" + String(minute).padStart(2, "0");
+}
+
 function validEndpoint(value) {
   try {
     const url = new URL(value);
@@ -181,8 +192,8 @@ async function loadData() {
   if (!hasStudentData && studentKeys.some(key => data[key] !== undefined)) {
     throw new Error("Student records are incomplete. Run setupDashboard and redeploy Apps Script.");
   }
-  state.classes = data.classes;
-  state.logs = data.logs;
+  state.classes = data.classes.map(item => ({...item, start: canonicalTime(item.start), end: canonicalTime(item.end)}));
+  state.logs = data.logs.map(item => ({...item, start: canonicalTime(item.start), end: canonicalTime(item.end)}));
   state.students = hasStudentData ? data.students : [];
   state.enrollments = hasStudentData ? data.enrollments : [];
   state.checklists = hasStudentData ? data.checklists : [];
@@ -222,7 +233,7 @@ function lessonsOn(date) {
     };
   });
   return [...active, ...historical].sort((a, b) =>
-    String(a.start).localeCompare(String(b.start)) || String(a.name).localeCompare(String(b.name)));
+    minutes(a.start) - minutes(b.start) || minutes(a.end) - minutes(b.end) || String(a.name).localeCompare(String(b.name)));
 }
 
 function logFor(id, date) {
@@ -342,7 +353,7 @@ function renderWeekGrid(container, dates) {
     periods.set(item.start + "|" + item.end, {start: item.start, end: item.end});
   });
   const orderedPeriods = [...periods.values()].sort((left, right) =>
-    left.start.localeCompare(right.start) || left.end.localeCompare(right.end));
+    minutes(left.start) - minutes(right.start) || minutes(left.end) - minutes(right.end));
   const grid = document.createElement("div");
   grid.className = "week-grid";
   grid.setAttribute("role", "grid");
@@ -1033,6 +1044,15 @@ $("#class-form").addEventListener("submit", async event => {
   }
   if (item.start >= item.end) {
     $("#class-error").textContent = "End time must be after start time.";
+    $("#class-error").hidden = false;
+    return;
+  }
+  const conflict = state.classes.find(existing => existing.active && existing.id !== item.id &&
+    Number(existing.weekday) === item.weekday && minutes(item.start) < minutes(existing.end) &&
+    minutes(item.end) > minutes(existing.start));
+  if (conflict) {
+    $("#class-error").textContent = "This time overlaps with " + conflict.name + " (" +
+      conflict.start + "–" + conflict.end + ") on " + WEEKDAYS[item.weekday - 1] + ".";
     $("#class-error").hidden = false;
     return;
   }
