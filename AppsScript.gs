@@ -259,7 +259,8 @@ function saveLog_(request) {
     const logSheet = spreadsheet.getSheetByName(DASHBOARD.logs);
     const rowNumber = findDateRow_(logSheet, classId, date);
     if (!rowNumber && String(classRow[7]).toLowerCase() === 'false') throw new Error('Cannot create a new log for an archived class.');
-    if (!rowNumber && Number(classRow[3]) !== weekdayOf_(date)) throw new Error('This class is not scheduled for that weekday.');
+    // The dashboard opens a concrete class meeting. Do not reject that meeting
+    // because the weekly timetable was edited after the selected date.
     const previous = rowNumber ? logSheet.getRange(rowNumber, 1, 1, DASHBOARD.logHeaders.length).getDisplayValues()[0] : null;
     const row = [classId, date, previous ? previous[2] : classRow[1], previous ? previous[3] : classRow[2], previous ? previous[4] : classRow[4], previous ? previous[5] : classRow[5], previous ? previous[6] : classRow[6], notes, rating, timestamp_(), lessonType, lessonStatus];
     if (rowNumber) logSheet.getRange(rowNumber, 1, 1, row.length).setValues([row]);
@@ -599,10 +600,6 @@ function date_(value) {
   const date = new Date(result + 'T00:00:00Z');
   if (isNaN(date.getTime()) || date.toISOString().slice(0, 10) !== result) throw new Error('Invalid lesson date.');
   return result;
-}
-
-function weekdayOf_(date) {
-  return (new Date(date + 'T00:00:00Z').getUTCDay() + 6) % 7 + 1;
 }
 
 function timestamp_() {
