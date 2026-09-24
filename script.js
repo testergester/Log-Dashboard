@@ -10,7 +10,7 @@ const WEEKDAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Satur
 const STANDARD_LESSON_TYPES = ["Lesson", "Quiz", "Exam"];
 const $ = (selector) => document.querySelector(selector);
 const state = {
-  endpoint: CONFIGURED_ENDPOINT || localStorage.getItem(ENDPOINT_STORAGE_KEY) || "",
+  endpoint: localStorage.getItem(ENDPOINT_STORAGE_KEY) || CONFIGURED_ENDPOINT || "",
   token: localStorage.getItem(SESSION_STORAGE_KEY) || "",
   classes: [],
   logs: [],
@@ -25,6 +25,8 @@ const state = {
   view: "day",
   drafts: new Map(),
   checklistDrafts: new Map(),
+  savingLessonKey: "",
+  savingChecklistKey: "",
   pending: false
 };
 
@@ -443,7 +445,7 @@ function saveDraft() {
   const lessonType = lessonTypeValue();
   const lessonStatus = document.querySelector('input[name="lesson-record-status"]:checked')?.value || "Done";
   const saved = logFor(state.selectedClassId, state.selectedDate);
-  if (notes !== (saved?.notes || "") || rating !== String(saved?.rating || "") ||
+  if (state.savingLessonKey === draftKey() || notes !== (saved?.notes || "") || rating !== String(saved?.rating || "") ||
       lessonType !== (saved?.lessonType || "Lesson") || lessonStatus !== (saved?.lessonStatus || "Done")) {
     state.drafts.set(draftKey(), {notes, rating, lessonType, lessonStatus});
   } else {
@@ -564,7 +566,7 @@ function saveChecklistDraft() {
     return previous && item.attendance === previous.attendance &&
       item.participation === Number(previous.participation) && item.note === (previous.note || "");
   });
-  if (same) state.checklistDrafts.delete(checklistKey());
+  if (same && state.savingChecklistKey !== checklistKey()) state.checklistDrafts.delete(checklistKey());
   else state.checklistDrafts.set(checklistKey(), rows);
   $("#checklist-status").textContent = same
     ? savedChecklist() ? "Saved " + savedChecklist().updatedAt : "Not saved yet"
@@ -892,14 +894,39 @@ function updateGroupIdFields() {
   else $("#custom-group-id").focus();
 }
 
-async function refreshAfterWrite(message) {
-  try {
-    await loadData();
-    setNotice(message);
-  } catch (error) {
-    if (isSessionError(error)) handleError(error);
-    else setNotice(message + " Refresh failed; try signing in again if the timetable looks out of date.", true);
-  }
+function upsert(items, match, value) {
+  const index = items.findIndex(match);
+  if (index < 0) items.push(value);
+  else items[index] = value;
+}
+
+function applyEnrollment(enrollment) {
+  if (!enrollment) return;
+  const active = state.enrollments.find(item => item.classId === enrollment.classId &&
+    item.studentId === enrollment.studentId && item.active);
+  if (active) Object.assign(active, enrollment);
+  else if (enrollment.active) state.enrollments.push(enrollment);
+}
+
+function applyChecklist(saved) {
+  const payload = saved.checklist;
+  if (!payload) throw new Error("The checklist save response was incomplete. Reload the dashboard.");
+  upsert(state.checklists, item => item.classId === saved.classId && item.date === saved.date, {
+    classId: saved.classId, date: saved.date, revision: saved.revision,
+    updatedAt: saved.updatedAt, storage: "json-v1", recordCount: payload.records.length,
+    classInfo: payload.classInfo, records: payload.records
+  });
+  state.studentRecords = state.studentRecords.filter(item => item.classId !== saved.classId || item.date !== saved.date);
+  payload.records.forEach(item => state.studentRecords.push({
+    classId: saved.classId, date: saved.date, studentId: item.studentId,
+    studentName: item.studentName, attendance: item.attendance,
+    participation: Number(item.participation), note: item.note, updatedAt: saved.updatedAt
+  }));
+}
+
+function finishWrite(message) {
+  render();
+  setNotice(message);
 }
 
 $("#endpoint-form").addEventListener("submit", event => {
@@ -1067,7 +1094,8 @@ $("#class-form").addEventListener("submit", async event => {
     if (Number(item.weekday) !== weekday(state.selectedDate)) {
       state.selectedDate = addDays(mondayOf(state.selectedDate), Number(item.weekday) - 1);
     }
-    await refreshAfterWrite("Class saved.");
+    upsert(state.classes, existing => existing.id === saved.id, saved);
+    finishWrite("Class saved.");
   } catch (error) {
     if (isSessionError(error)) {
       $("#class-dialog").close();
@@ -1090,10 +1118,12 @@ $("#archive-class-button").addEventListener("click", async () => {
   state.pending = true;
   $("#archive-class-button").disabled = true;
   try {
-    await request("archiveClass", {token: state.token, classId: id});
+    const saved = await request("archiveClass", {token: state.token, classId: id});
     $("#class-dialog").close();
     state.selectedClassId = "";
-    await refreshAfterWrite("Class archived.");
+    const archived = state.classes.find(item => item.id === saved.id);
+    if (archived) Object.assign(archived, {active: false, updatedAt: saved.updatedAt});
+    finishWrite("Class archived.");
   } catch (error) {
     if (isSessionError(error)) {
       $("#class-dialog").close();
@@ -1160,11 +1190,17 @@ $("#student-form").addEventListener("submit", async event => {
   $("#save-student-button").disabled = true;
   $("#student-error").hidden = true;
   try {
-    if (newStudent) await request("saveStudent", {token: state.token, student: {name, classId: state.selectedClassId}});
-    else await request("setEnrollment", {token: state.token, classId: state.selectedClassId,
-      studentId: $("#student-choice").value, active: true});
+    if (newStudent) {
+      const saved = await request("saveStudent", {token: state.token, student: {name, classId: state.selectedClassId}});
+      upsert(state.students, item => item.id === saved.student.id, saved.student);
+      applyEnrollment(saved.enrollment);
+    } else {
+      const saved = await request("setEnrollment", {token: state.token, classId: state.selectedClassId,
+        studentId: $("#student-choice").value, active: true});
+      applyEnrollment(saved);
+    }
     $("#student-dialog").close();
-    await refreshAfterWrite("Student added to class.");
+    finishWrite("Student added to class.");
   } catch (error) {
     if (isSessionError(error)) {
       $("#student-dialog").close();
@@ -1186,9 +1222,10 @@ $("#rename-student-form").addEventListener("submit", async event => {
   state.pending = true;
   $("#history-error").hidden = true;
   try {
-    await request("saveStudent", {token: state.token,
+    const saved = await request("saveStudent", {token: state.token,
       student: {id: state.selectedStudentId, name: $("#rename-student-name").value.trim()}});
-    await refreshAfterWrite("Student renamed.");
+    upsert(state.students, item => item.id === saved.student.id, saved.student);
+    finishWrite("Student renamed.");
     $("#history-title").textContent = studentName(state.selectedStudentId) + " · history";
   } catch (error) {
     if (isSessionError(error)) {
@@ -1209,10 +1246,11 @@ $("#remove-student-button").addEventListener("click", async () => {
   state.pending = true;
   $("#history-error").hidden = true;
   try {
-    await request("setEnrollment", {token: state.token, classId: state.selectedClassId,
+    const saved = await request("setEnrollment", {token: state.token, classId: state.selectedClassId,
       studentId: state.selectedStudentId, active: false});
+    applyEnrollment(saved);
     $("#history-dialog").close();
-    await refreshAfterWrite("Student removed from class.");
+    finishWrite("Student removed from class.");
   } catch (error) {
     if (isSessionError(error)) {
       $("#history-dialog").close();
@@ -1233,24 +1271,31 @@ $("#checklist-form").addEventListener("submit", async event => {
   const key = checklistKey();
   const records = readChecklistForm();
   if (!records.length) return;
-  const checklist = {schemaVersion: 1, classId: state.selectedClassId, date: state.selectedDate, records};
+  const checklist = {schemaVersion: 1, classId: state.selectedClassId, date: state.selectedDate,
+    revision: savedChecklist()?.revision || "", records};
   state.pending = true;
+  state.savingChecklistKey = key;
   $("#save-checklist-button").disabled = true;
   $("#save-checklist-button").textContent = "Saving…";
   $("#checklist-status").textContent = "Saving checklist…";
   $("#checklist-status").classList.remove("error");
   try {
-    await request("saveChecklist", {token: state.token, checklist});
-    state.checklistDrafts.delete(key);
-    await refreshAfterWrite("Checklist saved.");
+    const saved = await request("saveChecklist", {token: state.token, checklist});
+    applyChecklist(saved);
+    if (JSON.stringify(state.checklistDrafts.get(key)) === JSON.stringify(records)) {
+      state.checklistDrafts.delete(key);
+    }
+    state.savingChecklistKey = "";
+    finishWrite(state.checklistDrafts.has(key) ? "Checklist saved; newer changes are still unsaved." : "Checklist saved.");
   } catch (error) {
-    state.checklistDrafts.set(key, records);
+    if (!state.checklistDrafts.has(key)) state.checklistDrafts.set(key, records);
     if (isSessionError(error)) handleError(error);
     else {
       $("#checklist-status").textContent = error.message;
       $("#checklist-status").classList.add("error");
     }
   } finally {
+    state.savingChecklistKey = "";
     state.pending = false;
     updateChecklistSaveButton();
   }
@@ -1306,17 +1351,23 @@ $("#lesson-form").addEventListener("submit", async event => {
     lessonType,
     lessonStatus
   };
+  const submittedDraft = {notes: record.notes, rating: rating || "", lessonType, lessonStatus};
   state.pending = true;
+  state.savingLessonKey = key;
   $("#save-lesson-button").disabled = true;
   $("#save-lesson-button").textContent = "Saving…";
   $("#lesson-status").textContent = "Saving lesson…";
   $("#lesson-status").classList.remove("error");
   try {
-    await request("saveLog", {token: state.token, log: record});
-    state.drafts.delete(key);
-    await refreshAfterWrite("Lesson saved.");
+    const saved = await request("saveLog", {token: state.token, log: record});
+    upsert(state.logs, item => item.classId === saved.classId && item.date === saved.date, saved);
+    if (JSON.stringify(state.drafts.get(key)) === JSON.stringify(submittedDraft)) {
+      state.drafts.delete(key);
+    }
+    state.savingLessonKey = "";
+    finishWrite(state.drafts.has(key) ? "Lesson saved; newer changes are still unsaved." : "Lesson saved.");
   } catch (error) {
-    state.drafts.set(key, {notes: record.notes, rating: rating || "", lessonType, lessonStatus});
+    if (!state.drafts.has(key)) state.drafts.set(key, submittedDraft);
     if (isSessionError(error)) {
       handleError(error);
     } else {
@@ -1324,6 +1375,7 @@ $("#lesson-form").addEventListener("submit", async event => {
       $("#lesson-status").classList.add("error");
     }
   } finally {
+    state.savingLessonKey = "";
     state.pending = false;
     $("#save-lesson-button").disabled = false;
     $("#save-lesson-button").textContent = "Save lesson";

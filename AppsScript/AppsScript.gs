@@ -20,6 +20,7 @@ const DASHBOARD = Object.freeze({
   timezone: 'Asia/Tashkent',
   loginBlockSeconds: 900,
   loginLimit: 5,
+  sessionLifetimeMs: 24 * 60 * 60 * 1000,
   hashRounds: 12000,
   timetable: 'Timetable',
   weeklyView: 'WeeklyView',
@@ -95,4 +96,3 @@ function doPost(e) {
 function doGet() {
   return json_({ok: true, data: {service: 'Teaching Dashboard', status: 'ready'}});
 }
-

@@ -4,6 +4,7 @@ function saveChecklist_(request) {
   if (schemaVersion !== 1) throw new Error('Unsupported checklist JSON version.');
   const classId = String(input.classId || '');
   const date = date_(input.date);
+  const expectedRevision = input.revision == null ? '' : String(input.revision);
   if (!Array.isArray(input.records) || !input.records.length || input.records.length > 100) {
     throw new Error('A checklist needs 1 to 100 students.');
   }
@@ -41,6 +42,9 @@ function saveChecklist_(request) {
       ? checklistSheet.getRange(checklistRowNumber, 1, 1, DASHBOARD.checklistHeaders.length).getDisplayValues()[0]
       : null;
     const previousRevision = previousRow ? previousRow[2] : '';
+    if (expectedRevision !== previousRevision) {
+      throw new Error('Checklist changed on another device. Reload the dashboard before saving.');
+    }
     const previousPayload = previousRow && previousRow[4]
       ? parseChecklistJson_(previousRow[4], classId, date, previousRevision) : null;
     const savedIds = previousPayload
@@ -151,4 +155,3 @@ function sameChecklistRecords_(left, right) {
       String(previous.note || '') === String(record.note || '');
   });
 }
-

@@ -19,12 +19,12 @@ function login_(request) {
     }
     cache.remove('LOGIN_FAILURES');
     const token = Utilities.getUuid() + Utilities.getUuid() + Utilities.getUuid();
-    // Store only a hash-derived key, never the bearer token itself. Script
-    // properties are durable, so this session remains valid until logout.
-    // Tying it to the password hash also invalidates every session after a
-    // password change.
-    props.setProperty(sessionKey_(token), expectedHash);
-    return {token: token};
+    // Expired sessions are removed on login, including sessions created by
+    // older deployments that did not have an expiration time.
+    pruneSessions_(props);
+    const expiresAt = Date.now() + DASHBOARD.sessionLifetimeMs;
+    props.setProperty(sessionKey_(token), JSON.stringify({passwordHash: expectedHash, expiresAt: expiresAt}));
+    return {token: token, expiresAt: expiresAt};
   } finally {
     lock.releaseLock();
   }
@@ -40,8 +40,31 @@ function requireSession_(request) {
   const token = String(request.token || '');
   const props = PropertiesService.getScriptProperties();
   const passwordHash = props.getProperty('PASSWORD_HASH');
-  if (!token || token.length > 200 || !passwordHash || props.getProperty(sessionKey_(token)) !== passwordHash) {
+  const key = token && token.length <= 200 ? sessionKey_(token) : '';
+  const stored = key ? props.getProperty(key) : '';
+  const session = parseSession_(stored);
+  if (!session || !passwordHash || session.passwordHash !== passwordHash || session.expiresAt <= Date.now()) {
+    if (key && stored) props.deleteProperty(key);
     throw new Error('Session expired. Please sign in again.');
   }
 }
 
+function parseSession_(stored) {
+  try {
+    const session = JSON.parse(stored);
+    return session && typeof session.passwordHash === 'string' &&
+      Number.isFinite(session.expiresAt) ? session : null;
+  } catch (error) {
+    return null;
+  }
+}
+
+function pruneSessions_(props) {
+  const now = Date.now();
+  const values = props.getProperties();
+  Object.keys(values).forEach(function(key) {
+    if (key.indexOf('SESSION_') !== 0) return;
+    const session = parseSession_(values[key]);
+    if (!session || session.expiresAt <= now) props.deleteProperty(key);
+  });
+}

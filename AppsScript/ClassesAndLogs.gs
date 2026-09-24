@@ -35,7 +35,8 @@ function saveClass_(request) {
     sortTimetable_(sheet);
     SpreadsheetApp.flush();
     refreshWeeklyView_(spreadsheet);
-    return {id: id};
+    return {id: id, name: name, subject: subject, weekday: weekday, start: start,
+      end: end, room: room, active: true, updatedAt: row[8]};
   } finally {
     lock.releaseLock();
   }
@@ -51,9 +52,10 @@ function archiveClass_(request) {
   try {
     const rowNumber = findRow_(sheet, function(row) { return row[0] === id; });
     if (!rowNumber) throw new Error('Class no longer exists. Reload the dashboard.');
-    sheet.getRange(rowNumber, 8, 1, 2).setValues([[false, timestamp_()]]);
+    const updatedAt = timestamp_();
+    sheet.getRange(rowNumber, 8, 1, 2).setValues([[false, updatedAt]]);
     refreshWeeklyView_(spreadsheet);
-    return {id: id, archived: true};
+    return {id: id, archived: true, updatedAt: updatedAt};
   } finally {
     lock.releaseLock();
   }
@@ -86,9 +88,11 @@ function saveLog_(request) {
     const row = [classId, date, previous ? previous[2] : classRow[1], previous ? previous[3] : classRow[2], previous ? previous[4] : classRow[4], previous ? previous[5] : classRow[5], previous ? previous[6] : classRow[6], notes, rating, timestamp_(), lessonType, lessonStatus];
     if (rowNumber) logSheet.getRange(rowNumber, 1, 1, row.length).setValues([row]);
     else logSheet.appendRow(row);
-    return {classId: classId, date: date, updatedAt: row[9]};
+    return {classId: classId, date: date, className: row[2], subject: row[3],
+      start: storedTime_(row[4]), end: storedTime_(row[5]), room: row[6],
+      notes: String(input.notes == null ? '' : input.notes).trim(), rating: rating || null,
+      updatedAt: row[9], lessonType: lessonType, lessonStatus: lessonStatus};
   } finally {
     lock.releaseLock();
   }
 }
-

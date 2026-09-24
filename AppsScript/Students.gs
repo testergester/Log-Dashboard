@@ -18,8 +18,8 @@ function saveStudent_(request) {
     const row = [id, name, timestamp_()];
     if (rowNumber) sheet.getRange(rowNumber, 1, 1, row.length).setValues([row]);
     else sheet.appendRow(row);
-    if (classId) setEnrollmentRow_(spreadsheet, classId, id, true);
-    return {id: id};
+    const enrollment = classId ? setEnrollmentRow_(spreadsheet, classId, id, true) : null;
+    return {student: {id: id, name: String(input.name).trim(), updatedAt: row[2]}, enrollment: enrollment};
   } finally {
     lock.releaseLock();
   }
@@ -40,8 +40,7 @@ function setEnrollment_(request) {
     if (!findRow_(spreadsheet.getSheetByName(DASHBOARD.students), function(row) { return row[0] === studentId; })) {
       throw new Error('Student no longer exists. Reload the dashboard.');
     }
-    setEnrollmentRow_(spreadsheet, classId, studentId, request.active);
-    return {classId: classId, studentId: studentId, active: request.active};
+    return setEnrollmentRow_(spreadsheet, classId, studentId, request.active);
   } finally {
     lock.releaseLock();
   }
@@ -53,11 +52,19 @@ function setEnrollmentRow_(spreadsheet, classId, studentId, active) {
     return row[0] === classId && row[1] === studentId && String(row[4]).toLowerCase() !== 'false';
   });
   if (active) {
-    if (rowNumber) return;
-    sheet.appendRow([classId, studentId, today_(), '', true, timestamp_()]);
+    if (rowNumber) {
+      const row = sheet.getRange(rowNumber, 1, 1, DASHBOARD.enrollmentHeaders.length).getDisplayValues()[0];
+      return {classId: classId, studentId: studentId, joinedOn: row[2], leftOn: '', active: true};
+    }
+    const joinedOn = today_();
+    sheet.appendRow([classId, studentId, joinedOn, '', true, timestamp_()]);
+    return {classId: classId, studentId: studentId, joinedOn: joinedOn, leftOn: '', active: true};
   } else {
     if (!rowNumber) throw new Error('Student is not in this class.');
-    sheet.getRange(rowNumber, 4, 1, 3).setValues([[today_(), false, timestamp_()]]);
+    const joinedOn = sheet.getRange(rowNumber, 3).getDisplayValue();
+    const leftOn = today_();
+    sheet.getRange(rowNumber, 4, 1, 3).setValues([[leftOn, false, timestamp_()]]);
+    return {classId: classId, studentId: studentId, joinedOn: joinedOn, leftOn: leftOn, active: false};
   }
 }
 
@@ -68,4 +75,3 @@ function today_() {
 function enrolledOn_(row, date) {
   return row[2] <= date && (!row[3] || date < row[3]);
 }
-

@@ -1,14 +1,7 @@
 function loadDashboard_() {
   const spreadsheet = spreadsheet_();
-  // Older installations may not have every supporting tab yet. Repair those
-  // tabs on authenticated load instead of passing null into the row readers.
-  ensureDashboardTabs_(spreadsheet);
-  normalizeTimetableTimes_(spreadsheet.getSheetByName(DASHBOARD.timetable));
-  sortTimetable_(spreadsheet.getSheetByName(DASHBOARD.timetable));
-  SpreadsheetApp.flush();
-  // Rebuild on load as a self-healing fallback for classes added by an older
-  // deployment or while a previous refresh was interrupted.
-  refreshWeeklyView_(spreadsheet);
+  // Setup and timetable writes maintain the sheets. Reads must not rewrite
+  // them; opening the dashboard should only load records.
   const classes = rows_(spreadsheet.getSheetByName(DASHBOARD.timetable)).map(function(row) {
     return {id: row[0], name: row[1], subject: row[2], weekday: Number(row[3]), start: storedTime_(row[4]), end: storedTime_(row[5]), room: row[6], active: String(row[7]).toLowerCase() !== 'false', updatedAt: row[8]};
   }).filter(function(item) { return item.id; });
@@ -34,13 +27,16 @@ function loadDashboard_() {
     checklistByMeeting[item.classId + '|' + item.date] = item;
   });
   const checklists = Object.keys(checklistByMeeting).map(function(key) { return checklistByMeeting[key]; });
-  const current = {};
-  checklists.forEach(function(item) { current[item.classId + '|' + item.date] = item.revision; });
-  const legacyStudentRecords = rowsWithDates_(spreadsheet.getSheetByName(DASHBOARD.studentRecords), [1]).filter(function(row) {
-    return row[2] === current[row[0] + '|' + row[1]];
-  }).map(function(row) {
-    return {classId: row[0], date: row[1], studentId: row[3], attendance: row[4], participation: Number(row[5]), note: row[6], updatedAt: row[7]};
+  const legacyRevisions = {};
+  checklists.filter(function(item) { return !item.records; }).forEach(function(item) {
+    legacyRevisions[item.classId + '|' + item.date] = item.revision;
   });
+  const legacyStudentRecords = Object.keys(legacyRevisions).length
+    ? rowsWithDates_(spreadsheet.getSheetByName(DASHBOARD.studentRecords), [1]).filter(function(row) {
+        return row[2] === legacyRevisions[row[0] + '|' + row[1]];
+      }).map(function(row) {
+        return {classId: row[0], date: row[1], studentId: row[3], attendance: row[4], participation: Number(row[5]), note: row[6], updatedAt: row[7]};
+      }) : [];
   const studentRecords = [];
   checklists.forEach(function(item) {
     if (item.records) {
@@ -58,4 +54,3 @@ function loadDashboard_() {
   return {classes: classes, logs: logs, students: students, enrollments: enrollments,
     checklists: checklists, studentRecords: studentRecords, attendanceStorage: 'json-v1', timezone: DASHBOARD.timezone};
 }
-
