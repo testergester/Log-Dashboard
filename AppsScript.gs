@@ -41,12 +41,7 @@ function setupDashboard() {
   if (!spreadsheet) throw new Error('Open this script from the target Google Sheet.');
   const props = PropertiesService.getScriptProperties();
   props.setProperty('SPREADSHEET_ID', spreadsheet.getId());
-  ensureTab_(spreadsheet, DASHBOARD.timetable, DASHBOARD.timetableHeaders);
-  ensureTab_(spreadsheet, DASHBOARD.logs, DASHBOARD.logHeaders);
-  ensureTab_(spreadsheet, DASHBOARD.students, DASHBOARD.studentHeaders);
-  ensureTab_(spreadsheet, DASHBOARD.enrollments, DASHBOARD.enrollmentHeaders);
-  ensureTab_(spreadsheet, DASHBOARD.checklists, DASHBOARD.checklistHeaders);
-  ensureTab_(spreadsheet, DASHBOARD.studentRecords, DASHBOARD.studentRecordHeaders);
+  ensureDashboardTabs_(spreadsheet);
   refreshWeeklyView_(spreadsheet);
 
   const username = (props.getProperty('OWNER_USERNAME') || '').trim();
@@ -147,6 +142,12 @@ function requireSession_(request) {
 
 function loadDashboard_() {
   const spreadsheet = spreadsheet_();
+  // Older installations may not have every supporting tab yet. Repair those
+  // tabs on authenticated load instead of passing null into the row readers.
+  ensureDashboardTabs_(spreadsheet);
+  // Rebuild on load as a self-healing fallback for classes added by an older
+  // deployment or while a previous refresh was interrupted.
+  refreshWeeklyView_(spreadsheet);
   const classes = rows_(spreadsheet.getSheetByName(DASHBOARD.timetable)).map(function(row) {
     return {id: row[0], name: row[1], subject: row[2], weekday: Number(row[3]), start: row[4], end: row[5], room: row[6], active: String(row[7]).toLowerCase() !== 'false', updatedAt: row[8]};
   }).filter(function(item) { return item.id; });
@@ -207,18 +208,24 @@ function saveClass_(request) {
   const end = time_(item.end, 'End time');
   if (start >= end) throw new Error('End time must be after start time.');
   const room = text_(item.room, 'Room', 120, false);
-  const id = item.id ? String(item.id) : Utilities.getUuid();
+  const editingId = item.id ? String(item.id).trim() : '';
+  const requestedId = item.requestedId ? groupId_(item.requestedId) : '';
+  if (editingId && requestedId) throw new Error('Choose either an existing class ID or a new group ID.');
+  const id = editingId || requestedId || Utilities.getUuid();
   const spreadsheet = spreadsheet_();
   const sheet = spreadsheet.getSheetByName(DASHBOARD.timetable);
   const lock = LockService.getScriptLock();
   lock.waitLock(30000);
   try {
     const rowNumber = findRow_(sheet, function(row) { return row[0] === id; });
-    if (item.id && !rowNumber) throw new Error('Class no longer exists. Reload the dashboard.');
+    if (editingId && !rowNumber) throw new Error('Class no longer exists. Reload the dashboard.');
+    if (!editingId && rowNumber) throw new Error('That group ID is already in use. Choose another one.');
     if (rowNumber && String(sheet.getRange(rowNumber, 8).getValue()).toLowerCase() === 'false') throw new Error('Archived classes cannot be edited.');
     const row = [id, name, subject, weekday, start, end, room, true, timestamp_()];
     if (rowNumber) sheet.getRange(rowNumber, 1, 1, row.length).setValues([row]);
     else sheet.appendRow(row);
+    sortTimetable_(sheet);
+    SpreadsheetApp.flush();
     refreshWeeklyView_(spreadsheet);
     return {id: id};
   } finally {
@@ -520,8 +527,9 @@ function onEdit(e) {
 }
 
 function refreshWeeklyView_(spreadsheet) {
+  if (!spreadsheet) throw new Error('The dashboard spreadsheet is unavailable. Run setupDashboard again.');
   const source = spreadsheet.getSheetByName(DASHBOARD.timetable);
-  if (!source) return;
+  if (!source) throw new Error('The Timetable tab is missing. Run setupDashboard again.');
   let view = spreadsheet.getSheetByName(DASHBOARD.weeklyView);
   if (!view) view = spreadsheet.insertSheet(DASHBOARD.weeklyView);
 
@@ -583,6 +591,27 @@ function weeklyViewClassText_(item) {
   return [item.name, item.subject, item.room ? 'Room ' + item.room : ''].filter(Boolean).join('\n');
 }
 
+function sortTimetable_(sheet) {
+  if (!sheet) throw new Error('The Timetable tab is missing. Run setupDashboard again.');
+  const rowCount = sheet.getLastRow() - 1;
+  if (rowCount < 2) return;
+  sheet.getRange(2, 1, rowCount, DASHBOARD.timetableHeaders.length).sort([
+    {column: 5, ascending: true},
+    {column: 4, ascending: true},
+    {column: 2, ascending: true}
+  ]);
+}
+
+function ensureDashboardTabs_(spreadsheet) {
+  if (!spreadsheet) throw new Error('The dashboard spreadsheet is unavailable. Run setupDashboard again.');
+  ensureTab_(spreadsheet, DASHBOARD.timetable, DASHBOARD.timetableHeaders);
+  ensureTab_(spreadsheet, DASHBOARD.logs, DASHBOARD.logHeaders);
+  ensureTab_(spreadsheet, DASHBOARD.students, DASHBOARD.studentHeaders);
+  ensureTab_(spreadsheet, DASHBOARD.enrollments, DASHBOARD.enrollmentHeaders);
+  ensureTab_(spreadsheet, DASHBOARD.checklists, DASHBOARD.checklistHeaders);
+  ensureTab_(spreadsheet, DASHBOARD.studentRecords, DASHBOARD.studentRecordHeaders);
+}
+
 function ensureTab_(spreadsheet, name, headers) {
   let sheet = spreadsheet.getSheetByName(name);
   if (!sheet) sheet = spreadsheet.insertSheet(name);
@@ -614,6 +643,7 @@ function spreadsheet_() {
 }
 
 function rows_(sheet) {
+  if (!sheet) throw new Error('A required spreadsheet tab is missing. Run setupDashboard again.');
   const last = sheet.getLastRow();
   if (last < 2) return [];
   return sheet.getRange(2, 1, last - 1, sheet.getLastColumn()).getDisplayValues();
@@ -665,6 +695,14 @@ function text_(value, label, max, required) {
   if (result.length > max) throw new Error(label + ' is too long.');
   if (/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/.test(result)) throw new Error(label + ' contains unsupported characters.');
   return /^[=+\-@]/.test(result) ? "'" + result : result;
+}
+
+function groupId_(value) {
+  const result = String(value == null ? '' : value).trim();
+  if (!/^[A-Za-z0-9][A-Za-z0-9._ -]{0,79}$/.test(result)) {
+    throw new Error('Group ID must start with a letter or number and use only letters, numbers, spaces, dots, underscores, or hyphens.');
+  }
+  return result;
 }
 
 function jsonText_(value, label, max, required) {

@@ -852,6 +852,7 @@ function openClassDialog(item, defaults = {}) {
   $("#class-form").reset();
   $("#class-error").hidden = true;
   $("#class-id").value = item?.id || "";
+  $("#group-id-fields").hidden = Boolean(item);
   $("#class-dialog-title").textContent = item ? "Edit class" : "Add class";
   $("#archive-class-button").hidden = !item;
   if (item) {
@@ -862,12 +863,22 @@ function openClassDialog(item, defaults = {}) {
     $("#class-end").value = item.end;
     $("#class-room").value = item.room || "";
   } else {
+    $("#random-group-id").checked = true;
+    updateGroupIdFields();
     $("#class-weekday").value = String(defaults.weekday || weekday(state.selectedDate));
     $("#class-start").value = defaults.start || "";
     $("#class-end").value = defaults.end || "";
   }
   $("#class-dialog").showModal();
   $("#class-name").focus();
+}
+
+function updateGroupIdFields() {
+  const useRandomId = $("#random-group-id").checked;
+  $("#custom-group-id-wrap").hidden = useRandomId;
+  $("#custom-group-id").required = !useRandomId;
+  if (useRandomId) $("#custom-group-id").value = "";
+  else $("#custom-group-id").focus();
 }
 
 async function refreshAfterWrite(message) {
@@ -914,6 +925,7 @@ $("#login-form").addEventListener("submit", async event => {
   $("#login-button").disabled = true;
   $("#login-button").textContent = "Signing in…";
   setAccessError("");
+  let authenticated = false;
   try {
     const response = await request("login", {
       username: $("#username-input").value.trim(),
@@ -921,14 +933,19 @@ $("#login-form").addEventListener("submit", async event => {
     });
     if (!response.token) throw new Error("The login response did not include a session.");
     state.token = response.token;
+    localStorage.setItem(SESSION_STORAGE_KEY, state.token);
+    authenticated = true;
+    updateAccess();
     $("#password-input").value = "";
     await loadData();
-    localStorage.setItem(SESSION_STORAGE_KEY, state.token);
-    updateAccess();
     setNotice("");
   } catch (error) {
-    clearSession();
-    handleError(error, "access");
+    if (!authenticated || isSessionError(error)) {
+      clearSession();
+      handleError(error, "access");
+    } else {
+      setNotice(error.message, true);
+    }
   } finally {
     state.pending = false;
     $("#login-button").disabled = false;
@@ -985,6 +1002,7 @@ $("#edit-class-button").addEventListener("click", () => {
 });
 $("#close-dialog").addEventListener("click", () => $("#class-dialog").close());
 $("#cancel-class-button").addEventListener("click", () => $("#class-dialog").close());
+$("#random-group-id").addEventListener("change", updateGroupIdFields);
 $("#class-dialog").addEventListener("click", event => {
   if (event.target === $("#class-dialog")) $("#class-dialog").close();
 });
@@ -994,6 +1012,8 @@ $("#class-form").addEventListener("submit", async event => {
   if (state.pending) return;
   const item = {
     id: $("#class-id").value || undefined,
+    requestedId: !$("#class-id").value && !$("#random-group-id").checked
+      ? $("#custom-group-id").value.trim() : undefined,
     name: $("#class-name").value.trim(),
     subject: $("#class-subject").value.trim(),
     weekday: Number($("#class-weekday").value),
@@ -1001,6 +1021,16 @@ $("#class-form").addEventListener("submit", async event => {
     end: $("#class-end").value,
     room: $("#class-room").value.trim()
   };
+  if (!item.id && !$("#random-group-id").checked && !item.requestedId) {
+    $("#class-error").textContent = "Enter a custom group ID or choose random ID generation.";
+    $("#class-error").hidden = false;
+    return;
+  }
+  if (item.requestedId && !/^[A-Za-z0-9][A-Za-z0-9._ -]{0,79}$/.test(item.requestedId)) {
+    $("#class-error").textContent = "Group ID must start with a letter or number and use only letters, numbers, spaces, dots, underscores, or hyphens.";
+    $("#class-error").hidden = false;
+    return;
+  }
   if (item.start >= item.end) {
     $("#class-error").textContent = "End time must be after start time.";
     $("#class-error").hidden = false;

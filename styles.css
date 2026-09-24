@@ -70,7 +70,7 @@ h2 { color: var(--navy); font-size: 1.2rem; line-height: 1.25; letter-spacing: -
 .access-content > p:not(.eyebrow):not(.access-error) { color: var(--muted); }
 .access-form { display: grid; gap: .5rem; margin-top: 1.4rem; }
 label, .field-label { color: var(--navy); font-size: .88rem; font-weight: 700; }
-input:not([type="radio"]), select, textarea {
+input:not([type="radio"]):not([type="checkbox"]), select, textarea {
   width: 100%; min-height: 44px; padding: .65rem .8rem; color: var(--navy);
   background: white; border: 1px solid #cdd8e8; border-radius: 10px;
 }
@@ -257,6 +257,12 @@ dialog::backdrop { background: #13284a8c; }
 .dialog-heading h2 { margin: 0; font-size: 1.45rem; }
 .close-button { width: 36px; height: 36px; font-size: 1.2rem; }
 .class-form label { margin-top: .45rem; }
+.group-id-fields { display: grid; gap: .55rem; margin: 0 0 .35rem; padding: .8rem; border: 1px solid var(--line); border-radius: 10px; }
+.group-id-fields legend { padding: 0 .3rem; color: var(--navy); font-size: .88rem; font-weight: 700; }
+.checkbox-label { display: flex; align-items: center; gap: .55rem; margin: 0 !important; cursor: pointer; }
+.checkbox-label input { width: 18px; height: 18px; accent-color: var(--blue); }
+.checkbox-label span { color: var(--navy); font-size: .88rem; font-weight: 700; }
+#custom-group-id-wrap label { display: block; margin: 0 0 .35rem; }
 .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
 .form-row > div { min-width: 0; }
 .form-row label { display: block; margin-bottom: .45rem; }

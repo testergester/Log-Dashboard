@@ -7,8 +7,8 @@
   <meta name="description" content="A private teaching timetable and lesson log.">
   <title>Teaching Dashboard</title>
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%231b4ca1'/%3E%3Cpath d='M16 18h32v30H16z' fill='none' stroke='white' stroke-width='4'/%3E%3Cpath d='M22 12v12m20-12v12M16 29h32M24 37h7' stroke='white' stroke-width='4' stroke-linecap='round'/%3E%3C/svg%3E">
-  <link rel="stylesheet" href="./styles.css?v=weekly-grid1">
-  <script src="./script.js?v=weekly-grid1" defer></script>
+  <link rel="stylesheet" href="./styles.css?v=sheet-repair1">
+  <script src="./script.js?v=sheet-repair1" defer></script>
 </head>
 <body>
   <div class="app-shell">
@@ -205,6 +205,18 @@
         <button type="button" class="icon-button close-button" id="close-dialog" aria-label="Close">×</button>
       </div>
       <input type="hidden" id="class-id">
+      <fieldset class="group-id-fields" id="group-id-fields">
+        <legend>Group ID</legend>
+        <label class="checkbox-label" for="random-group-id">
+          <input id="random-group-id" type="checkbox" checked>
+          <span>Generate a random ID</span>
+        </label>
+        <div id="custom-group-id-wrap" hidden>
+          <label for="custom-group-id">Custom group ID</label>
+          <input id="custom-group-id" maxlength="80" placeholder="e.g. 9A-2026" autocomplete="off">
+          <p class="field-hint">Use letters, numbers, spaces, dots, underscores, or hyphens.</p>
+        </div>
+      </fieldset>
       <label for="class-name">Class name</label>
       <input id="class-name" maxlength="120" placeholder="e.g. Grade 5A" required>
       <label for="class-subject">Subject</label>
