@@ -309,14 +309,14 @@ function renderWeekStrip() {
 function renderSchedule() {
   const list = $("#schedule-list");
   list.replaceChildren();
-  list.classList.toggle("week-list", state.view === "week");
+  list.classList.toggle("week-grid-wrap", state.view === "week");
   const dayView = state.view === "day";
   $("#schedule-kicker").textContent = dayView ? "DAILY TIMETABLE" : "WEEKLY TIMETABLE";
   $("#schedule-title").textContent = dayView ? "Your classes" : "Your week";
   const dates = dayView
     ? [state.selectedDate]
-    : Array.from({length: 7}, (_, index) => addDays(mondayOf(state.selectedDate), index));
-  const total = dates.reduce((sum, date) => sum + lessonsOn(date).length, 0);
+    : Array.from({length: 5}, (_, index) => addDays(mondayOf(state.selectedDate), index));
+  const total = dates.reduce((sum, date) => sum + (dayView ? lessonsOn(date) : activeClassesOn(date)).length, 0);
   $("#class-count").textContent = total + (total === 1 ? " class" : " classes");
   if (!total) {
     const empty = document.createElement("div");
@@ -332,22 +332,93 @@ function renderSchedule() {
   if (dayView) {
     lessonsOn(state.selectedDate).forEach(item => list.append(classCard(item, state.selectedDate)));
   } else {
-    dates.forEach(date => {
-      const items = lessonsOn(date);
-      const section = document.createElement("div");
-      section.className = "week-section";
-      const heading = document.createElement("div");
-      heading.className = "week-section-heading";
-      const label = document.createElement("strong");
-      label.textContent = formatDate(date, {weekday: "long", month: "short", day: "numeric"});
-      const count = document.createElement("span");
-      count.textContent = items.length ? items.length + (items.length === 1 ? " class" : " classes") : "Free day";
-      heading.append(label, count);
-      section.append(heading);
-      items.forEach(item => section.append(classCard(item, date)));
-      list.append(section);
-    });
+    renderWeekGrid(list, dates);
   }
+}
+
+function renderWeekGrid(container, dates) {
+  const periods = new Map();
+  state.classes.filter(item => item.active && Number(item.weekday) >= 1 && Number(item.weekday) <= 5).forEach(item => {
+    periods.set(item.start + "|" + item.end, {start: item.start, end: item.end});
+  });
+  const orderedPeriods = [...periods.values()].sort((left, right) =>
+    left.start.localeCompare(right.start) || left.end.localeCompare(right.end));
+  const grid = document.createElement("div");
+  grid.className = "week-grid";
+  grid.setAttribute("role", "grid");
+  grid.setAttribute("aria-label", "Monday to Friday timetable");
+
+  const startHeading = weekGridHeading("Beginning", "time-heading start-heading");
+  const endHeading = weekGridHeading("End", "time-heading end-heading");
+  grid.append(startHeading, endHeading);
+  const today = todayInTashkent();
+  dates.forEach(date => {
+    const heading = weekGridHeading(formatDate(date, {weekday: "long", month: "short", day: "numeric"}), "day-heading");
+    heading.classList.toggle("is-today", date === today);
+    grid.append(heading);
+  });
+
+  orderedPeriods.forEach(period => {
+    const start = document.createElement("div");
+    start.className = "week-time start-time";
+    start.textContent = period.start;
+    const end = document.createElement("div");
+    end.className = "week-time end-time";
+    end.textContent = period.end;
+    grid.append(start, end);
+    dates.forEach((date, dayIndex) => {
+      const items = activeClassesOn(date).filter(item => item.start === period.start && item.end === period.end)
+        .sort((left, right) => String(left.name).localeCompare(String(right.name)));
+      const cell = document.createElement("div");
+      cell.className = "week-grid-cell";
+      cell.classList.toggle("is-today", date === today);
+      if (items.length) {
+        cell.classList.add("is-occupied");
+        items.forEach(item => cell.append(weekClassButton(item, date)));
+      } else {
+        const free = document.createElement("button");
+        free.type = "button";
+        free.className = "week-free-button";
+        free.textContent = "Free";
+        free.setAttribute("aria-label", "Free on " + WEEKDAYS[dayIndex] + " from " + period.start + " to " + period.end + ". Add class.");
+        free.addEventListener("click", () => openClassDialog(null, {
+          weekday: dayIndex + 1, start: period.start, end: period.end
+        }));
+        cell.append(free);
+      }
+      grid.append(cell);
+    });
+  });
+  container.append(grid);
+}
+
+function weekGridHeading(text, className) {
+  const heading = document.createElement("div");
+  heading.className = "week-grid-heading " + className;
+  heading.setAttribute("role", "columnheader");
+  heading.textContent = text;
+  return heading;
+}
+
+function weekClassButton(item, date) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "week-class-button";
+  const name = document.createElement("strong");
+  name.textContent = item.name;
+  const detail = document.createElement("span");
+  detail.textContent = [item.subject, item.room && "Room " + item.room].filter(Boolean).join(" · ");
+  button.append(name, detail);
+  button.addEventListener("click", () => {
+    saveDraft();
+    saveChecklistDraft();
+    state.selectedDate = date;
+    state.selectedClassId = item.id;
+    $("#student-search").value = "";
+    render();
+    $("#group-view").scrollIntoView({behavior: "smooth", block: "start"});
+  });
+  return button;
 }
 
 function draftKey() {
@@ -777,7 +848,7 @@ function changeDate(date) {
   render();
 }
 
-function openClassDialog(item) {
+function openClassDialog(item, defaults = {}) {
   $("#class-form").reset();
   $("#class-error").hidden = true;
   $("#class-id").value = item?.id || "";
@@ -791,7 +862,9 @@ function openClassDialog(item) {
     $("#class-end").value = item.end;
     $("#class-room").value = item.room || "";
   } else {
-    $("#class-weekday").value = String(weekday(state.selectedDate));
+    $("#class-weekday").value = String(defaults.weekday || weekday(state.selectedDate));
+    $("#class-start").value = defaults.start || "";
+    $("#class-end").value = defaults.end || "";
   }
   $("#class-dialog").showModal();
   $("#class-name").focus();
