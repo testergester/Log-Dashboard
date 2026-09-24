@@ -31,7 +31,7 @@ const DASHBOARD = Object.freeze({
   logHeaders: ['Class ID', 'Lesson date', 'Class name', 'Subject', 'Start time', 'End time', 'Room', 'Notes', 'Rating', 'Updated at', 'Lesson type', 'Lesson status'],
   studentHeaders: ['Student ID', 'Name', 'Updated at'],
   enrollmentHeaders: ['Class ID', 'Student ID', 'Joined on', 'Left on', 'Active', 'Updated at'],
-  checklistHeaders: ['Class ID', 'Lesson date', 'Revision', 'Updated at'],
+  checklistHeaders: ['Class ID', 'Lesson date', 'Revision', 'Updated at', 'Checklist JSON'],
   studentRecordHeaders: ['Class ID', 'Lesson date', 'Revision', 'Student ID', 'Attendance', 'Participation', 'Note', 'Updated at']
 });
 
@@ -159,17 +159,34 @@ function loadDashboard_() {
       active: String(row[4]).toLowerCase() !== 'false'};
   }).filter(function(item) { return item.classId && item.studentId; });
   const checklists = rowsWithDates_(spreadsheet.getSheetByName(DASHBOARD.checklists), [1]).map(function(row) {
-    return {classId: row[0], date: row[1], revision: row[2], updatedAt: row[3]};
+    const payload = row[4] ? parseChecklistJson_(row[4], row[0], row[1], row[2]) : null;
+    return {classId: row[0], date: row[1], revision: row[2], updatedAt: row[3],
+      storage: payload ? 'json-v1' : 'legacy-rows', recordCount: payload ? payload.records.length : null,
+      classInfo: payload ? payload.classInfo : null, records: payload ? payload.records : null};
   }).filter(function(item) { return item.classId && item.date && item.revision; });
   const current = {};
   checklists.forEach(function(item) { current[item.classId + '|' + item.date] = item.revision; });
-  const studentRecords = rowsWithDates_(spreadsheet.getSheetByName(DASHBOARD.studentRecords), [1]).filter(function(row) {
+  const legacyStudentRecords = rowsWithDates_(spreadsheet.getSheetByName(DASHBOARD.studentRecords), [1]).filter(function(row) {
     return row[2] === current[row[0] + '|' + row[1]];
   }).map(function(row) {
     return {classId: row[0], date: row[1], studentId: row[3], attendance: row[4], participation: Number(row[5]), note: row[6], updatedAt: row[7]};
   });
+  const studentRecords = [];
+  checklists.forEach(function(item) {
+    if (item.records) {
+      item.records.forEach(function(record) {
+        studentRecords.push({classId: item.classId, date: item.date, studentId: record.studentId,
+          studentName: record.studentName, attendance: record.attendance,
+          participation: Number(record.participation), note: record.note, updatedAt: item.updatedAt});
+      });
+    } else {
+      legacyStudentRecords.filter(function(record) {
+        return record.classId === item.classId && record.date === item.date;
+      }).forEach(function(record) { studentRecords.push(record); });
+    }
+  });
   return {classes: classes, logs: logs, students: students, enrollments: enrollments,
-    checklists: checklists, studentRecords: studentRecords, timezone: DASHBOARD.timezone};
+    checklists: checklists, studentRecords: studentRecords, attendanceStorage: 'json-v1', timezone: DASHBOARD.timezone};
 }
 
 function saveClass_(request) {
@@ -320,16 +337,19 @@ function enrolledOn_(row, date) {
 
 function saveChecklist_(request) {
   const input = request.checklist || {};
+  const schemaVersion = Number(input.schemaVersion == null ? 1 : input.schemaVersion);
+  if (schemaVersion !== 1) throw new Error('Unsupported checklist JSON version.');
   const classId = String(input.classId || '');
   const date = date_(input.date);
   if (!Array.isArray(input.records) || !input.records.length || input.records.length > 100) {
     throw new Error('A checklist needs 1 to 100 students.');
   }
   const records = input.records.map(function(item) {
+    item = item || {};
     const studentId = String(item.studentId || '');
     const attendance = String(item.attendance || '');
     const participation = Number(item.participation);
-    const note = text_(item.note, 'Student note', 300, false);
+    const note = jsonText_(item.note, 'Student note', 300, false);
     if (!studentId || (attendance !== 'present' && attendance !== 'absent')) throw new Error('Invalid attendance entry.');
     if (!Number.isInteger(participation) || participation < -1 || participation > 1) throw new Error('Invalid participation mark.');
     if (attendance === 'absent' && participation !== 0) throw new Error('Absent students cannot receive a participation mark.');
@@ -350,11 +370,18 @@ function saveChecklist_(request) {
     if (!checklistRowNumber && String(classRow[7]).toLowerCase() === 'false') throw new Error('Cannot start a checklist for an archived class.');
     // The dashboard controls which meetings can be opened. Do not reject a
     // correction merely because the weekly timetable was edited afterwards.
-    const previousRevision = checklistRowNumber ? checklistSheet.getRange(checklistRowNumber, 3).getDisplayValue() : '';
-    const savedIds = checklistRowNumber
-      ? rowsWithDates_(spreadsheet.getSheetByName(DASHBOARD.studentRecords), [1]).filter(function(row) {
-          return row[0] === classId && row[1] === date && row[2] === previousRevision;
-        }).map(function(row) { return row[3]; }) : [];
+    const previousRow = checklistRowNumber
+      ? checklistSheet.getRange(checklistRowNumber, 1, 1, DASHBOARD.checklistHeaders.length).getDisplayValues()[0]
+      : null;
+    const previousRevision = previousRow ? previousRow[2] : '';
+    const previousPayload = previousRow && previousRow[4]
+      ? parseChecklistJson_(previousRow[4], classId, date, previousRevision) : null;
+    const savedIds = previousPayload
+      ? previousPayload.records.map(function(record) { return record.studentId; })
+      : checklistRowNumber
+        ? rowsWithDates_(spreadsheet.getSheetByName(DASHBOARD.studentRecords), [1]).filter(function(row) {
+            return row[0] === classId && row[1] === date && row[2] === previousRevision;
+          }).map(function(row) { return row[3]; }) : [];
     const enrolledIds = rowsWithDates_(spreadsheet.getSheetByName(DASHBOARD.enrollments), [2, 3]).filter(function(row) {
       return row[0] === classId && enrolledOn_(row, date);
     }).map(function(row) { return row[1]; });
@@ -363,33 +390,81 @@ function saveChecklist_(request) {
       throw new Error('The class roster changed. Reload the dashboard before saving.');
     }
     const studentSheet = spreadsheet.getSheetByName(DASHBOARD.students);
-    if (ids.some(function(id) { return !findRow_(studentSheet, function(row) { return row[0] === id; }); })) {
+    const studentNames = {};
+    rows_(studentSheet).forEach(function(row) { if (row[0]) studentNames[row[0]] = row[1]; });
+    if (ids.some(function(id) { return !studentNames[id]; })) {
       throw new Error('A student no longer exists. Reload the dashboard.');
     }
-    // Write a new version first. The checklist's revision is the commit marker,
-    // so interrupted saves never affect visible totals or historical records.
     const revision = Utilities.getUuid();
     const updatedAt = timestamp_();
-    const recordSheet = spreadsheet.getSheetByName(DASHBOARD.studentRecords);
-    appendRows_(recordSheet, records.map(function(item) {
-      return [classId, date, revision, item.studentId, item.attendance,
-        item.participation, item.note, updatedAt];
-    }));
-    const marker = [classId, date, revision, updatedAt];
+    const classInfo = previousPayload ? previousPayload.classInfo : {
+      id: classId, name: classRow[1], subject: classRow[2], start: classRow[4], end: classRow[5], room: classRow[6]
+    };
+    const payload = {
+      schemaVersion: 1,
+      classId: classId,
+      lessonDate: date,
+      revision: revision,
+      updatedAt: updatedAt,
+      classInfo: classInfo,
+      records: records.map(function(item) {
+        return {studentId: item.studentId, studentName: studentNames[item.studentId],
+          attendance: item.attendance, participation: item.participation, note: item.note};
+      })
+    };
+    const json = JSON.stringify(payload);
+    if (json.length > 45000) throw new Error('This checklist is too large to store in one JSON cell. Shorten student notes and try again.');
+    // One meeting occupies one row. Corrections replace this JSON cell instead
+    // of appending a row for every student on every submission.
+    const marker = [classId, date, revision, updatedAt, json];
     if (checklistRowNumber) checklistSheet.getRange(checklistRowNumber, 1, 1, marker.length).setValues([marker]);
     else checklistSheet.appendRow(marker);
-    return {classId: classId, date: date, updatedAt: updatedAt};
+    return {classId: classId, date: date, revision: revision, updatedAt: updatedAt,
+      storage: 'json-v1', recordCount: payload.records.length, checklist: payload};
   } finally {
     lock.releaseLock();
   }
 }
 
-function appendRows_(sheet, values) {
-  if (!values.length) return;
-  const first = sheet.getLastRow() + 1;
-  const needed = first + values.length - 1 - sheet.getMaxRows();
-  if (needed > 0) sheet.insertRowsAfter(sheet.getMaxRows(), needed);
-  sheet.getRange(first, 1, values.length, values[0].length).setValues(values);
+function parseChecklistJson_(value, classId, date, revision) {
+  let payload;
+  try {
+    payload = JSON.parse(String(value || ''));
+  } catch (error) {
+    throw new Error('Attendance JSON is invalid for ' + classId + ' on ' + date + '.');
+  }
+  if (!payload || Number(payload.schemaVersion) !== 1 || !Array.isArray(payload.records) ||
+      !payload.records.length || payload.records.length > 100) {
+    throw new Error('Attendance JSON has an unsupported format for ' + classId + ' on ' + date + '.');
+  }
+  if (String(payload.classId || '') !== String(classId) || String(payload.lessonDate || '') !== String(date) ||
+      String(payload.revision || '') !== String(revision)) {
+    throw new Error('Attendance JSON identifiers do not match its sheet row for ' + classId + ' on ' + date + '.');
+  }
+  if (!payload.classInfo || String(payload.classInfo.id || '') !== String(classId)) {
+    throw new Error('Attendance JSON has invalid class information for ' + classId + ' on ' + date + '.');
+  }
+  const seen = {};
+  payload.records.forEach(function(record) {
+    const studentId = String(record && record.studentId || '');
+    const attendance = String(record && record.attendance || '');
+    const participation = Number(record && record.participation);
+    const studentName = String(record && record.studentName || '');
+    const note = String(record && record.note || '');
+    if (!studentId || !studentName || studentName.length > 120 || note.length > 300 || seen[studentId] ||
+        (attendance !== 'present' && attendance !== 'absent') ||
+        !Number.isInteger(participation) || participation < -1 || participation > 1 ||
+        (attendance === 'absent' && participation !== 0)) {
+      throw new Error('Attendance JSON contains an invalid student record for ' + classId + ' on ' + date + '.');
+    }
+    seen[studentId] = true;
+    record.studentId = studentId;
+    record.studentName = studentName;
+    record.attendance = attendance;
+    record.participation = participation;
+    record.note = note;
+  });
+  return payload;
 }
 
 function ensureTab_(spreadsheet, name, headers) {
@@ -468,6 +543,14 @@ function text_(value, label, max, required) {
   if (result.length > max) throw new Error(label + ' is too long.');
   if (/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/.test(result)) throw new Error(label + ' contains unsupported characters.');
   return /^[=+\-@]/.test(result) ? "'" + result : result;
+}
+
+function jsonText_(value, label, max, required) {
+  const result = String(value == null ? '' : value).trim();
+  if (required && !result) throw new Error(label + ' is required.');
+  if (result.length > max) throw new Error(label + ' is too long.');
+  if (/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/.test(result)) throw new Error(label + ' contains unsupported characters.');
+  return result;
 }
 
 function time_(value, label) {
