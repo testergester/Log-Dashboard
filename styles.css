@@ -127,6 +127,10 @@ input::placeholder, textarea::placeholder { color: #8b99a9; }
 .status-pill.current { color: #176044; background: #dcf4e9; }
 .status-pill.next { color: #2154a6; background: #e5efff; }
 .status-pill.logged { color: #7254a5; background: #efe8fa; }
+.status-pill.status-done { color: #176044; background: #dcf4e9; }
+.status-pill.status-skipped { color: #7254a5; background: #efe8fa; }
+.status-pill.status-late { color: #8a5a14; background: #fff1cf; }
+.status-pill.status-cancelled { color: #97343a; background: #ffe5e5; }
 .week-list { display: grid; gap: .15rem; }
 .week-section { padding: .45rem .3rem; }
 .week-section + .week-section { border-top: 1px solid var(--line); }
@@ -146,6 +150,20 @@ input::placeholder, textarea::placeholder { color: #8b99a9; }
 .lesson-context strong, .lesson-context span { display: block; }
 .lesson-context strong { color: var(--navy); }
 .lesson-context span { color: var(--muted); font-size: .8rem; }
+.record-fieldset { margin: 0 0 1.15rem; padding: 0; border: 0; }
+.record-fieldset legend { margin-bottom: .65rem; color: var(--navy); font-size: .88rem; font-weight: 700; }
+.record-options { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .4rem; }
+.record-options label { min-width: 0; cursor: pointer; }
+.record-options input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.record-options span {
+  display: grid; place-items: center; min-height: 44px; padding: .45rem .35rem;
+  border: 1px solid var(--line); border-radius: 10px; color: var(--navy);
+  font-size: .82rem; font-weight: 750; text-align: center;
+}
+.record-options input:checked + span { border-color: var(--blue); background: var(--blue-pale); box-shadow: 0 0 0 1px var(--blue); }
+.record-options input:focus-visible + span { outline: 3px solid #78a6ec; outline-offset: 2px; }
+.custom-type-wrap { margin-top: .65rem; }
+.custom-type-wrap label { display: block; margin-bottom: .35rem; }
 .field-label { display: block; margin-bottom: .5rem; }
 .rating-fieldset { margin: 1.35rem 0; padding: 0; border: 0; }
 .rating-fieldset legend { margin-bottom: .65rem; color: var(--navy); font-size: .88rem; font-weight: 700; }
@@ -281,6 +299,7 @@ dialog::backdrop { background: #13284a8c; }
   .student-note-wrap { font-size: .76rem; font-weight: 800; }
   .student-note { min-height: 88px; margin-top: .35rem; font-size: .9rem; font-weight: 400; }
   .rating-options { gap: .25rem; }
+  .record-options { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .rating-options span { min-height: 60px; }
   .rating-options small { font-size: .75rem; }
 }
