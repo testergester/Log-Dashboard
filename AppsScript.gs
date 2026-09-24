@@ -28,7 +28,7 @@ const DASHBOARD = Object.freeze({
   checklists: 'AttendanceChecklists',
   studentRecords: 'StudentMeetingRecords',
   timetableHeaders: ['Class ID', 'Class name', 'Subject', 'Weekday', 'Start time', 'End time', 'Room', 'Active', 'Updated at'],
-  logHeaders: ['Class ID', 'Lesson date', 'Class name', 'Subject', 'Start time', 'End time', 'Room', 'Notes', 'Rating', 'Updated at'],
+  logHeaders: ['Class ID', 'Lesson date', 'Class name', 'Subject', 'Start time', 'End time', 'Room', 'Notes', 'Rating', 'Updated at', 'Lesson type', 'Lesson status'],
   studentHeaders: ['Student ID', 'Name', 'Updated at'],
   enrollmentHeaders: ['Class ID', 'Student ID', 'Joined on', 'Left on', 'Active', 'Updated at'],
   checklistHeaders: ['Class ID', 'Lesson date', 'Revision', 'Updated at'],
@@ -149,7 +149,7 @@ function loadDashboard_() {
     return {id: row[0], name: row[1], subject: row[2], weekday: Number(row[3]), start: row[4], end: row[5], room: row[6], active: String(row[7]).toLowerCase() !== 'false', updatedAt: row[8]};
   }).filter(function(item) { return item.id; });
   const logs = rowsWithDates_(spreadsheet.getSheetByName(DASHBOARD.logs), [1]).map(function(row) {
-    return {classId: row[0], date: row[1], className: row[2], subject: row[3], start: row[4], end: row[5], room: row[6], notes: row[7], rating: Number(row[8]) || null, updatedAt: row[9]};
+    return {classId: row[0], date: row[1], className: row[2], subject: row[3], start: row[4], end: row[5], room: row[6], notes: row[7], rating: Number(row[8]) || null, updatedAt: row[9], lessonType: row[10] || 'Lesson', lessonStatus: row[11] || 'Done'};
   }).filter(function(item) { return item.classId && item.date; });
   const students = rows_(spreadsheet.getSheetByName(DASHBOARD.students)).map(function(row) {
     return {id: row[0], name: row[1], updatedAt: row[2]};
@@ -222,7 +222,9 @@ function saveLog_(request) {
   const notes = text_(input.notes, 'Notes', 5000, false);
   const rating = input.rating === null || input.rating === undefined || input.rating === '' ? '' : Number(input.rating);
   if (rating !== '' && (!Number.isInteger(rating) || rating < 1 || rating > 5)) throw new Error('Choose a rating from 1 to 5.');
-  if (!notes && rating === '') throw new Error('Write a note or choose a rating before saving.');
+  const lessonType = text_(input.lessonType || 'Lesson', 'Lesson type', 60, true);
+  const lessonStatus = text_(input.lessonStatus || 'Done', 'Lesson status', 20, true);
+  if (['Done', 'Skipped', 'Late', 'Cancelled'].indexOf(lessonStatus) === -1) throw new Error('Choose a valid lesson status.');
   const lock = LockService.getScriptLock();
   lock.waitLock(30000);
   try {
@@ -236,7 +238,7 @@ function saveLog_(request) {
     if (!rowNumber && String(classRow[7]).toLowerCase() === 'false') throw new Error('Cannot create a new log for an archived class.');
     if (!rowNumber && Number(classRow[3]) !== weekdayOf_(date)) throw new Error('This class is not scheduled for that weekday.');
     const previous = rowNumber ? logSheet.getRange(rowNumber, 1, 1, DASHBOARD.logHeaders.length).getDisplayValues()[0] : null;
-    const row = [classId, date, previous ? previous[2] : classRow[1], previous ? previous[3] : classRow[2], previous ? previous[4] : classRow[4], previous ? previous[5] : classRow[5], previous ? previous[6] : classRow[6], notes, rating, timestamp_()];
+    const row = [classId, date, previous ? previous[2] : classRow[1], previous ? previous[3] : classRow[2], previous ? previous[4] : classRow[4], previous ? previous[5] : classRow[5], previous ? previous[6] : classRow[6], notes, rating, timestamp_(), lessonType, lessonStatus];
     if (rowNumber) logSheet.getRange(rowNumber, 1, 1, row.length).setValues([row]);
     else logSheet.appendRow(row);
     return {classId: classId, date: date, updatedAt: row[9]};
@@ -399,8 +401,18 @@ function ensureTab_(spreadsheet, name, headers) {
     sheet.setFrozenRows(1);
     sheet.getRange(1, 1, 1, headers.length).setFontWeight('bold').setBackground('#dfeaf9');
     sheet.getRange(1, 1, sheet.getMaxRows(), headers.length).setNumberFormat('@');
-  } else if (headers.some(function(header, index) { return existing[index] !== header; })) {
-    throw new Error(name + ' has different column headers. No data was changed on that tab.');
+  } else {
+    let populated = existing.length;
+    while (populated && !existing[populated - 1]) populated--;
+    if (headers.slice(0, populated).some(function(header, index) { return existing[index] !== header; })) {
+      throw new Error(name + ' has different column headers. No data was changed on that tab.');
+    }
+    if (populated < headers.length) {
+      const missing = headers.slice(populated);
+      sheet.getRange(1, populated + 1, 1, missing.length).setValues([missing]);
+      sheet.getRange(1, populated + 1, 1, missing.length).setFontWeight('bold').setBackground('#dfeaf9');
+      sheet.getRange(1, populated + 1, sheet.getMaxRows(), missing.length).setNumberFormat('@');
+    }
   }
 }
 
