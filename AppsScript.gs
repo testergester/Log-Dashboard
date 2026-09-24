@@ -22,6 +22,7 @@ const DASHBOARD = Object.freeze({
   loginLimit: 5,
   hashRounds: 12000,
   timetable: 'Timetable',
+  weeklyView: 'WeeklyView',
   logs: 'LessonLogs',
   students: 'Students',
   enrollments: 'ClassStudents',
@@ -46,6 +47,7 @@ function setupDashboard() {
   ensureTab_(spreadsheet, DASHBOARD.enrollments, DASHBOARD.enrollmentHeaders);
   ensureTab_(spreadsheet, DASHBOARD.checklists, DASHBOARD.checklistHeaders);
   ensureTab_(spreadsheet, DASHBOARD.studentRecords, DASHBOARD.studentRecordHeaders);
+  refreshWeeklyView_(spreadsheet);
 
   const username = (props.getProperty('OWNER_USERNAME') || '').trim();
   const temporaryPassword = props.getProperty('SETUP_PASSWORD');
@@ -206,7 +208,8 @@ function saveClass_(request) {
   if (start >= end) throw new Error('End time must be after start time.');
   const room = text_(item.room, 'Room', 120, false);
   const id = item.id ? String(item.id) : Utilities.getUuid();
-  const sheet = spreadsheet_().getSheetByName(DASHBOARD.timetable);
+  const spreadsheet = spreadsheet_();
+  const sheet = spreadsheet.getSheetByName(DASHBOARD.timetable);
   const lock = LockService.getScriptLock();
   lock.waitLock(30000);
   try {
@@ -216,6 +219,7 @@ function saveClass_(request) {
     const row = [id, name, subject, weekday, start, end, room, true, timestamp_()];
     if (rowNumber) sheet.getRange(rowNumber, 1, 1, row.length).setValues([row]);
     else sheet.appendRow(row);
+    refreshWeeklyView_(spreadsheet);
     return {id: id};
   } finally {
     lock.releaseLock();
@@ -225,13 +229,15 @@ function saveClass_(request) {
 function archiveClass_(request) {
   const id = String(request.classId || '');
   if (!id) throw new Error('Class ID is required.');
-  const sheet = spreadsheet_().getSheetByName(DASHBOARD.timetable);
+  const spreadsheet = spreadsheet_();
+  const sheet = spreadsheet.getSheetByName(DASHBOARD.timetable);
   const lock = LockService.getScriptLock();
   lock.waitLock(30000);
   try {
     const rowNumber = findRow_(sheet, function(row) { return row[0] === id; });
     if (!rowNumber) throw new Error('Class no longer exists. Reload the dashboard.');
     sheet.getRange(rowNumber, 8, 1, 2).setValues([[false, timestamp_()]]);
+    refreshWeeklyView_(spreadsheet);
     return {id: id, archived: true};
   } finally {
     lock.releaseLock();
@@ -494,6 +500,87 @@ function sameChecklistRecords_(left, right) {
       Number(previous.participation) === Number(record.participation) &&
       String(previous.note || '') === String(record.note || '');
   });
+}
+
+/**
+ * Keeps the generated Monday-Friday view current when the source timetable is
+ * edited directly. Dashboard writes call refreshWeeklyView_ themselves because
+ * Apps Script edits do not fire simple onEdit triggers.
+ */
+function onEdit(e) {
+  if (!e || !e.range || e.range.getSheet().getName() !== DASHBOARD.timetable) return;
+  if (e.range.getLastRow() < 2 || e.range.getColumn() > DASHBOARD.timetableHeaders.length) return;
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(5000)) return;
+  try {
+    refreshWeeklyView_(e.source);
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function refreshWeeklyView_(spreadsheet) {
+  const source = spreadsheet.getSheetByName(DASHBOARD.timetable);
+  if (!source) return;
+  let view = spreadsheet.getSheetByName(DASHBOARD.weeklyView);
+  if (!view) view = spreadsheet.insertSheet(DASHBOARD.weeklyView);
+
+  const classes = rows_(source).map(function(row) {
+    return {name: row[1], subject: row[2], weekday: Number(row[3]), start: row[4], end: row[5],
+      room: row[6], active: String(row[7]).toLowerCase() !== 'false'};
+  }).filter(function(item) {
+    return item.active && item.name && item.weekday >= 1 && item.weekday <= 5 &&
+      /^([01]\d|2[0-3]):[0-5]\d$/.test(item.start) && /^([01]\d|2[0-3]):[0-5]\d$/.test(item.end);
+  });
+  const periodsByKey = {};
+  classes.forEach(function(item) {
+    periodsByKey[item.start + '|' + item.end] = {start: item.start, end: item.end};
+  });
+  const periods = Object.keys(periodsByKey).map(function(key) { return periodsByKey[key]; }).sort(function(left, right) {
+    return left.start.localeCompare(right.start) || left.end.localeCompare(right.end);
+  });
+  const headers = ['Beginning', 'End', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+  const values = [headers].concat(periods.map(function(period) {
+    const row = [period.start, period.end];
+    for (let weekday = 1; weekday <= 5; weekday++) {
+      const matching = classes.filter(function(item) {
+        return item.weekday === weekday && item.start === period.start && item.end === period.end;
+      });
+      row.push(matching.length ? matching.map(weeklyViewClassText_).join('\n\n') : 'Free');
+    }
+    return row;
+  }));
+
+  view.clear();
+  view.getRange(1, 1, values.length, headers.length).setValues(values);
+  view.setFrozenRows(1);
+  view.setFrozenColumns(2);
+  view.setColumnWidths(1, 2, 90);
+  view.setColumnWidths(3, 5, 190);
+  view.setRowHeight(1, 42);
+  if (periods.length) view.setRowHeights(2, periods.length, 78);
+  const all = view.getRange(1, 1, values.length, headers.length);
+  all.setVerticalAlignment('middle').setHorizontalAlignment('center').setWrap(true)
+    .setBorder(true, true, true, true, true, true, '#d7dfeb', SpreadsheetApp.BorderStyle.SOLID);
+  view.getRange(1, 1, 1, headers.length).setFontWeight('bold').setFontColor('#ffffff').setBackground('#1b4ca1');
+  if (periods.length) {
+    view.getRange(2, 1, periods.length, 2).setFontWeight('bold').setBackground('#eef2f7');
+    for (let rowIndex = 0; rowIndex < periods.length; rowIndex++) {
+      for (let column = 3; column <= 7; column++) {
+        const cell = view.getRange(rowIndex + 2, column);
+        const free = values[rowIndex + 1][column - 1] === 'Free';
+        cell.setBackground(free ? '#e1f5e9' : '#f5e95a')
+          .setFontColor(free ? '#277052' : '#27320c')
+          .setFontWeight(free ? 'bold' : 'normal');
+      }
+    }
+  }
+  view.getRange('A1').setNote('Generated from Timetable. Edit the Timetable tab rather than this view.');
+  view.setTabColor('#1b4ca1');
+}
+
+function weeklyViewClassText_(item) {
+  return [item.name, item.subject, item.room ? 'Room ' + item.room : ''].filter(Boolean).join('\n');
 }
 
 function ensureTab_(spreadsheet, name, headers) {
