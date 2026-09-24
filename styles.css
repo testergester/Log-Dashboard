@@ -131,12 +131,38 @@ input::placeholder, textarea::placeholder { color: #8b99a9; }
 .status-pill.status-skipped { color: #7254a5; background: #efe8fa; }
 .status-pill.status-late { color: #8a5a14; background: #fff1cf; }
 .status-pill.status-cancelled { color: #97343a; background: #ffe5e5; }
-.week-list { display: grid; gap: .15rem; }
-.week-section { padding: .45rem .3rem; }
-.week-section + .week-section { border-top: 1px solid var(--line); }
-.week-section-heading { display: flex; justify-content: space-between; padding: .55rem .7rem; color: var(--navy); font-size: .86rem; font-weight: 800; }
-.week-section-heading span { color: var(--muted); font-weight: 500; }
-.week-section .schedule-card { padding: .7rem; }
+.week-grid-wrap { overflow-x: auto; padding: 0; }
+.week-grid {
+  display: grid; grid-template-columns: 90px 90px repeat(5, minmax(170px, 1fr));
+  min-width: 1030px; background: var(--line); gap: 1px;
+}
+.week-grid-heading, .week-time, .week-grid-cell { background: white; }
+.week-grid-heading {
+  position: sticky; top: 0; z-index: 3; display: grid; place-items: center;
+  min-height: 62px; padding: .65rem; color: var(--navy); font-size: .86rem;
+  font-weight: 800; text-align: center;
+}
+.week-grid-heading.is-today { color: var(--blue); background: #edf4ff; }
+.week-grid-heading.time-heading { z-index: 5; }
+.week-grid-heading.start-heading, .week-time.start-time { position: sticky; left: 0; }
+.week-grid-heading.end-heading, .week-time.end-time { position: sticky; left: 90px; }
+.week-time {
+  z-index: 2; display: grid; place-items: center; min-height: 94px; padding: .65rem;
+  color: var(--navy); font-size: .9rem; font-weight: 800;
+}
+.week-grid-cell { min-height: 94px; padding: .38rem; background: #edf8f2; }
+.week-grid-cell.is-today { box-shadow: inset 0 0 0 2px #b8cef2; }
+.week-grid-cell.is-occupied { display: grid; gap: .35rem; background: #fff7bf; }
+.week-class-button, .week-free-button {
+  width: 100%; min-height: 100%; border: 0; border-radius: 8px; text-align: left;
+}
+.week-class-button { padding: .65rem; color: #27320c; background: #f5e95a; }
+.week-class-button:hover { background: #ecdd35; }
+.week-class-button strong, .week-class-button span { display: block; }
+.week-class-button strong { font-size: .94rem; }
+.week-class-button span { margin-top: .18rem; font-size: .76rem; line-height: 1.3; }
+.week-free-button { display: grid; place-items: center; padding: .65rem; color: #277052; background: #e1f5e9; font-weight: 800; text-align: center; }
+.week-free-button:hover { background: #ccebd9; }
 .empty-state { padding: 3rem 1rem; text-align: center; color: var(--muted); }
 .empty-state strong { display: block; margin-bottom: .3rem; color: var(--navy); font-size: 1rem; }
 .empty-state p { margin-bottom: 0; font-size: .88rem; }
@@ -261,6 +287,10 @@ dialog::backdrop { background: #13284a8c; }
   .week-day { min-height: 64px; padding: .4rem 0; }
   .week-day .day-name { font-size: .75rem; }
   .week-day .day-count { display: none; }
+  .week-grid { grid-template-columns: 72px 72px repeat(5, 150px); min-width: 894px; }
+  .week-grid-heading.end-heading, .week-time.end-time { left: 72px; }
+  .week-grid-heading { min-height: 55px; padding: .45rem; font-size: .78rem; }
+  .week-time, .week-grid-cell { min-height: 88px; }
   .schedule-card { grid-template-columns: 65px minmax(0, 1fr); gap: .55rem; }
   .status-pill { grid-column: 2; justify-self: start; }
   .surface-heading, #lesson-form { padding-inline: 1rem; }
