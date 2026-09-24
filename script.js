@@ -1100,7 +1100,7 @@ $("#checklist-form").addEventListener("submit", async event => {
   const key = checklistKey();
   const records = readChecklistForm();
   if (!records.length) return;
-  const checklist = {classId: state.selectedClassId, date: state.selectedDate, records};
+  const checklist = {schemaVersion: 1, classId: state.selectedClassId, date: state.selectedDate, records};
   state.pending = true;
   $("#save-checklist-button").disabled = true;
   $("#save-checklist-button").textContent = "Saving…";
