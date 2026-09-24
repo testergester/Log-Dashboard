@@ -158,12 +158,18 @@ function loadDashboard_() {
     return {classId: row[0], studentId: row[1], joinedOn: row[2], leftOn: row[3],
       active: String(row[4]).toLowerCase() !== 'false'};
   }).filter(function(item) { return item.classId && item.studentId; });
-  const checklists = rowsWithDates_(spreadsheet.getSheetByName(DASHBOARD.checklists), [1]).map(function(row) {
+  const checklistByMeeting = {};
+  rowsWithDates_(spreadsheet.getSheetByName(DASHBOARD.checklists), [1]).map(function(row) {
     const payload = row[4] ? parseChecklistJson_(row[4], row[0], row[1], row[2]) : null;
     return {classId: row[0], date: row[1], revision: row[2], updatedAt: row[3],
       storage: payload ? 'json-v1' : 'legacy-rows', recordCount: payload ? payload.records.length : null,
       classInfo: payload ? payload.classInfo : null, records: payload ? payload.records : null};
-  }).filter(function(item) { return item.classId && item.date && item.revision; });
+  }).filter(function(item) { return item.classId && item.date && item.revision; }).forEach(function(item) {
+    // A class can have only one attendance record per date. If historical
+    // duplicates exist, expose only the last row until it is next corrected.
+    checklistByMeeting[item.classId + '|' + item.date] = item;
+  });
+  const checklists = Object.keys(checklistByMeeting).map(function(key) { return checklistByMeeting[key]; });
   const current = {};
   checklists.forEach(function(item) { current[item.classId + '|' + item.date] = item.revision; });
   const legacyStudentRecords = rowsWithDates_(spreadsheet.getSheetByName(DASHBOARD.studentRecords), [1]).filter(function(row) {
@@ -234,7 +240,7 @@ function archiveClass_(request) {
 
 function saveLog_(request) {
   const input = request.log || {};
-  const classId = String(input.classId || '');
+  const classId = String(input.classId || '').trim();
   const date = date_(input.date);
   const notes = text_(input.notes, 'Notes', 5000, false);
   const rating = input.rating === null || input.rating === undefined || input.rating === '' ? '' : Number(input.rating);
@@ -366,7 +372,11 @@ function saveChecklist_(request) {
     if (!classRowNumber) throw new Error('Class no longer exists. Reload the dashboard.');
     const classRow = classSheet.getRange(classRowNumber, 1, 1, DASHBOARD.timetableHeaders.length).getDisplayValues()[0];
     const checklistSheet = spreadsheet.getSheetByName(DASHBOARD.checklists);
-    const checklistRowNumber = findDateRow_(checklistSheet, classId, date);
+    const checklistRowNumbers = findDateRows_(checklistSheet, classId, date);
+    // Use the last matching row as the canonical record. A locked re-check
+    // makes simultaneous or repeated submissions update instead of append.
+    const checklistRowNumber = checklistRowNumbers.length
+      ? checklistRowNumbers[checklistRowNumbers.length - 1] : 0;
     if (!checklistRowNumber && String(classRow[7]).toLowerCase() === 'false') throw new Error('Cannot start a checklist for an archived class.');
     // The dashboard controls which meetings can be opened. Do not reject a
     // correction merely because the weekly timetable was edited afterwards.
@@ -412,6 +422,11 @@ function saveChecklist_(request) {
           attendance: item.attendance, participation: item.participation, note: item.note};
       })
     };
+    if (previousPayload && sameChecklistRecords_(previousPayload.records, payload.records)) {
+      return {classId: classId, date: date, revision: previousPayload.revision,
+        updatedAt: previousPayload.updatedAt, storage: 'json-v1',
+        recordCount: previousPayload.records.length, unchanged: true, checklist: previousPayload};
+    }
     const json = JSON.stringify(payload);
     if (json.length > 45000) throw new Error('This checklist is too large to store in one JSON cell. Shorten student notes and try again.');
     // One meeting occupies one row. Corrections replace this JSON cell instead
@@ -465,6 +480,19 @@ function parseChecklistJson_(value, classId, date, revision) {
     record.note = note;
   });
   return payload;
+}
+
+function sameChecklistRecords_(left, right) {
+  if (!left || left.length !== right.length) return false;
+  const byStudent = {};
+  left.forEach(function(record) { byStudent[record.studentId] = record; });
+  return right.every(function(record) {
+    const previous = byStudent[record.studentId];
+    return previous && previous.studentName === record.studentName &&
+      previous.attendance === record.attendance &&
+      Number(previous.participation) === Number(record.participation) &&
+      String(previous.note || '') === String(record.note || '');
+  });
 }
 
 function ensureTab_(spreadsheet, name, headers) {
@@ -524,11 +552,17 @@ function sheetDate_(value) {
 }
 
 function findDateRow_(sheet, classId, date) {
+  const matches = findDateRows_(sheet, classId, date);
+  return matches.length ? matches[0] : 0;
+}
+
+function findDateRows_(sheet, classId, date) {
   const data = rowsWithDates_(sheet, [1]);
+  const matches = [];
   for (let index = 0; index < data.length; index++) {
-    if (data[index][0] === classId && data[index][1] === date) return index + 2;
+    if (String(data[index][0]).trim() === String(classId).trim() && data[index][1] === date) matches.push(index + 2);
   }
-  return 0;
+  return matches;
 }
 
 function findRow_(sheet, match) {
