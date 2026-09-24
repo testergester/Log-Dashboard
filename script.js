@@ -488,6 +488,16 @@ function saveChecklistDraft() {
     ? savedChecklist() ? "Saved " + savedChecklist().updatedAt : "Not saved yet"
     : "Unsaved changes";
   $("#checklist-status").classList.remove("error");
+  updateChecklistSaveButton();
+}
+
+function updateChecklistSaveButton() {
+  const button = $("#save-checklist-button");
+  if (!button) return;
+  const hasRows = Boolean($("#student-list")?.querySelector(".student-row"));
+  const unchanged = Boolean(savedChecklist()) && !state.checklistDrafts.has(checklistKey());
+  button.disabled = state.pending || !hasRows || unchanged;
+  button.textContent = unchanged ? "Checklist saved" : state.pending ? "Saving…" : "Save checklist";
 }
 
 function updateChecklistStats() {
@@ -1119,8 +1129,7 @@ $("#checklist-form").addEventListener("submit", async event => {
     }
   } finally {
     state.pending = false;
-    $("#save-checklist-button").disabled = false;
-    $("#save-checklist-button").textContent = "Save checklist";
+    updateChecklistSaveButton();
   }
 });
 
