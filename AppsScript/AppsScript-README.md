@@ -21,6 +21,6 @@ Sessions now expire 24 hours after sign-in. Existing sessions from older deploym
 
 After updating the website and backend together, saves update the dashboard from the confirmed response instead of loading every record again. If a checklist was changed in another browser or device, its save is rejected and the user's unsaved edits remain visible until they reload and reconcile them.
 
-Run the local regression checks with the bundled Node.js runtime: `node tests/regression.test.js`.
+The frontend now uses Vite and ES modules. See [frontend setup](../README.md) for development, runtime connection configuration, and production builds. Run local regression checks from the project root with `pnpm test`. Phase One changes only the frontend structure; no Apps Script setup, redeployment, or production data changes are required for it.
 
 `AppsScript.full-backup.txt` is an unchanged copy of the original, complete script. Keep it outside the Apps Script project while using the split files; adding it alongside them would define every function twice. To restore the original, remove the split `.gs` files from the Apps Script project, create one `AppsScript.gs` file with the backup's contents, then deploy a new web app version.

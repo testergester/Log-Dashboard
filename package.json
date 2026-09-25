@@ -1,0 +1,23 @@
+{
+  "name": "teaching-dashboard",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@11.19.0",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "vite build",
+    "preview": "vite preview --host 127.0.0.1",
+    "test": "node --experimental-vm-modules tests/regression.test.cjs && node --test tests/*.test.js",
+    "test:db": "node --test tests/database.test.js",
+    "test:frontend": "node --experimental-vm-modules tests/regression.test.cjs && node --test tests/data-access.test.js"
+  },
+  "devDependencies": {
+    "vite": "^7.0.0",
+    "jsdom": "^27.0.0",
+    "@electric-sql/pglite": "^0.3.0"
+  }
+}
