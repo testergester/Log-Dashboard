@@ -363,29 +363,39 @@ function renderWeekGrid(container, dates) {
   grid.setAttribute("role", "grid");
   grid.setAttribute("aria-label", "Monday to Friday timetable");
 
+  const headerRow = document.createElement("div");
+  headerRow.className = "week-grid-row";
+  headerRow.setAttribute("role", "row");
   const startHeading = weekGridHeading("Beginning", "time-heading start-heading");
   const endHeading = weekGridHeading("End", "time-heading end-heading");
-  grid.append(startHeading, endHeading);
+  headerRow.append(startHeading, endHeading);
   const today = todayInTashkent();
   dates.forEach(date => {
     const heading = weekGridHeading(formatDate(date, {weekday: "long", month: "short", day: "numeric"}), "day-heading");
     heading.classList.toggle("is-today", date === today);
-    grid.append(heading);
+    headerRow.append(heading);
   });
+  grid.append(headerRow);
 
   orderedPeriods.forEach(period => {
+    const row = document.createElement("div");
+    row.className = "week-grid-row";
+    row.setAttribute("role", "row");
     const start = document.createElement("div");
     start.className = "week-time start-time";
+    start.setAttribute("role", "rowheader");
     start.textContent = period.start;
     const end = document.createElement("div");
     end.className = "week-time end-time";
+    end.setAttribute("role", "rowheader");
     end.textContent = period.end;
-    grid.append(start, end);
+    row.append(start, end);
     dates.forEach((date, dayIndex) => {
       const items = activeClassesOn(date).filter(item => item.start === period.start && item.end === period.end)
         .sort((left, right) => String(left.name).localeCompare(String(right.name)));
       const cell = document.createElement("div");
       cell.className = "week-grid-cell";
+      cell.setAttribute("role", "gridcell");
       cell.classList.toggle("is-today", date === today);
       if (items.length) {
         cell.classList.add("is-occupied");
@@ -401,8 +411,9 @@ function renderWeekGrid(container, dates) {
         }));
         cell.append(free);
       }
-      grid.append(cell);
+      row.append(cell);
     });
+    grid.append(row);
   });
   container.append(grid);
 }
