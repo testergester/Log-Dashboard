@@ -13,11 +13,18 @@
     "preview": "vite preview --host 127.0.0.1",
     "test": "node --experimental-vm-modules tests/regression.test.cjs && node --test tests/*.test.js",
     "test:db": "node --test tests/database.test.js",
-    "test:frontend": "node --experimental-vm-modules tests/regression.test.cjs && node --test tests/data-access.test.js"
+    "test:frontend": "node --experimental-vm-modules tests/regression.test.cjs && node --test tests/data-access.test.js tests/auth*.test.js",
+    "dev:legacy": "vite --config vite.legacy.config.js",
+    "build:legacy": "vite build --config vite.legacy.config.js",
+    "preview:legacy": "vite preview --config vite.legacy.config.js",
+    "test:auth": "node --test tests/auth*.test.js"
   },
   "devDependencies": {
-    "vite": "^7.0.0",
+    "@electric-sql/pglite": "^0.3.0",
     "jsdom": "^27.0.0",
-    "@electric-sql/pglite": "^0.3.0"
+    "vite": "^7.0.0"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "2.117.1"
   }
 }

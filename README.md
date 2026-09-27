@@ -1,85 +1,64 @@
 # Teaching dashboard
 
-A vanilla JavaScript teaching timetable, lesson log, and student attendance dashboard. Phase One introduced Vite and frontend modules. Phase Two adds a tested Supabase database foundation in [`supabase/`](supabase/README.md); the active frontend still uses the existing Apps Script backend and interface.
+A private teaching workspace built with vanilla JavaScript, Vite, and Supabase. Phase 3 implements **passwordless email-link signup and sign-in**, workspace onboarding, session restoration, and account settings. The owner chose email links on September 26, 2026, replacing the original Google-only plan.
 
-## Local setup
+Group creation and student import are visible but disabled until their planned phases. The existing Apps Script dashboard is preserved separately in [`legacy/`](legacy/README.md).
 
-Use Node.js 22.12+ (Node 24 LTS recommended) and pnpm 11.19.0. Install pnpm with `npm install --global pnpm@11.19.0` if needed.
+## Run locally
+
+Use Node.js 22.12+ and pnpm 11.19.0.
 
 ```sh
 pnpm install --frozen-lockfile
+cp .env.example .env.local
+# Fill in the public Supabase Project URL and publishable key.
 pnpm dev
 ```
 
-Open the local URL printed by Vite. Use the existing Apps Script credentials to sign in. For read-only inspection, stay on the sign-in page; saving while signed in still writes to the configured backend.
+Open **http://127.0.0.1:5173/**. The configured project must have the [database migrations](supabase/README.md) applied and the [email authentication setup](docs/email-auth-setup.md) completed.
 
 ```sh
-pnpm test      # All frontend, legacy backend, adapter, and PostgreSQL database tests
-pnpm test:db   # Recreate migrations and test database rules in embedded PostgreSQL
-pnpm build     # Build static assets into dist/
-pnpm preview   # Serve the production build locally
+pnpm test           # Legacy regressions, both adapters/auth, PostgreSQL rules
+pnpm test:auth      # Auth transitions, UI, and Supabase request contracts
+pnpm test:db        # Migrations, ownership, revisions, transaction rollback
+pnpm build         # New product → dist/
+pnpm preview       # http://127.0.0.1:4173/
+pnpm dev:legacy     # Preserved Apps Script app → http://127.0.0.1:5174/
+pnpm build:legacy   # Preserved app → dist-legacy/
+pnpm preview:legacy # http://127.0.0.1:4174/
 ```
 
-The committed `pnpm-lock.yaml` pins dependencies. `pnpm-workspace.yaml` permits only esbuild's required installation script. Tests use Node's experimental VM module support to load the real ES module graph in an isolated DOM; the corresponding Node warning is expected. Frontend tests mock backend responses and never contact Apps Script. Database tests use embedded PostgreSQL with test-only identities; see [database setup and contracts](supabase/README.md).
+Ports are fixed so callback allow-list entries stay exact. Use the same hostname, port, and browser to request and open a sign-in link. `localhost` and `127.0.0.1` are different browser origins.
 
-Deploy the **contents of `dist/`** to a static host after building. Relative asset paths support hosting under a subdirectory. Opening `index.html` as a local file or publishing the unbuilt source is no longer the supported workflow. No backend deployment is required for Phase One.
+## Configuration and deployment
 
-## Runtime configuration
+Set `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` in ignored `.env.local`, or set `supabaseUrl` and `supabasePublishableKey` in `public/config.js`. Non-empty runtime settings take precedence. Vite copies that public file unchanged to `dist/config.js`.
 
-Edit `public/config.js` before building. Vite copies it unchanged to `dist/config.js`, which can also be edited after building without recompiling JavaScript.
+Only public browser keys belong here. A legacy `anon` JWT also works. Never include a service-role/secret key, database password, or SMTP credential. Environment values prefixed `VITE_` are included in the browser bundle. The frontend validates public key types, but this is not a substitute for keeping secrets out of configuration.
 
-- `appsScriptEndpoint`: the deployed HTTPS Apps Script `/exec` URL. The existing endpoint is retained to preserve behavior. Use an empty string to require connection setup on first use.
-- `timezone`: defaults to `Asia/Tashkent`. Keep this aligned with the existing backend's timezone; this phase does not introduce per-account timezone settings.
+Deploy only the contents of `dist/`. The root static page handles `?code=` callbacks without a server-side route. For subdirectory deployment, add that exact path, including the trailing slash, to the Supabase redirect allow list. No query-string `next` or external redirect target is honored. See [email setup](docs/email-auth-setup.md) before deployment.
 
-Configuration is public. Never place passwords, session tokens, or privileged keys in this file. An endpoint previously entered in Settings takes precedence over the configured default. The existing local storage keys for the endpoint and session remain unchanged. To change connections through the UI, sign out, open Settings, and enter the new URL.
+The new build includes no Apps Script login, endpoint setting, or legacy backend transport. The legacy app has its own root, runtime config, and build output; do not mix the two deployment directories.
 
 ## Frontend structure
 
 | File | Responsibility |
 | --- | --- |
-| `src/main.js` | Register feature event handlers and restore the session |
-| `src/config.js`, `public/config.js` | Read public runtime settings; retain app constants |
-| `src/state.js` | Shared application state and confirmed-record upsert helper |
-| `src/auth.js` | Connection settings, login/logout, session restoration and expiry |
-| `src/data/contract.js` | Document the data-access interface |
-| `src/data/index.js` | Select and expose the backend adapter |
-| `src/data/apps-script.js` | Apps Script endpoint validation, transport, request IDs, timeout, and errors |
-| `src/dashboard.js` | Validate loaded data and apply it to application state |
-| `src/scheduling.js` | Date navigation, day/week timetable, class editing and archiving |
-| `src/lesson-records.js` | Lesson editing/saving and previous notes |
-| `src/attendance.js` | Roster rendering, checklist editing/saving, and confirmed attendance updates |
-| `src/students.js` | Student identity, enrollment, creation, renaming, and removal |
-| `src/drafts.js` | Existing in-memory lesson and attendance drafts |
-| `src/reports.js` | Existing student history and scoring summaries |
-| `src/ui.js`, `src/dom.js`, `src/dates.js` | Shared rendering, DOM selection, and date/time helpers |
+| `src/main.js` | Build provider/controller/view and restore session |
+| `src/config.js` | Validate public settings and derive the exact same-origin callback |
+| `src/data/supabase.js` | Supabase SDK boundary: PKCE, email links, verified identity, workspace reads/RPCs |
+| `src/auth.js` | Auth state machine, callback exchange, account isolation, retry-safe workspace writes |
+| `src/view.js` | DOM rendering and event binding; no SDK or network calls |
+| `src/product.css`, `styles.css` | New workspace layout and existing design tokens |
+| `legacy/` | Preserved frontend and Apps Script adapter |
+| `supabase/migrations/` | Versioned database schema, RLS, transactional writes, occurrence reads |
 
-Feature modules register listeners explicitly through `bind…()` functions. They share the existing state object and invoke rendering after changes. Cross-feature function imports are evaluated at startup but called only after initialization. Keep module top-level work free of rendering or network requests; `main.js` owns startup.
+Auth callbacks remove codes/error details from browser history before performing network calls. Private screens open only after Auth verifies the user and workspace reads succeed. A generation guard discards responses from a signed-out or previous account. Auth-event callbacks remain synchronous and defer SDK work to avoid callback lock deadlocks. Sign-out and account switches remove rendered account data immediately.
 
-## Data-access contract
+First use collects a display name and timezone before `ensure_workspace`, which enforces one workspace per owner. Settings use `save_workspace` with the current revision. An uncertain request retries the same operation ID and immutable payload; confirmed writes read back the latest revision. Timezone becomes read-only after schedules exist, with database enforcement as well. Availability of future features does not imply migrated records.
 
-UI modules use `dataAccess` from `src/data/index.js`; they must not call `fetch`, Apps Script transport, or a future Supabase client directly. The adapter reads the current endpoint on each request, preserving Settings behavior.
+## Validation and remaining work
 
-| Method | Input | Confirmed result |
-| --- | --- | --- |
-| `validEndpoint` | URL string | Boolean (synchronous) |
-| `login` | `{username, password}` | Session `{token, expiresAt}` |
-| `logout` | `{token}` | Backend logout acknowledgement |
-| `load` | `{token}` | Classes/logs and, when supported, all four student-data arrays |
-| `saveClass` | `{token, class}` | Saved class with canonical ID and timestamps |
-| `archiveClass` | `{token, classId}` | Archived class ID and timestamp |
-| `saveLog` | `{token, log}` | Saved lesson log including meeting snapshots |
-| `saveStudent` | `{token, student}` | Saved student and optional enrollment |
-| `setEnrollment` | `{token, classId, studentId, active}` | Saved enrollment |
-| `saveChecklist` | `{token, checklist}` | Class/date, new revision, timestamp, and canonical checklist records |
+Automated tests cover new/returning users, replayed or failed callbacks, account switches during requests, expiration, email-delivery failures, retries, settings conflicts, and no private connected state on authentication failure. PostgreSQL tests cover ownership, idempotent workspace creation, revisions, and timezone locking.
 
-Every asynchronous method returns a Promise and rejects with an Error on failure. Payload fields and records retain the existing backend schema (see `AppsScript/`). The adapter does not mutate UI state. Attendance sends the base revision and must preserve server conflict errors. Saves apply the confirmed response without reloading history, and clear a draft only if it still matches the submitted snapshot. Session-expiry error wording remains compatible with the legacy backend.
-
-## Phase One validation and boundaries
-
-`pnpm test` covers the original session expiry, attendance conflict, read-only load, in-flight edits, endpoint override, and no-post-save-reload regressions. Additional checks exercise login, day/week views, prior notes, student history/scoring, failed-save draft preservation, frontend session expiry, and the adapter's wire protocol and error handling.
-
-The Apps Script `.gs` files and backup are unchanged. No production records, deployments, or migrations are changed by this refactor. Local tests use mock responses; authenticated production workflows were not exercised against live records.
-
-Drafts remain in memory and disappear on refresh. Reports remain the existing student history view. The Phase Two Supabase schema and RPCs are available locally, but Supabase frontend integration, Google sign-in, persistent drafts, rescheduling, bulk import, and PDF export belong to later phases.
-
-See [the implementation phases](Ordered%20implementation%20phases%20for%20the%20teaching%20dashboard.md) and [backend setup notes](AppsScript/AppsScript-README.md).
+Hosted email delivery and a real user's link click must also be verified; unit tests cannot prove mail delivery. Supabase's default sender is limited to project-team recipients. Configure custom SMTP before opening signup to other teachers. The existing Apps Script records have not been migrated.

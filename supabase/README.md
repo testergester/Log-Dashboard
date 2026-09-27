@@ -1,6 +1,6 @@
 # Phase Two database foundation
 
-The migrations in this directory define the Supabase PostgreSQL database. The frontend continues to use Apps Script. No Supabase credentials, remote database connection, live data import, or deployment are part of this phase.
+The migrations in this directory define the Supabase PostgreSQL database. Phase 3 now uses these migrations for email-link authentication and workspace onboarding; the Apps Script frontend is preserved in `legacy/`. No legacy records are imported.
 
 ## Recreate and test locally
 
@@ -24,7 +24,7 @@ supabase db reset --local
 
 The reset command **recreates this local database and deletes its existing local data**. It applies the committed migrations to the local PostgreSQL 17 instance configured in `config.toml`. No seed file is enabled. Supabase provides the real `auth.users`, `auth.uid()`, `anon`, and `authenticated` roles; the test-only auth bootstrap must never be deployed. Do not use `--linked` or `db push` as part of these local instructions.
 
-The embedded tests have been run in this workspace. The full Docker/Supabase stack has not been started here because Docker and the Supabase CLI are unavailable. PGlite uses one connection, so it verifies transactional rollback, replay, and stale-revision outcomes but does not simulate simultaneous PostgreSQL connections or Supabase's HTTP/JWT layer. Those integration checks remain necessary when connecting the hosted development project. Google authentication and frontend integration are Phase Three/Four work.
+The embedded tests have been run in this workspace. The full Docker/Supabase stack has not been started here because Docker and the Supabase CLI are unavailable. PGlite uses one connection, so it verifies transactional rollback, replay, and stale-revision outcomes but does not simulate simultaneous PostgreSQL connections or Supabase's HTTP/JWT layer. Those integration checks remain necessary when connecting the hosted development project. Email authentication and workspace integration are Phase Three work; teaching workflows remain Phase Four.
 
 ## Migration order
 
@@ -85,7 +85,7 @@ const { data, error } = await supabase.rpc('dashboard_write', {
 });
 ```
 
-This is an API example for later integration; no Supabase client is added to the active frontend in Phase Two.
+The Phase 3 Supabase adapter uses this RPC for workspace onboarding and settings.
 
 Except `ensure_workspace`, every action requires a workspace owned by the signed-in teacher. Never send an owner ID; ownership comes exclusively from `auth.uid()`. Every mutable entity uses an integer revision: create with `expected_revision: 0`, and update with the last confirmed revision. Entity IDs for creation are generated on the server. Missing IDs for edits do not silently create replacement rows.
 

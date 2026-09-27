@@ -4,7 +4,9 @@ Implement these phases **one at a time, in order**. Each phase should finish wit
 
 This replaces the previous plan with executable phases covering all six selected features.
 
-**Confirmed choices:** Supabase Free, Google sign-in, local autosaved drafts, explicit Save for official records, and rescheduling only meetings without saved notes or attendance.
+**Updated September 26, 2026:** Phase 3 uses passwordless email links at the owner’s request, replacing the original Google-only choice.
+
+**Confirmed choices:** Supabase Free, passwordless email-link sign-in, local autosaved drafts, explicit Save for official records, and rescheduling only meetings without saved notes or attendance.
 
 ## Phase 1 — Prepare the application structure
 
@@ -71,15 +73,15 @@ Create versioned migrations for:
 
 ---
 
-## Phase 3 — Add Google signup and private workspaces
+## Phase 3 — Add email signup and private workspaces
 
 **Goal:** A teacher can join without configuring Apps Script.
 
 **Tasks**
 
-- Add **Continue with Google** using Supabase Auth and PKCE.
-- Implement the OAuth callback and exact redirect configuration.
-- Request basic Google identity scopes only.
+- Add **Email me a sign-in link** using Supabase Auth and PKCE.
+- Implement the email-link callback and exact redirect configuration.
+- Use verified email identity only; no Google account or password is required.
 - On first sign-in, create the workspace idempotently and collect display name and timezone.
 - Default timezone to `Asia/Tashkent`; allow changes before schedules exist.
 - Show first-use actions: **Create your first group** and **Import students**. Keep unavailable actions disabled until their phases ship.
@@ -91,11 +93,11 @@ Create versioned migrations for:
 
 **Completion criteria**
 
-- New and returning Google accounts work.
-- Repeated OAuth callbacks do not create duplicate workspaces.
+- New and returning email accounts work.
+- Repeated email-link callbacks do not create duplicate workspaces.
 - Authentication failure never exposes private content or a misleading connected state.
 - Account switching clears the previous account’s rendered data.
-- No privileged Supabase or Google secrets appear in the browser bundle.
+- No privileged Supabase or SMTP secrets appear in the browser bundle.
 
 ---
 
@@ -273,7 +275,7 @@ Create versioned migrations for:
 - Preserve the source export and legacy app.
 - Stop old-app writes during final cutover; make Supabase the sole writable source.
 - Document rollback reconciliation for any records created after cutover.
-- Deploy the static frontend to Cloudflare Pages and configure production OAuth.
+- Deploy the static frontend to Cloudflare Pages and configure production email redirects and SMTP delivery.
 - Run an owner pilot before opening signup to additional teachers.
 - Document setup, migration, backup export/restore, and free-tier usage monitoring.
 - Log operation IDs and error codes without student names or notes.
@@ -287,4 +289,4 @@ Create versioned migrations for:
 - Keyboard navigation, dialog focus, and mobile layouts work.
 - Database size and free-tier limits have an operational check procedure.
 
-**Scope retained throughout:** one teacher per workspace, English interface, Monday-first weeks, current scoring rules, and Google-only sign-in. Billing, shared teaching, parent/student accounts, gradebooks, and automatic report delivery are excluded.
+**Scope retained throughout:** one teacher per workspace, English interface, Monday-first weeks, current scoring rules, and passwordless email-link sign-in. Billing, shared teaching, parent/student accounts, gradebooks, and automatic report delivery are excluded.

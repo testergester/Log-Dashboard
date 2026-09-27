@@ -9,6 +9,7 @@ node_modules/
 .pnpm-store/
 coverage/
 dist/
+dist-legacy/
 build/
 
 # Editor and operating system files

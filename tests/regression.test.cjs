@@ -12,13 +12,13 @@ for (const name of fs.readdirSync(path.join(root, 'AppsScript')).filter(name => 
 }
 
 async function frontend(storedEndpoint = '') {
-  const dom = new JSDOM(fs.readFileSync(path.join(root, 'index.html'), 'utf8'), {
+  const dom = new JSDOM(fs.readFileSync(path.join(root, 'legacy/index.html'), 'utf8'), {
     url: 'http://localhost/', runScripts: 'outside-only'
   });
   const context = dom.getInternalVMContext();
   const window = dom.window;
   if (storedEndpoint) window.localStorage.setItem('teaching-dashboard-endpoint', storedEndpoint);
-  vm.runInContext(fs.readFileSync(path.join(root, 'public/config.js'), 'utf8'), context);
+  vm.runInContext(fs.readFileSync(path.join(root, 'legacy/public/config.js'), 'utf8'), context);
   window.HTMLDialogElement.prototype.showModal = function () { this.open = true; };
   window.HTMLDialogElement.prototype.close = function () { this.open = false; };
   window.HTMLElement.prototype.scrollIntoView = function () {};
@@ -35,7 +35,7 @@ async function frontend(storedEndpoint = '') {
     ));
     return modules.get(filename);
   }
-  const main = getModule(path.join(root, 'src/main.js'));
+  const main = getModule(path.join(root, 'legacy/src/main.js'));
   await main.link((specifier, parent) => getModule(path.resolve(path.dirname(parent.identifier), specifier)));
   await main.evaluate();
   // Expose module exports only to the test VM; production uses explicit imports.

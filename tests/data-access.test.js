@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { createAppsScriptAdapter } from '../src/data/apps-script.js';
+import { createAppsScriptAdapter } from '../legacy/src/data/apps-script.js';
 
 const endpoint = 'https://script.google.com/macros/s/test/exec';
 const response = (requestId, data) => ({ok: true, type: 'cors', json: async () => ({ok: true, requestId, data})});
