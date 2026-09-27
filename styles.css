@@ -101,8 +101,10 @@ input::placeholder, textarea::placeholder { color: #8b99a9; }
 .group-view-heading { display: flex; align-items: center; gap: 1rem; padding: .5rem 0; }
 .group-view-heading h2 { margin: 0; font-size: 1.55rem; }
 .group-view-heading p:last-child { margin: .15rem 0 0; color: var(--muted); font-size: .87rem; }
-.group-notes-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 1.2rem; align-items: start; }
-.previous-notes-list { max-height: 560px; overflow: auto; padding: .4rem 1.4rem 1.2rem; }
+.group-notes-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 1.2rem; align-items: stretch; }
+.group-notes-grid > .surface { height: 100%; }
+.previous-notes-surface { display: flex; flex-direction: column; min-height: 0; }
+.previous-notes-list { flex: 1; min-height: 0; max-height: 560px; overflow: auto; padding: .4rem 1.4rem 1.2rem; }
 .previous-note { padding: .9rem 0; border-bottom: 1px solid var(--line); }
 .previous-note:last-child { border-bottom: 0; }
 .previous-note-date { color: var(--blue); font-size: .8rem; font-weight: 800; }
@@ -252,6 +254,20 @@ input::placeholder, textarea::placeholder { color: #8b99a9; }
 #new-student-fields label { display: block; margin-bottom: .4rem; }
 dialog { width: min(100% - 2rem, 560px); max-height: min(90vh, 740px); padding: 0; border: 1px solid var(--line); border-radius: 16px; box-shadow: 0 25px 70px #102b5360; }
 dialog::backdrop { background: #13284a8c; }
+.attendance-history-content { padding: 1.35rem; }
+#attendance-history-dialog { width: min(100% - 2rem, 920px); }
+.attendance-history-heading { align-items: center; }
+.attendance-history-heading > div { flex: 1; min-width: 0; }
+.attendance-history-heading h2 { margin: 0; }
+.attendance-history-heading #attendance-history-date { margin: .25rem 0 0; color: var(--muted); font-size: .88rem; }
+.attendance-history-summary { margin: .9rem 0; color: var(--muted); font-size: .88rem; }
+.attendance-history-table-wrap { max-height: min(62vh, 560px); overflow: auto; border: 1px solid var(--line); border-radius: 12px; }
+.attendance-history-table-head, .attendance-history-row { display: grid; grid-template-columns: minmax(140px, 1.1fr) minmax(90px, .7fr) minmax(110px, .75fr) minmax(160px, 1.5fr); align-items: start; gap: .8rem; padding: .75rem 1rem; }
+.attendance-history-table-head { position: sticky; top: 0; z-index: 1; color: var(--muted); background: #f8faff; border-bottom: 1px solid var(--line); font-size: .72rem; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; }
+.attendance-history-row { border-bottom: 1px solid var(--line); font-size: .88rem; }
+.attendance-history-row:last-child { border-bottom: 0; }
+.attendance-history-row strong { color: var(--navy); }
+.attendance-history-row p { margin: 0; color: var(--muted); white-space: pre-wrap; }
 .class-form { display: grid; gap: .45rem; padding: 1.45rem; }
 .dialog-heading { margin-bottom: .7rem; }
 .dialog-heading h2 { margin: 0; font-size: 1.45rem; }
@@ -270,6 +286,7 @@ dialog::backdrop { background: #13284a8c; }
 .dialog-actions .button-danger { margin-right: auto; }
 @media (max-width: 900px) {
   .group-notes-grid { grid-template-columns: 1fr; }
+  .group-notes-grid > .surface { height: auto; }
   .table-scroll-hint { display: block; }
   .student-list-head, .student-row { gap: .5rem; }
   .student-identity, .student-list-head span:first-child { position: sticky; left: 0; z-index: 1; background: white; box-shadow: 8px 0 10px -10px #24395470; }
@@ -306,6 +323,12 @@ dialog::backdrop { background: #13284a8c; }
   .attendance-search-label { flex-basis: 100%; }
   #checklist-status { order: 3; flex: 1 1 100%; margin-left: 0; text-align: left; }
   .group-view-heading { align-items: flex-start; flex-direction: column; }
+  .attendance-history-content { padding: 1rem; }
+  .attendance-history-table-head { display: none; }
+  .attendance-history-row { grid-template-columns: 1fr auto; gap: .35rem .8rem; }
+  .attendance-history-row p { grid-column: 1 / -1; }
+  .attendance-history-heading { gap: .45rem; }
+  .attendance-history-heading .icon-button { flex: 0 0 38px; width: 38px; height: 38px; }
   .table-scroll-hint, .student-list-head { display: none; }
   .attendance-table-scroll { overflow: visible; }
   .student-list { display: grid; gap: .8rem; padding: .8rem 1rem 1rem; }
