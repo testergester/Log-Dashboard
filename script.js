@@ -27,7 +27,9 @@ const state = {
   checklistDrafts: new Map(),
   savingLessonKey: "",
   savingChecklistKey: "",
-  pending: false
+  pending: false,
+  attendanceHistory: [],
+  attendanceHistoryIndex: 0
 };
 
 function todayInTashkent() {
@@ -826,6 +828,54 @@ function renderPreviousNotes() {
   });
 }
 
+function openAttendanceHistory() {
+  state.attendanceHistory = state.checklists
+    .filter(item => item.classId === state.selectedClassId && item.date < state.selectedDate)
+    .sort((a, b) => b.date.localeCompare(a.date));
+  state.attendanceHistoryIndex = 0;
+  renderAttendanceHistory();
+  $("#attendance-history-dialog").showModal();
+}
+
+function renderAttendanceHistory() {
+  const item = state.attendanceHistory[state.attendanceHistoryIndex];
+  const list = $("#attendance-history-list");
+  list.replaceChildren();
+  $("#attendance-history-date").textContent = item
+    ? formatDate(item.date, {weekday: "long", month: "long", day: "numeric", year: "numeric"})
+    : "No previous attendance recorded";
+  $("#attendance-history-summary").textContent = item
+    ? "Saved attendance and student notes from this class. This view is read-only."
+    : "There are no saved attendance checklists before this class yet.";
+  $("#attendance-history-older").disabled = !item || state.attendanceHistoryIndex >= state.attendanceHistory.length - 1;
+  $("#attendance-history-newer").disabled = !item || state.attendanceHistoryIndex === 0;
+  if (!item) return;
+  const records = state.studentRecords.filter(record => record.classId === item.classId && record.date === item.date)
+    .sort((a, b) => studentName(a.studentId).localeCompare(studentName(b.studentId)));
+  if (!records.length) {
+    const empty = document.createElement("p");
+    empty.className = "previous-notes-empty";
+    empty.textContent = "No student details were saved for this class.";
+    list.append(empty);
+    return;
+  }
+  records.forEach(record => {
+    const row = document.createElement("article");
+    row.className = "attendance-history-row";
+    const name = document.createElement("strong");
+    name.textContent = record.studentName || studentName(record.studentId);
+    const attendance = document.createElement("span");
+    attendance.textContent = record.attendance === "absent" ? "Absent" : "Present";
+    const participation = document.createElement("span");
+    const points = Number(record.participation);
+    participation.textContent = record.attendance === "absent" ? "—" : points > 0 ? "+1" : points < 0 ? "−1 (Noise)" : "0";
+    const note = document.createElement("p");
+    note.textContent = record.note || "No note";
+    row.append(name, attendance, participation, note);
+    list.append(row);
+  });
+}
+
 function render() {
   const group = selectedLesson();
   $("#schedule-view").hidden = Boolean(group);
@@ -1021,6 +1071,16 @@ $("#back-to-schedule").addEventListener("click", () => {
   $("#schedule-view").scrollIntoView({behavior: "smooth", block: "start"});
 });
 $("#student-search").addEventListener("input", filterStudentRows);
+$("#previous-attendance-button").addEventListener("click", openAttendanceHistory);
+$("#attendance-history-older").addEventListener("click", () => {
+  if (state.attendanceHistoryIndex < state.attendanceHistory.length - 1) state.attendanceHistoryIndex++;
+  renderAttendanceHistory();
+});
+$("#attendance-history-newer").addEventListener("click", () => {
+  if (state.attendanceHistoryIndex > 0) state.attendanceHistoryIndex--;
+  renderAttendanceHistory();
+});
+$("#close-attendance-history").addEventListener("click", () => $("#attendance-history-dialog").close());
 $("#bulk-attendance-button").addEventListener("click", event => {
   const attendance = event.currentTarget.dataset.attendance === "absent" ? "absent" : "present";
   [...$("#student-list").querySelectorAll(".student-row")].forEach(row => {
