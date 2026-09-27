@@ -175,6 +175,7 @@
           </div>
           <div id="checklist-stats" class="checklist-stats" aria-live="polite"></div>
           <div class="attendance-toolbar">
+            <button type="button" class="button button-quiet" id="previous-attendance-button">Previous class attendance</button>
             <label class="attendance-search-label" for="student-search">Find a student
               <input id="student-search" type="search" placeholder="Search roster…" autocomplete="off">
             </label>
@@ -275,6 +276,21 @@
       <div id="student-history" class="student-history"></div>
       <p class="dialog-error" id="history-error" role="alert" hidden></p>
       <div class="dialog-actions"><button type="button" class="button button-danger" id="remove-student-button">Remove from class</button></div>
+    </div>
+  </dialog>
+  <dialog id="attendance-history-dialog" aria-labelledby="attendance-history-title">
+    <div class="attendance-history-content">
+      <div class="dialog-heading attendance-history-heading">
+        <button type="button" class="icon-button" id="attendance-history-older" aria-label="Show an earlier class">←</button>
+        <div><p class="eyebrow">CLASS HISTORY</p><h2 id="attendance-history-title">Previous class attendance</h2><p id="attendance-history-date"></p></div>
+        <button type="button" class="icon-button" id="attendance-history-newer" aria-label="Show a later class">→</button>
+        <button type="button" class="icon-button close-button" id="close-attendance-history" aria-label="Close">×</button>
+      </div>
+      <p id="attendance-history-summary" class="attendance-history-summary"></p>
+      <div class="attendance-history-table-wrap">
+        <div class="attendance-history-table-head"><span>Student</span><span>Attendance</span><span>Participation</span><span>Note</span></div>
+        <div id="attendance-history-list" class="attendance-history-list"></div>
+      </div>
     </div>
   </dialog>
 </body>
