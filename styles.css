@@ -104,7 +104,7 @@ input::placeholder, textarea::placeholder { color: #8b99a9; }
 .group-view-heading p:last-child { margin: .15rem 0 0; color: var(--muted); font-size: .87rem; }
 .group-notes-grid { display: flex; align-items: stretch; gap: 1.2rem; }
 .group-notes-grid > .surface { flex: 1 1 0; min-width: 0; }
-.previous-notes-surface { display: flex; flex-direction: column; min-height: 0; }
+.previous-notes-surface { display: flex; flex-direction: column; min-height: 0; overflow: clip; }
 .previous-notes-list { flex: 1 1 auto; min-height: 0; overflow: auto; padding: .4rem 1.4rem 1.2rem; background: #fff; }
 @media (min-width: 901px) {
   .previous-notes-surface { height: 833px; }
@@ -229,8 +229,13 @@ input::placeholder, textarea::placeholder { color: #8b99a9; }
 .attendance-toolbar { position: sticky; top: 0; z-index: 2; display: flex; align-items: end; gap: .7rem; padding: .8rem 1.5rem; background: #f8faff; border-block: 1px solid var(--line); }
 .attendance-search-label { flex: 1 1 220px; min-width: 160px; font-size: .78rem; }
 .attendance-search-label input { margin-top: .25rem; }
-#checklist-status { margin-left: auto; color: var(--muted); font-size: .82rem; text-align: right; }
+#bulk-attendance-button[data-attendance="present"] { color: #176044; background: #e7f6ee; border-color: #9cd9bc; }
+#bulk-attendance-button[data-attendance="present"]:hover:not(:disabled) { background: #d8f0e3; }
+#bulk-attendance-button[data-attendance="absent"] { color: #9b292f; background: #fff0f0; border-color: #efb5ba; }
+#bulk-attendance-button[data-attendance="absent"]:hover:not(:disabled) { background: #ffe1e3; }
+#checklist-status { align-self: center; margin-left: auto; color: var(--muted); font-size: .82rem; text-align: right; }
 #checklist-status.error { color: var(--danger); }
+#add-student-button svg { width: 18px; height: 18px; flex: none; }
 .student-list-head, .student-row { display: flex; align-items: center; gap: 1rem; min-width: 760px; padding-inline: 1.5rem; }
 .student-list-head > :nth-child(1), .student-row > .student-identity { flex: 1.35 1 0; min-width: 160px; }
 .student-list-head > :nth-child(2), .student-row > .attendance-group { flex: .85 1 0; min-width: 160px; }
@@ -239,9 +244,12 @@ input::placeholder, textarea::placeholder { color: #8b99a9; }
 .student-list-head { padding-block: .65rem; color: var(--muted); background: #fff; font-size: .72rem; font-weight: 800; text-transform: uppercase; letter-spacing: .07em; }
 .student-row { flex-wrap: wrap; min-height: 80px; padding-block: .8rem; border-top: 1px solid var(--line); }
 .student-row:hover { background: #fbfcff; }
-.student-identity { min-width: 0; }
+.student-identity { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; min-width: 0; }
 .student-name-button { display: block; max-width: 100%; overflow: hidden; padding: 0; border: 0; background: none; color: var(--blue); font-size: .95rem; font-weight: 750; text-align: left; text-decoration: underline; text-overflow: ellipsis; text-underline-offset: 2px; white-space: nowrap; }
-.student-score { display: block; margin-top: .2rem; color: var(--muted); font-size: .76rem; }
+.student-score { display: block; grid-column: 1; margin-top: .2rem; color: var(--muted); font-size: .76rem; }
+.student-delete-button { grid-column: 2; grid-row: 1 / span 2; display: grid; place-items: center; width: 36px; height: 36px; margin-left: .5rem; border: 1px solid transparent; border-radius: 9px; background: transparent; color: #9b3438; }
+.student-delete-button:hover { border-color: #efb5ba; background: #fff0f0; }
+.student-delete-button svg { width: 19px; height: 19px; }
 .choice-group { display: flex; min-width: 0; padding: 3px; border-radius: 10px; background: #eef2f7; }
 .choice-button { flex: 1; min-width: 0; min-height: 38px; padding: .35rem .55rem; border: 0; border-radius: 8px; background: transparent; color: #52647d; font-size: .82rem; font-weight: 750; white-space: nowrap; }
 .choice-button:hover:not(:disabled) { background: #ffffffb5; }
@@ -307,7 +315,7 @@ dialog::backdrop { background: #13284a8c; }
 @media (max-width: 900px) {
   .group-notes-grid { flex-direction: column; }
   .group-notes-grid > .surface { flex: none; }
-  .previous-notes-surface { max-height: 833px; overflow: hidden; }
+  .previous-notes-surface { max-height: 833px; }
   .table-scroll-hint { display: block; }
   .student-list-head, .student-row { gap: .5rem; }
   .student-identity, .student-list-head span:first-child { position: sticky; left: 0; z-index: 1; background: white; box-shadow: 8px 0 10px -10px #24395470; }
