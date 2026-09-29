@@ -57,5 +57,6 @@ function loadDashboard_() {
     }
   });
   return {classes: classes, logs: logs, students: students, archivedStudents: archivedStudents, enrollments: enrollments,
-    checklists: checklists, studentRecords: studentRecords, attendanceStorage: 'json-v1', meetingScheduleVersion: 1, timezone: DASHBOARD.timezone};
+    checklists: checklists, studentRecords: studentRecords, attendanceStorage: 'json-v1',
+    meetingScheduleVersion: 1, studentArchiveVersion: 1, timezone: DASHBOARD.timezone};
 }
