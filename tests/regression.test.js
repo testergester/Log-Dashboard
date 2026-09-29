@@ -219,11 +219,14 @@ function testStudentIds() {
   assert.equal(renamed.officialGroupId, '8 E');
 }
 
-function testDeleteStudentEverywhere() {
+function testArchiveStudent() {
   const sheet = rows => ({
     rows,
     deleteRow(row) { rows.splice(row - 1, 1); },
+    appendRow(row) { rows.push(row); },
     getRange(row, column, height = 1, width = 1) { return {
+      getDisplayValues() { return Array.from({length: height}, (_, offset) =>
+        rows[row - 1 + offset].slice(column - 1, column - 1 + width)); },
       setValues(values) { values.forEach((cells, offset) => cells.forEach((value, index) => {
         rows[row - 1 + offset][column - 1 + index] = value;
       })); }
@@ -233,7 +236,8 @@ function testDeleteStudentEverywhere() {
     revision: 'old-' + classId, updatedAt: 'earlier', classInfo: {id: classId}, records});
   const record = studentId => ({studentId, studentName: studentId, attendance: 'present', participation: 0, note: ''});
   const sheets = {
-    Students: sheet([['ID', 'Name'], ['student-a', 'A'], ['student-b', 'B']]),
+    Students: sheet([['ID', 'Name', 'Updated', 'Official Group'], ['student-a', 'A', '', 'home'], ['student-b', 'B', '', 'home']]),
+    ArchivedStudents: sheet([['Student ID', 'Full name', 'Previous groups JSON', 'Student IDs JSON', 'Removed on', 'Official Group ID']]),
     ClassStudents: sheet([['Class', 'Student'], ['home', 'student-a'], ['guest', 'student-a'], ['home', 'student-b']]),
     StudentMeetingRecords: sheet([['Class', 'Date', 'Revision', 'Student'], ['old', '2026-09-20', 'r1', 'student-a'],
       ['old', '2026-09-20', 'r1', 'student-b'], ['old', '2026-09-19', 'r0', 'student-a']]),
@@ -242,33 +246,43 @@ function testDeleteStudentEverywhere() {
       ['guest', '2026-09-24', 'old-guest', 'earlier', JSON.stringify(payload('guest', [record('student-a')]))],
       ['other', '2026-09-24', 'old-other', 'earlier', JSON.stringify(payload('other', [record('student-b')]))]])
   };
-  let revision = 0;
   const context = vm.createContext({
     String, JSON,
-    DASHBOARD: {students: 'Students', enrollments: 'ClassStudents', studentRecords: 'StudentMeetingRecords',
+    DASHBOARD: {students: 'Students', archivedStudents: 'ArchivedStudents', studentHeaders: Array(4),
+      archivedStudentHeaders: Array(6), enrollments: 'ClassStudents', studentRecords: 'StudentMeetingRecords',
       checklists: 'AttendanceChecklists'},
     LockService: {getScriptLock: () => ({waitLock() {}, releaseLock() {}})},
-    Utilities: {getUuid: () => 'new-' + ++revision},
     spreadsheet_: () => ({getSheetByName: name => sheets[name]}),
     rows_: source => source.rows.slice(1).map(row => row.slice()),
     rowsWithDates_: source => source.rows.slice(1).map(row => row.slice()),
     findRow_: (source, match) => { const index = source.rows.slice(1).findIndex(match); return index < 0 ? 0 : index + 2; },
     parseChecklistJson_: value => JSON.parse(value),
-    timestamp_: () => 'now',
-    loadDashboard_: () => ({students: sheets.Students.rows.slice(1)})
+    ensureTab_: () => {}, today_: () => '2026-09-30',
+    loadDashboard_: () => ({students: sheets.Students.rows.slice(1), archivedStudents: sheets.ArchivedStudents.rows.slice(1)})
   });
   vm.runInContext(backend('Students.gs'), context);
-  const result = context.deleteStudent_({studentId: 'student-a'});
+  context.today_ = () => '2026-09-30';
+  const result = context.archiveStudent_({studentId: 'student-a'});
   assert.equal(result.students.length, 1);
   assert.equal(sheets.Students.rows.length, 2);
   assert.equal(sheets.ClassStudents.rows.length, 2);
-  assert.equal(sheets.StudentMeetingRecords.rows.length, 2);
-  assert.deepEqual(JSON.parse(sheets.AttendanceChecklists.rows[1][4]).records.map(item => item.studentId), ['student-b']);
-  assert.deepEqual(JSON.parse(sheets.AttendanceChecklists.rows[2][4]).records, []);
-  assert.equal(sheets.AttendanceChecklists.rows[1][2], 'new-1');
-  assert.equal(sheets.AttendanceChecklists.rows[2][2], 'new-2');
+  assert.equal(sheets.StudentMeetingRecords.rows.length, 4);
+  assert.deepEqual(JSON.parse(sheets.AttendanceChecklists.rows[1][4]).records.map(item => item.studentId), ['student-a', 'student-b']);
+  assert.deepEqual(JSON.parse(sheets.AttendanceChecklists.rows[2][4]).records.map(item => item.studentId), ['student-a']);
+  assert.equal(sheets.AttendanceChecklists.rows[1][2], 'old-home');
+  assert.equal(sheets.AttendanceChecklists.rows[2][2], 'old-guest');
   assert.equal(sheets.AttendanceChecklists.rows[3][2], 'old-other');
-  assert.throws(() => context.deleteStudent_({studentId: 'student-a'}), /no longer exists/);
+  const archived = sheets.ArchivedStudents.rows[1];
+  assert.equal(archived[0], 'student-a');
+  assert.equal(archived[1], 'A');
+  assert.deepEqual(JSON.parse(archived[3]), ['student-a']);
+  assert.equal(archived[4], '2026-09-30');
+  assert.equal(archived[5], 'home');
+  const groups = JSON.parse(archived[2]);
+  assert.deepEqual(groups.map(item => item.groupId), ['home', 'guest', 'old']);
+  assert.deepEqual(groups[0].roles, ['official', 'enrolled', 'attendance']);
+  assert.deepEqual(groups[1].roles, ['enrolled', 'attendance']);
+  assert.throws(() => context.archiveStudent_({studentId: 'student-a'}), /no longer exists/);
 }
 
 function testMeetingGuests() {
@@ -385,6 +399,37 @@ function testGuestChecklistSave() {
   assert.equal(corrected.checklist.records.length, 0);
 }
 
+function testArchivedStudentChecklistCorrection() {
+  const previous = {schemaVersion: 1, classId: '8E', lessonDate: '2026-09-24', revision: 'old',
+    updatedAt: 'earlier', classInfo: {id: '8E'}, records: [
+      {studentId: 'archived', studentName: 'Archived Student', attendance: 'present', participation: 0, note: ''}]};
+  let row = ['8E', '2026-09-24', 'old', 'earlier', JSON.stringify(previous)];
+  const sheets = {
+    Timetable: {getRange: () => ({getDisplayValues: () => [['8E', 'Group 8E', 'Math', '4', '09:00', '10:00', '', 'true']]})},
+    AttendanceChecklists: {getRange: () => ({getDisplayValues: () => [row], setValues: values => { row = values[0]; }})},
+    ClassStudents: {}, Students: {}, ArchivedStudents: {}
+  };
+  const context = vm.createContext({
+    String, Number, Set, Array, JSON,
+    DASHBOARD: {timetable: 'Timetable', checklists: 'AttendanceChecklists', enrollments: 'ClassStudents',
+      students: 'Students', archivedStudents: 'ArchivedStudents', timetableHeaders: Array(9), checklistHeaders: Array(5)},
+    LockService: {getScriptLock: () => ({waitLock() {}, releaseLock() {}})},
+    Utilities: {getUuid: () => 'new'},
+    spreadsheet_: () => ({getSheetByName: name => sheets[name]}),
+    date_: value => value, jsonText_: value => value,
+    findRow_: () => 2, findDateRows_: () => [2],
+    rowsWithDates_: () => [],
+    rows_: source => source === sheets.ArchivedStudents ? [['archived', 'Archived Student']] : [],
+    enrolledOn_: () => false, timestamp_: () => 'now'
+  });
+  vm.runInContext(backend('Attendance.gs'), context);
+  const saved = context.saveChecklist_({checklist: {classId: '8E', date: '2026-09-24', revision: 'old', records: [
+    {studentId: 'archived', attendance: 'present', participation: 1, note: 'Corrected'}]}});
+  assert.equal(saved.checklist.records[0].studentName, 'Archived Student');
+  assert.equal(saved.checklist.records[0].note, 'Corrected');
+  assert.equal(JSON.parse(row[4]).records[0].studentId, 'archived');
+}
+
 function testLegacyClassStudentFormulaRepair() {
   const formulas = [
     '=REGEXEXTRACT(B2,"^ST-(.*)-\\d+$")',
@@ -474,13 +519,14 @@ function testStudentSheetEdits() {
   testChecklistConflict();
   testReadDoesNotWrite();
   testStudentIds();
-  testDeleteStudentEverywhere();
+  testArchiveStudent();
   testMeetingGuests();
   testStudentIdMigration();
   testGuestChecklistSave();
+  testArchivedStudentChecklistCorrection();
   testLegacyClassStudentFormulaRepair();
   testStudentSheetEdits();
   await testFrontend();
   await testChecklistFrontend();
-  console.log('Regression checks passed: sessions, attendance conflicts, student deletion, student IDs, sheet edits and pastes, guest meetings, migration, read-only load, and saved edits.');
+  console.log('Regression checks passed: sessions, attendance conflicts, student archiving, student IDs, sheet edits and pastes, guest meetings, migration, read-only load, and saved edits.');
 })().catch(error => { console.error(error); process.exitCode = 1; });
