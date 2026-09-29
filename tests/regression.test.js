@@ -46,6 +46,22 @@ function frontend(storedEndpoint = '') {
   return {context, element};
 }
 
+function testRosterIdComparison() {
+  const {context} = frontend();
+  const result = vm.runInContext(`compareStudentSheetIds(
+    [{id: 'matched', name: 'Matched', officialGroupId: '10B'},
+     {id: 'missing-enrollment', name: 'Student only', officialGroupId: '10B'},
+     {id: 'elsewhere', name: 'Other group', officialGroupId: '11A'}],
+    [{classId: '10B', studentId: 'matched', active: true},
+     {classId: '10B', studentId: 'orphan', active: true},
+     {classId: '11A', studentId: 'elsewhere', active: true}], '10B')`, context);
+  assert.deepEqual(Array.from(result, item => [item.id, item.status]), [
+    ['orphan', 'enrollment-only'], ['missing-enrollment', 'student-only'], ['matched', 'matched']
+  ]);
+  assert.equal(result[0].activeEnrollmentCount, 1);
+  assert.equal(vm.runInContext("studentName('orphan')", context), 'Unknown student · orphan');
+}
+
 async function testFrontend() {
   const custom = 'https://script.google.com/macros/s/custom/exec';
   const {context, element} = frontend(custom);
@@ -603,8 +619,9 @@ function testStudentSheetEdits() {
   testArchivedStudentChecklistCorrection();
   testLegacyClassStudentFormulaRepair();
   testStudentSheetEdits();
+  testRosterIdComparison();
   await testFrontend();
   await testChecklistFrontend();
   await testArchiveRequiresDeployedBackend();
-  console.log('Regression checks passed: weekly meetings, attendance conflicts, student archiving, student IDs, sheet edits and pastes, guest meetings, migration, read-only load, and saved edits.');
+  console.log('Regression checks passed: roster ID comparison, weekly meetings, attendance conflicts, student archiving, student IDs, sheet edits and pastes, guest meetings, migration, read-only load, and saved edits.');
 })().catch(error => { console.error(error); process.exitCode = 1; });
