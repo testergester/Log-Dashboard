@@ -39,6 +39,12 @@ const DASHBOARD = Object.freeze({
   studentRecordHeaders: ['Class ID', 'Lesson date', 'Revision', 'Student ID', 'Attendance', 'Participation', 'Note', 'Updated at']
 });
 
+function onOpen() {
+  SpreadsheetApp.getUi().createMenu('Teaching Dashboard')
+    .addItem('Check student IDs', 'checkStudentSheetIds')
+    .addToUi();
+}
+
 function setupDashboard() {
   const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
   if (!spreadsheet) throw new Error('Open this script from the target Google Sheet.');
