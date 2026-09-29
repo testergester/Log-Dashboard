@@ -21,6 +21,7 @@ const state = {
   studentRecords: [],
   studentsReady: false,
   meetingScheduleReady: false,
+  studentArchiveReady: false,
   selectedDate: todayInTashkent(),
   selectedClassId: "",
   selectedStudentId: "",
@@ -184,6 +185,7 @@ function handleError(error, target = "global") {
     state.studentRecords = [];
     state.studentsReady = false;
     state.meetingScheduleReady = false;
+    state.studentArchiveReady = false;
     updateAccess();
     setAccessError("Your session expired. Please sign in again.");
     return;
@@ -215,6 +217,7 @@ function applyDashboardData(data) {
   state.studentRecords = hasStudentData ? data.studentRecords : [];
   state.studentsReady = hasStudentData;
   state.meetingScheduleReady = data.meetingScheduleVersion === 1;
+  state.studentArchiveReady = data.studentArchiveVersion === 1;
   render();
 }
 
@@ -673,6 +676,7 @@ function renderStudents() {
   $("#checklist-form").hidden = !state.studentsReady;
   $(".attendance-toolbar").hidden = !state.studentsReady;
   $("#add-student-button").hidden = !state.studentsReady || lesson.archived;
+  $("#student-archive-upgrade-hint").hidden = !state.studentsReady || state.studentArchiveReady;
   if (!state.studentsReady) {
     $("#checklist-summary").textContent = "Student records need the updated Apps Script. Run setupDashboard and deploy its new version.";
     $("#checklist-stats").replaceChildren();
@@ -714,7 +718,8 @@ function renderStudents() {
       deleteButton.type = "button";
       deleteButton.className = "student-delete-button";
       deleteButton.setAttribute("aria-label", "Archive " + student.name);
-      deleteButton.title = "Archive student";
+      deleteButton.title = state.studentArchiveReady ? "Archive student" : "Update Apps Script to archive students";
+      deleteButton.disabled = !state.studentArchiveReady;
       deleteButton.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3m3 0-1 13H7L6 7m4 4v5m4-5v5"/></svg>';
       deleteButton.addEventListener("click", () => archiveStudent(student.id));
       identity.append(deleteButton);
@@ -840,6 +845,8 @@ function openStudentHistory(studentId) {
     list.append(entry);
   });
   $("#remove-student-button").hidden = Boolean(archivedStudent);
+  $("#remove-student-button").disabled = !state.studentArchiveReady;
+  $("#remove-student-button").title = state.studentArchiveReady ? "Archive student" : "Update Apps Script to archive students";
   $("#history-dialog").showModal();
 }
 
@@ -1073,6 +1080,10 @@ async function archiveStudent(studentId) {
   if (state.pending) return;
   const student = state.students.find(item => item.id === studentId);
   if (!student) return;
+  if (!state.studentArchiveReady) {
+    setNotice('Student archiving needs the updated Apps Script backend.', true);
+    return;
+  }
   if (!confirm('Archive ' + student.name + '? They will leave all active groups. Their ID, group history, and saved attendance will be kept.')) return;
   saveChecklistDraft();
   state.pending = true;
@@ -1178,6 +1189,7 @@ $("#sign-out-button").addEventListener("click", () => {
   state.studentRecords = [];
   state.studentsReady = false;
   state.meetingScheduleReady = false;
+  state.studentArchiveReady = false;
   state.selectedClassId = "";
   state.selectedStudentId = "";
   state.drafts.clear();
