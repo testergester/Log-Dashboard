@@ -127,13 +127,17 @@ function dashboardHarness(overrides = {}) {
 test('history loads and changing accounts clears the old group draft', async () => {
   const h = dashboardHarness();
   h.controller.open(ws('workspace-a')); await settle(); await settle();
+  h.$('[data-section="students"]').click(); await settle();
+  h.$('[data-action="select-student-group"]').click();
   h.$('[data-action="history"]').click(); await settle(); await settle();
   assert.equal(h.calls.filter(call => call[0] === 'history').length, 1);
   assert.equal(h.$('.dashboard-history-item'), null);
+  h.$('[data-section="groups"]').click(); await settle(); await settle();
   h.$('[data-action="new-group"]').click();
   h.$('#new-group-form [name="name"]').value = 'Private draft';
   h.controller.close();
   h.controller.open(ws('workspace-b')); await settle(); await settle();
+  h.$('[data-section="groups"]').click(); await settle(); await settle();
   h.$('[data-action="new-group"]').click();
   assert.equal(h.$('#new-group-form [name="name"]').value, '');
 });
@@ -147,6 +151,24 @@ test('day controls move one day and week view renders timetable rows', async () 
   h.$('[data-action="toggle-view"]').click();
   assert.ok(h.$('.dashboard-week-grid'));
   assert.ok(h.$('.dashboard-week-time'));
+});
+
+test('attendance buttons and point steps update the saved form values', async () => {
+  const h = dashboardHarness();
+  h.controller.open(ws('workspace-a')); await settle(); await settle();
+  h.$('[data-action="next"]').click(); await settle(); await settle();
+  h.$('[data-action="meeting"]').click(); await settle(); await settle();
+  const row = h.$('.dashboard-attendance-row');
+  row.querySelector('[data-attendance-value="absent"]').click();
+  assert.equal(row.querySelector('[name="attendance"]').value, 'absent');
+  assert.equal(row.querySelector('[data-points-step="1"]').disabled, true);
+  assert.match(h.$('.dashboard-attendance-summary').textContent, /1 absent/);
+  row.querySelector('[data-attendance-value="present"]').click();
+  row.querySelector('[data-points-step="1"]').click();
+  assert.equal(row.querySelector('[name="participation"]').value, '1');
+  assert.equal(row.querySelector('[data-points-step="1"]').disabled, true);
+  row.querySelector('[data-points-step="-1"]').click();
+  assert.equal(row.querySelector('[name="participation"]').value, '0');
 });
 
 test('lesson and attendance saves keep edits typed while requests are pending', async () => {
@@ -272,13 +294,23 @@ test('adding a student from a group also enrolls them and leaves them editable',
     }
   });
   h.controller.open(ws('workspace-a')); await settle(); await settle();
-  const form = h.$('[data-form="student"][data-group="group-1"]');
+  h.$('[data-section="groups"]').click(); await settle(); await settle();
+  if (!h.$('[data-action="open-student-dialog"][data-group="group-1"]')) h.$('[data-action="toggle-group"]').click();
+  h.$('[data-action="open-student-dialog"][data-group="group-1"]').click();
+  const form = h.$('.dashboard-student-dialog [data-form="student"]');
   form.querySelector('[name="name"]').value = 'Alex';
   form.dispatchEvent(new h.dom.window.Event('submit', { bubbles: true, cancelable: true }));
   await settle(); await settle(); await settle();
   assert.deepEqual(actions, ['save_student', 'save_enrollment']);
   assert.match(h.$('.dashboard-roster-list').textContent, /Alex/);
-  assert.ok(h.$('[data-form="edit-student"][data-student="student-2"]'));
+  h.$('[data-section="students"]').click(); await settle(); await settle();
+  assert.equal(h.$('.dashboard-student'), null);
+  h.$('[data-action="select-student-group"]').click();
+  assert.ok(h.$('[data-action="open-student-dialog"][data-student="student-2"]'));
+  h.$('[data-action="open-student-dialog"][data-student="student-2"]').click();
+  assert.equal(h.$('.dashboard-student-dialog [data-form="edit-student"] [name="name"]').value, 'Alex');
+  h.$('[data-action="close-student-dialog"]').click();
+  assert.equal(h.dom.window.document.activeElement.dataset.student, 'student-2');
 });
 
 test('legacy class/date pairs map to separate meetings and retain saved snapshots', () => {

@@ -30,6 +30,10 @@ function field(labelText, input, className = '') {
   const wrap = node('label', `dashboard-field ${className}`.trim());
   wrap.append(node('span', '', labelText), input); return wrap;
 }
+function controlField(labelText, control) {
+  const wrap = node('div', 'dashboard-field');
+  wrap.append(node('span', '', labelText), control); return wrap;
+}
 function input(type, name, value = '') {
   const item = document.createElement('input'); item.type = type; item.name = name; item.value = value; return item;
 }
@@ -46,7 +50,7 @@ function statusText(code) {
 }
 
 export function createDashboardController({ access, render, drafts = null, onAuthError = () => {}, onAccountDiscarded = () => {}, now = () => new Date() }) {
-  const state = { workspace: null, groups: [], students: [], enrollments: [], meetings: [], selectedDate: currentDate('Asia/Tashkent', now()), view: 'day', selectedKey: '', details: null, scheduleChange: null, import: null, loading: false, busy: false, message: '', history: null, editorVersion: 0, newGroupOpen: false, expandedGroupId: '', draftStorageError: false };
+  const state = { workspace: null, groups: [], students: [], enrollments: [], meetings: [], selectedDate: currentDate('Asia/Tashkent', now()), view: 'day', section: 'schedule', studentGroupId: '', studentDialog: null, selectedKey: '', details: null, scheduleChange: null, import: null, loading: false, busy: false, message: '', history: null, editorVersion: 0, newGroupOpen: false, expandedGroupId: '', draftStorageError: false };
   let openedWorkspace = '';
   let requestVersion = 0;
   let root = null;
@@ -214,6 +218,12 @@ export function createDashboardController({ access, render, drafts = null, onAut
       savedFormValues.set(key, values);
     }
     render(build());
+    const studentDialog = root.querySelector('.dashboard-student-dialog');
+    if (studentDialog && !studentDialog.open) {
+      if (typeof studentDialog.showModal === 'function') studentDialog.showModal();
+      else studentDialog.open = true;
+      studentDialog.querySelector('[name="name"]')?.focus();
+    }
     for (const form of root.querySelectorAll('form[data-form]')) {
       const key = formKey(form);
       const values = savedFormValues.get(key); if (!values) continue;
@@ -228,6 +238,7 @@ export function createDashboardController({ access, render, drafts = null, onAut
       const points = row.querySelector('[name="participation"]');
       points.disabled = row.querySelector('[name="attendance"]').value === 'absent';
       if (points.disabled) points.value = '0';
+      syncAttendanceControls(row);
     }
     const custom = root.querySelector('[data-form="lesson"] [name="custom_lesson_type"]')?.closest('label');
     if (custom) custom.hidden = root.querySelector('[data-form="lesson"] [name="lesson_type"]')?.value !== '__custom';
@@ -235,16 +246,29 @@ export function createDashboardController({ access, render, drafts = null, onAut
   };
   function build() {
     root = node('div', 'dashboard');
+    const navigation = node('nav', 'dashboard-navigation');
+    navigation.setAttribute('aria-label', 'Dashboard sections');
+    for (const [section, label] of [['schedule', 'Schedule'], ['groups', 'Groups'], ['students', 'Students']]) {
+      const choice = button(label, 'section', 'dashboard-nav-button');
+      choice.dataset.section = section;
+      if (state.section === section) { choice.setAttribute('aria-current', 'page'); choice.classList.add('is-active'); }
+      navigation.append(choice);
+    }
+    root.append(navigation);
     const toolbar = node('div', 'dashboard-toolbar');
     const title = node('div', 'dashboard-toolbar-title');
-    title.append(node('h2', '', 'Teaching week'), node('p', 'field-hint', `${labelDate(monday(state.selectedDate), { month: 'long', day: 'numeric' })} – ${labelDate(addDays(monday(state.selectedDate), 6), { month: 'long', day: 'numeric', year: 'numeric' })}`));
-    toolbar.append(title, button(state.view === 'day' ? '‹ Previous day' : '‹ Previous week', 'previous'), button('Today', 'today'), button(state.view === 'day' ? 'Next day ›' : 'Next week ›', 'next'), button(state.view === 'day' ? 'Week view' : 'Day view', 'toggle-view'), button('Reload', 'reload'), button('New group', 'new-group', 'button button-primary'));
+    title.append(node('h2', '', state.section === 'schedule' ? 'Teaching week' : state.section === 'groups' ? 'Groups' : 'Students'));
+    if (state.section === 'schedule') title.append(node('p', 'field-hint', `${labelDate(monday(state.selectedDate), { month: 'long', day: 'numeric' })} – ${labelDate(addDays(monday(state.selectedDate), 6), { month: 'long', day: 'numeric', year: 'numeric' })}`));
+    toolbar.append(title);
+    if (state.section === 'schedule') toolbar.append(button(state.view === 'day' ? '‹ Previous day' : '‹ Previous week', 'previous'), button('Today', 'today'), button(state.view === 'day' ? 'Next day ›' : 'Next week ›', 'next'), button(state.view === 'day' ? 'Week view' : 'Day view', 'toggle-view'));
+    toolbar.append(button('Reload', 'reload'));
+    if (state.section === 'groups') toolbar.append(button('New group', 'new-group', 'button button-primary'));
     root.append(toolbar);
-    showNewGroupForm();
+    if (state.section === 'groups') showNewGroupForm();
     if (state.message) root.append(node('div', 'dashboard-message', state.message));
-    if (state.loading) root.append(node('p', 'field-hint', 'Loading your teaching week…'));
-    root.append(buildWeekStrip(), state.view === 'day' ? buildDay() : buildWeek());
-    if (!state.loading && !state.groups.length) {
+    if (state.loading) root.append(node('p', 'field-hint', 'Loading your workspace…'));
+    if (state.section === 'schedule') root.append(buildWeekStrip(), state.view === 'day' ? buildDay() : buildWeek());
+    if (state.section === 'groups' && !state.loading && !state.groups.length) {
       const start = node('section', 'dashboard-section dashboard-start');
       start.append(node('h3', '', 'Start with a group'),
         node('p', 'field-hint', 'Give your students one shared roster and add as many meeting times as you need.'),
@@ -253,10 +277,11 @@ export function createDashboardController({ access, render, drafts = null, onAut
       start.append(importButton, node('small', 'field-hint', 'Create a group first, then import its students.'));
       root.append(start);
     }
-    if (state.groups.length) root.append(buildGroupManager());
-    root.append(buildStudentDirectory());
-    if (state.selectedKey && currentMeeting()) root.append(buildMeetingPanel(currentMeeting()));
+    if (state.section === 'groups' && state.groups.length) root.append(buildGroupManager());
+    if (state.section === 'students') root.append(buildStudentDirectory());
+    if (state.section === 'schedule' && state.selectedKey && currentMeeting()) root.append(buildMeetingPanel(currentMeeting()));
     if (state.history) root.append(buildHistory());
+    if (state.studentDialog) root.append(buildStudentDialog());
     root.addEventListener('click', onClick);
     root.addEventListener('submit', onSubmit);
     root.addEventListener('input', event => {
@@ -346,6 +371,16 @@ export function createDashboardController({ access, render, drafts = null, onAut
     const present = rows.filter(row => row.querySelector('[name="attendance"]').value === 'present').length;
     const score = rows.reduce((total, row) => total + (row.querySelector('[name="attendance"]').value === 'absent' ? -1 : Number(row.querySelector('[name="participation"]').value)), 0);
     summary.textContent = `${rows.length} students · ${present} present · ${rows.length - present} absent · Session score ${score > 0 ? '+' : ''}${score}`;
+  }
+  function syncAttendanceControls(row) {
+    const attendance = row.querySelector('[name="attendance"]')?.value;
+    const points = Number(row.querySelector('[name="participation"]')?.value || 0);
+    for (const control of row.querySelectorAll('[data-attendance-value]'))
+      control.setAttribute('aria-pressed', String(control.dataset.attendanceValue === attendance));
+    const number = row.querySelector('.dashboard-points-value');
+    if (number) number.textContent = attendance === 'absent' ? '—' : String(points);
+    for (const control of row.querySelectorAll('[data-points-step]'))
+      control.disabled = attendance === 'absent' || (Number(control.dataset.pointsStep) < 0 ? points <= -1 : points >= 1);
   }
   function buildWeekStrip() {
     const strip = node('nav', 'dashboard-week-strip');
@@ -475,10 +510,8 @@ export function createDashboardController({ access, render, drafts = null, onAut
         const choices = [['', 'Choose a student'], ...state.students.map(student => [student.id, student.name])];
         enroll.append(field('Student', select('student_id', choices, '')), field('Starts on', input('date', 'starts_on', today())), formButton('Enroll existing student', 'button button-secondary'));
         card.append(enroll);
-        const addStudent = document.createElement('form'); addStudent.dataset.form = 'student'; addStudent.dataset.group = group.id; addStudent.className = 'dashboard-inline-form';
-        addStudent.append(field('New student', input('text', 'name', '')), field('External ID (optional)', input('text', 'external_id', '')),
-          field('Joined on', input('date', 'starts_on', today())), formButton('Add and enroll student'));
-        card.append(addStudent);
+        const addStudent = button('Add student', 'open-student-dialog', 'button button-secondary');
+        addStudent.dataset.group = group.id; card.append(addStudent);
         const importButton = button(state.import?.groupId === group.id ? 'Close import' : 'Import students', 'toggle-import', 'button button-secondary');
         importButton.dataset.group = group.id; card.append(importButton);
         if (state.import?.groupId === group.id) card.append(buildImportPanel(group));
@@ -593,25 +626,63 @@ export function createDashboardController({ access, render, drafts = null, onAut
   }
   function buildStudentDirectory() {
     const panel = node('section', 'dashboard-section');
-    panel.append(node('h3', '', 'Students'));
-    const addStudent = document.createElement('form'); addStudent.dataset.form = 'student'; addStudent.className = 'dashboard-inline-form';
-    addStudent.append(field('Student name', input('text', 'name', '')), field('External ID (optional)', input('text', 'external_id', '')),
-      formButton('Create student'));
-    panel.append(addStudent);
-    if (!state.students.length) panel.append(node('p', 'field-hint', 'No students yet. Create one here or add them directly to a group.'));
-    for (const student of state.students) {
+    panel.append(node('p', 'field-hint', 'Choose a group to see its students.'));
+    const groups = node('div', 'dashboard-student-groups');
+    for (const group of state.groups) {
+      const choice = button(group.name, 'select-student-group', 'dashboard-group-choice');
+      choice.dataset.group = group.id;
+      choice.setAttribute('aria-pressed', String(state.studentGroupId === group.id));
+      groups.append(choice);
+    }
+    panel.append(groups);
+    const group = state.groups.find(item => item.id === state.studentGroupId);
+    if (!group) { if (!state.groups.length) panel.append(node('p', 'field-hint', 'Create a group to organize students.')); return panel; }
+    const heading = node('div', 'dashboard-section-heading');
+    heading.append(node('h3', '', `${group.name} students`));
+    if (!group.archived) {
+      const add = button('Add student', 'open-student-dialog', 'button button-primary'); add.dataset.group = group.id; heading.append(add);
+    }
+    panel.append(heading);
+    const ids = new Set(state.enrollments.filter(item => item.group_id === group.id).map(item => item.student_id));
+    const students = state.students.filter(item => ids.has(item.id)).sort((a, b) => a.name.localeCompare(b.name));
+    if (!students.length) panel.append(node('p', 'field-hint', 'No students in this group yet.'));
+    for (const student of students) {
       const row = node('div', 'dashboard-student');
-      const activeCount = state.enrollments.filter(item => item.student_id === student.id && item.starts_on <= today() && (!item.ends_on || item.ends_on > today())).length;
-      row.append(node('span', '', `${student.name} · ${activeCount} active ${activeCount === 1 ? 'group' : 'groups'}`));
-      const edit = document.createElement('form'); edit.dataset.form = 'edit-student'; edit.dataset.student = student.id; edit.className = 'dashboard-inline-form';
-      edit.append(field('Name', input('text', 'name', student.name)), field('External ID', input('text', 'external_id', student.external_id || '')),
-        formButton('Save student', 'button button-text'));
-      row.append(edit);
-      const history = button('History', 'history', 'button button-text'); history.dataset.student = student.id;
-      history.dataset.group = state.enrollments.find(item => item.student_id === student.id)?.group_id || '';
+      const active = state.enrollments.some(item => item.group_id === group.id && item.student_id === student.id && item.starts_on <= today() && (!item.ends_on || item.ends_on > today()));
+      row.append(node('span', '', `${student.name}${student.external_id ? ` · ${student.external_id}` : ''}${active ? '' : ' · Former student'}`));
+      const edit = button('Edit details', 'open-student-dialog', 'button button-text'); edit.dataset.student = student.id; edit.dataset.group = group.id; row.append(edit);
+      const history = button('History', 'history', 'button button-text'); history.dataset.student = student.id; history.dataset.group = group.id;
       row.append(history); panel.append(row);
     }
     return panel;
+  }
+  function buildStudentDialog() {
+    const editing = state.studentDialog.studentId && state.students.find(item => item.id === state.studentDialog.studentId);
+    const dialog = node('dialog', 'dashboard-student-dialog');
+    dialog.setAttribute('aria-label', editing ? 'Edit student details' : 'Add student');
+    const form = document.createElement('form'); form.dataset.form = editing ? 'edit-student' : 'student';
+    form.className = 'dashboard-student-dialog-form';
+    if (editing) form.dataset.student = editing.id;
+    else if (state.studentDialog.groupId) form.dataset.group = state.studentDialog.groupId;
+    form.append(node('h3', '', editing ? 'Edit student details' : 'Add student'));
+    const name = input('text', 'name', editing?.name || ''); name.required = true; name.maxLength = 120;
+    const external = input('text', 'external_id', editing?.external_id || ''); external.maxLength = 120;
+    form.append(field('Student name', name), field('External ID (optional)', external));
+    if (!editing && state.studentDialog.groupId) form.append(field('Joined on', input('date', 'starts_on', today())));
+    const actions = node('div', 'dashboard-dialog-actions');
+    actions.append(button('Cancel', 'close-student-dialog'), formButton(editing ? 'Save student' : 'Add and enroll student'));
+    form.append(actions); dialog.append(form);
+    dialog.addEventListener('cancel', event => {
+      event.preventDefault();
+      closeStudentDialog();
+    });
+    return dialog;
+  }
+  function closeStudentDialog() {
+    const { groupId, studentId } = state.studentDialog || {};
+    state.studentDialog = null; publish();
+    const controls = [...root.querySelectorAll('[data-action="open-student-dialog"]')];
+    controls.find(item => studentId ? item.dataset.student === studentId : item.dataset.group === groupId)?.focus();
   }
   function buildMeetingPanel(meeting) {
     const panel = node('section', 'dashboard-section dashboard-records');
@@ -660,7 +731,6 @@ export function createDashboardController({ access, render, drafts = null, onAut
       field('Status', select('status', LESSON_STATUSES.map(value => [value, value]), detail.lesson?.status || 'Done')),
       node('small', 'dashboard-save-status', ''), formButton('Save lesson'));
     lesson.append(buildDraftChoice(meeting, 'lesson'));
-    panel.append(lesson);
     const previous = node('section', 'dashboard-previous-notes');
     previous.append(node('h4', '', 'Previous notes for this group'));
     if (!detail.previousNotes?.length) previous.append(node('p', 'field-hint', 'No earlier lesson notes yet.'));
@@ -673,7 +743,9 @@ export function createDashboardController({ access, render, drafts = null, onAut
     }
     if (detail.previousLoading) previous.append(node('p', 'field-hint', 'Loading older notes…'));
     else if (detail.previousNextOffset !== null && detail.previousNextOffset !== undefined) previous.append(button('Load older notes', 'more-notes', 'button button-text'));
-    panel.append(previous);
+    const lessonLayout = node('div', 'dashboard-lesson-layout');
+    lessonLayout.append(lesson, previous);
+    panel.append(lessonLayout);
     const attendance = document.createElement('form'); attendance.dataset.form = 'attendance'; attendance.dataset.meeting = meeting.meeting_key; attendance.className = 'dashboard-record-form';
     attendance.append(node('h4', '', 'Attendance and participation'));
     if (!detail.roster.length) attendance.append(node('p', 'field-hint', 'No students were enrolled on this meeting date. You can save an empty attendance record.'));
@@ -681,11 +753,28 @@ export function createDashboardController({ access, render, drafts = null, onAut
       const row = node('div', 'dashboard-attendance-row'); row.dataset.student = entry.student_id;
       const title = node('strong', '', entry.student_name);
       const attendanceSelect = select('attendance', [['present', 'Present'], ['absent', 'Absent']], entry.attendance || 'present');
+      attendanceSelect.hidden = true;
       const points = select('participation', [['-1', '−1 · Noise'], ['0', '0 · Present'], ['1', '+1 · Participation']], String(entry.participation ?? 0));
+      points.hidden = true;
       if (attendanceSelect.value === 'absent') points.value = '0';
       points.disabled = attendanceSelect.value === 'absent';
       const history = button('History', 'history', 'button button-text'); history.dataset.student = entry.student_id; history.dataset.group = meeting.group_id;
-      row.append(title, field('Attendance', attendanceSelect), field('Points', points), field('Note', Object.assign(input('text', 'note', entry.note || ''), { maxLength: 300 })), history);
+      const attendanceButtons = node('div', 'dashboard-attendance-buttons');
+      attendanceButtons.append(attendanceSelect);
+      for (const [value, label] of [['present', 'Present'], ['absent', 'Absent']]) {
+        const control = button(label, 'set-attendance', 'dashboard-toggle-button');
+        control.dataset.attendanceValue = value;
+        control.setAttribute('aria-label', `Mark ${entry.student_name} ${value}`);
+        attendanceButtons.append(control);
+      }
+      const pointsButtons = node('div', 'dashboard-points-buttons');
+      pointsButtons.append(points);
+      const decrease = button('−', 'step-points', 'dashboard-step-button'); decrease.dataset.pointsStep = '-1'; decrease.setAttribute('aria-label', `Decrease points for ${entry.student_name}`);
+      const increase = button('+', 'step-points', 'dashboard-step-button'); increase.dataset.pointsStep = '1'; increase.setAttribute('aria-label', `Increase points for ${entry.student_name}`);
+      const number = node('output', 'dashboard-points-value', String(entry.participation ?? 0)); number.setAttribute('aria-label', `Points for ${entry.student_name}`);
+      pointsButtons.append(decrease, number, increase);
+      row.append(title, controlField('Attendance', attendanceButtons), controlField('Points', pointsButtons), field('Note', Object.assign(input('text', 'note', entry.note || ''), { maxLength: 300 })), history);
+      syncAttendanceControls(row);
       attendance.append(row);
     }
     const presentCount = detail.roster.filter(entry => entry.attendance !== 'absent').length;
@@ -875,7 +964,7 @@ export function createDashboardController({ access, render, drafts = null, onAut
         void drafts.renew(entry.key).then(owned => { if (!owned) { entry.status = 'blocked'; publish(); } }).catch(() => {});
     }, 5000);
     openedWorkspace = workspace.id; state.workspace = workspace; state.groups = []; state.students = []; state.enrollments = [];
-    state.meetings = []; state.selectedDate = today(); state.view = 'day'; state.selectedKey = ''; state.details = null; state.scheduleChange = null; state.import = null;
+    state.meetings = []; state.selectedDate = today(); state.view = 'day'; state.section = 'schedule'; state.studentGroupId = ''; state.studentDialog = null; state.selectedKey = ''; state.details = null; state.scheduleChange = null; state.import = null;
     state.history = null; state.message = ''; state.busy = false; state.newGroupOpen = false; state.expandedGroupId = '';
     state.draftStorageError = false;
     void refresh({ keepSelection: false });
@@ -886,7 +975,7 @@ export function createDashboardController({ access, render, drafts = null, onAut
     flushVisible();
     if (leaseTimer) clearInterval(leaseTimer); leaseTimer = null;
     requestVersion++; openedWorkspace = ''; state.workspace = null; state.groups = []; state.students = []; state.enrollments = [];
-    state.meetings = []; state.details = null; state.selectedKey = ''; state.scheduleChange = null; state.import = null; state.history = null; state.busy = false;
+    state.meetings = []; state.details = null; state.selectedKey = ''; state.scheduleChange = null; state.import = null; state.history = null; state.studentDialog = null; state.busy = false;
     state.message = ''; state.newGroupOpen = false; state.expandedGroupId = ''; savedFormValues.clear(); recordDrafts.clear(); userId = ''; root = null; render(document.createDocumentFragment());
   }
   function value(form, name) { return new FormData(form).get(name)?.toString() || ''; }
@@ -966,10 +1055,12 @@ export function createDashboardController({ access, render, drafts = null, onAut
             return;
           }
         } else state.message = `${student.name} was created. Enroll them in a group when ready.`;
+        state.studentDialog = null;
       } else if (kind === 'edit-student') {
         const student = state.students.find(item => item.id === form.dataset.student);
         await write('save_student', { id: student.id, name: value(form, 'name').trim(), external_id: value(form, 'external_id').trim() || null,
           expected_revision: student.revision });
+        state.studentDialog = null;
       } else if (kind === 'enroll') {
         await write('save_enrollment', { group_id: form.dataset.group, student_id: value(form, 'student_id'), starts_on: value(form, 'starts_on'), expected_revision: 0 });
       } else if (kind === 'lesson') {
@@ -1029,6 +1120,39 @@ export function createDashboardController({ access, render, drafts = null, onAut
   async function onClick(event) {
     const action = event.target.closest('[data-action]')?.dataset.action; if (!action) return;
     const target = event.target.closest('[data-action]');
+    if (action === 'set-attendance' || action === 'step-points') {
+      const row = target.closest('.dashboard-attendance-row');
+      const form = target.closest('form[data-form="attendance"]');
+      if (!row || !form || state.busy) return;
+      const attendance = row.querySelector('[name="attendance"]');
+      const points = row.querySelector('[name="participation"]');
+      if (action === 'set-attendance') {
+        attendance.value = target.dataset.attendanceValue;
+        if (attendance.value === 'absent') points.value = '0';
+        points.disabled = attendance.value === 'absent';
+      } else if (attendance.value === 'present') points.value = String(Math.max(-1, Math.min(1, Number(points.value) + Number(target.dataset.pointsStep))));
+      syncAttendanceControls(row); updateAttendanceSummary(); state.editorVersion++;
+      void persistRecord(form, true);
+      return;
+    }
+    if (action === 'section') {
+      await flushVisible();
+      state.section = target.dataset.section;
+      state.studentDialog = null;
+      clearReportDownload(state.history?.report); state.history = null;
+      publish();
+      root.querySelector(`[data-section="${state.section}"]`)?.focus();
+      return;
+    }
+    if (action === 'select-student-group') { state.studentGroupId = target.dataset.group; publish(); root.querySelector(`[data-action="select-student-group"][data-group="${state.studentGroupId}"]`)?.focus(); return; }
+    if (action === 'open-student-dialog') {
+      state.studentDialog = { groupId: target.dataset.group || '', studentId: target.dataset.student || '' };
+      publish(); return;
+    }
+    if (action === 'close-student-dialog') {
+      closeStudentDialog();
+      return;
+    }
     if (['keep-draft', 'discard-draft', 'takeover-draft', 'retry-draft', 'reconcile-roster'].includes(action)) {
       const kind = target.dataset.kind; const meeting = currentMeeting();
       if (!meeting || !drafts) return;
@@ -1079,6 +1203,7 @@ export function createDashboardController({ access, render, drafts = null, onAut
         const absent = action === 'attendance-none';
         row.querySelector('[name="attendance"]').value = absent ? 'absent' : 'present';
         const points = row.querySelector('[name="participation"]'); points.value = '0'; points.disabled = absent;
+        syncAttendanceControls(row);
       }
       state.editorVersion++;
       updateAttendanceSummary();

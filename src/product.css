@@ -21,6 +21,10 @@
   .topbar-actions { flex-wrap: wrap; }
 }
 .dashboard { display: grid; gap: 1rem; margin-top: 1.25rem; }
+.dashboard-navigation { position: sticky; top: 0; z-index: 5; display: flex; gap: .4rem; padding: .55rem; border: 1px solid var(--line); border-radius: 12px; background: #fffffff2; box-shadow: 0 4px 18px #132b5612; backdrop-filter: blur(12px); }
+.dashboard-nav-button { min-height: 42px; padding: .55rem 1rem; border: 0; border-radius: 8px; background: transparent; color: var(--navy); font: inherit; font-weight: 700; cursor: pointer; }
+.dashboard-nav-button:hover, .dashboard-nav-button.is-active { background: var(--blue-pale); color: var(--blue); }
+.dashboard-nav-button:focus-visible, .dashboard-toggle-button:focus-visible, .dashboard-step-button:focus-visible, .dashboard-group-choice:focus-visible { outline: 3px solid var(--blue); outline-offset: 2px; }
 .dashboard-toolbar, .dashboard-section-heading { display: flex; align-items: center; justify-content: space-between; gap: .65rem; flex-wrap: wrap; }
 .dashboard-toolbar-title { margin-right: auto; }
 .dashboard-toolbar-title h2, .dashboard-section-heading h3 { margin: 0; color: var(--navy); }
@@ -66,6 +70,14 @@
 .dashboard-roster-list { display: grid; gap: .4rem; }
 .dashboard-student { display: flex; align-items: center; gap: .7rem; flex-wrap: wrap; padding: .5rem 0; border-top: 1px solid var(--line); }
 .dashboard-student > span { margin-right: auto; color: var(--text); }
+.dashboard-student-groups { display: flex; flex-wrap: wrap; gap: .5rem; margin: .75rem 0 1rem; }
+.dashboard-group-choice { padding: .6rem .85rem; border: 1px solid var(--line); border-radius: 9px; background: #fff; color: var(--navy); font: inherit; cursor: pointer; }
+.dashboard-group-choice[aria-pressed="true"] { border-color: var(--blue); background: var(--blue-pale); color: var(--blue); font-weight: 700; }
+.dashboard-student-dialog { width: min(440px, calc(100vw - 2rem)); max-height: calc(100vh - 2rem); padding: 1.4rem; border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 20px 65px #132b5640; }
+.dashboard-student-dialog::backdrop { background: #0b173b99; }
+.dashboard-student-dialog-form { display: grid; gap: 1rem; }
+.dashboard-student-dialog-form h3 { margin: 0; color: var(--navy); }
+.dashboard-dialog-actions { display: flex; justify-content: flex-end; gap: .6rem; }
 .dashboard-import { display: flex; align-items: end; gap: .65rem; flex-wrap: wrap; margin: .75rem 0; padding: 1rem; border: 1px solid #c7d7ec; border-radius: 10px; background: #f8faff; }
 .dashboard-import > h4, .dashboard-import > .dashboard-message, .dashboard-import-rows { flex-basis: 100%; }
 .dashboard-import > h4 { margin: 0; color: var(--navy); }
@@ -76,6 +88,9 @@
 .dashboard-slot-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: .2rem .8rem; margin-top: .5rem; }
 .dashboard-slot-summary p { margin: .2rem 0; }
 .dashboard-records { display: grid; gap: .8rem; }
+.dashboard-lesson-layout { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: stretch; gap: .8rem; }
+.dashboard-lesson-layout > * { min-width: 0; }
+.dashboard-lesson-layout .dashboard-previous-notes { max-height: 410px; overflow-y: auto; }
 .dashboard-schedule-controls { display: flex; gap: .5rem; flex-wrap: wrap; }
 .dashboard-schedule-preview { padding: .85rem; border: 1px solid var(--blue); border-radius: 10px; background: var(--blue-pale); }
 .dashboard-schedule-preview p { margin: .4rem 0; }
@@ -93,7 +108,14 @@
 .dashboard-previous-notes { padding: .85rem; border: 1px solid var(--line); border-radius: 10px; }
 .dashboard-previous-notes h4 { margin: 0 0 .45rem; color: var(--navy); }
 .dashboard-record-form > .button { margin-left: auto; }
-.dashboard-attendance-row { display: grid; grid-template-columns: minmax(130px, 1fr) repeat(3, minmax(125px, 1fr)); align-items: end; gap: .55rem; flex-basis: 100%; padding: .6rem 0; border-top: 1px solid var(--line); }
+.dashboard-attendance-row { display: grid; grid-template-columns: minmax(130px, 1fr) minmax(150px, 180px) 130px minmax(130px, 1fr) auto; align-items: end; gap: .55rem; flex-basis: 100%; padding: .6rem 0; border-top: 1px solid var(--line); }
+.dashboard-attendance-buttons, .dashboard-points-buttons { display: flex; align-items: center; gap: .25rem; min-height: 40px; }
+.dashboard-toggle-button, .dashboard-step-button { min-height: 40px; border: 1px solid var(--line); border-radius: 8px; background: #fff; color: var(--navy); font: inherit; font-weight: 700; cursor: pointer; }
+.dashboard-toggle-button { flex: 1; padding: .35rem .5rem; }
+.dashboard-toggle-button[aria-pressed="true"] { border-color: var(--blue); background: var(--blue-pale); color: var(--blue); }
+.dashboard-step-button { width: 38px; font-size: 1.25rem; }
+.dashboard-step-button:disabled { opacity: .45; cursor: not-allowed; }
+.dashboard-points-value { min-width: 25px; text-align: center; font-weight: 700; color: var(--navy); }
 .dashboard-report { margin: 1rem 0; padding: 1rem; border: 1px solid var(--line); border-radius: .7rem; background: #f8faff; }
 .dashboard-report > .dashboard-field { display: inline-flex; flex-direction: column; min-width: 10rem; margin: .4rem .6rem .7rem 0; }
 .dashboard-report-totals { font-weight: 600; }
@@ -102,10 +124,14 @@
 .dashboard-history-item { padding: .65rem 0; border-bottom: 1px solid var(--line); }
 .dashboard-history-item p { margin: .25rem 0; white-space: pre-wrap; }
 @media (max-width: 760px) {
+  .dashboard-navigation { top: 0; }
+  .dashboard-nav-button { flex: 1; padding: .55rem .4rem; }
+  .dashboard-lesson-layout { grid-template-columns: 1fr; }
   .dashboard-toolbar { align-items: stretch; }
   .dashboard-toolbar-title { flex-basis: 100%; }
   .dashboard-week-strip { display: flex; overflow-x: auto; }
   .dashboard-day-chip { min-width: 92px; }
-  .dashboard-attendance-row { grid-template-columns: 1fr 1fr; }
+  .dashboard-attendance-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .dashboard-attendance-row > strong { grid-column: 1 / -1; padding: 0; }
+  .dashboard-attendance-row > label.dashboard-field { grid-column: 1 / -1; }
 }

@@ -112,6 +112,8 @@ test('history preview uses the month default and includes only selected student 
     now: () => new Date('2026-09-28T12:00:00Z') });
   controller.open({ id: 'w', timezone: 'UTC', display_name: 'Teacher' }, 'teacher');
   await settle(); await settle();
+  $('[data-section="students"]').click(); await settle();
+  $('[data-action="select-student-group"]').click();
   $('[data-action="history"]').click(); await settle(); await settle();
   $('[data-action="open-report"]').click();
   assert.equal($('[data-report-field="from"]').value, '2026-09-01');
