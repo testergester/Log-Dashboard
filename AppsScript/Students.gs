@@ -30,9 +30,9 @@ function saveStudent_(request) {
   }
 }
 
-function deleteStudent_(request) {
+function archiveStudent_(request) {
   const studentId = String(request.studentId || '').trim();
-  if (!studentId) throw new Error('Choose a student to delete.');
+  if (!studentId) throw new Error('Choose a student to archive.');
   const lock = LockService.getScriptLock();
   lock.waitLock(30000);
   try {
@@ -40,36 +40,38 @@ function deleteStudent_(request) {
     const students = spreadsheet.getSheetByName(DASHBOARD.students);
     const studentRow = findRow_(students, function(row) { return row[0] === studentId; });
     if (!studentRow) throw new Error('Student no longer exists. Reload the dashboard.');
-
-    const checklists = spreadsheet.getSheetByName(DASHBOARD.checklists);
-    const checklistUpdates = [];
-    rowsWithDates_(checklists, [1]).forEach(function(row, index) {
-      if (!row[4]) return;
-      const payload = parseChecklistJson_(row[4], row[0], row[1], row[2]);
-      const records = payload.records.filter(function(record) { return record.studentId !== studentId; });
-      if (records.length === payload.records.length) return;
-      const revision = Utilities.getUuid();
-      const updatedAt = timestamp_();
-      payload.records = records;
-      payload.revision = revision;
-      payload.updatedAt = updatedAt;
-      checklistUpdates.push({row: index + 2, revision: revision, updatedAt: updatedAt, json: JSON.stringify(payload)});
-    });
-    checklistUpdates.forEach(function(item) {
-      checklists.getRange(item.row, 3, 1, 3).setValues([[item.revision, item.updatedAt, item.json]]);
-    });
-
+    const student = students.getRange(studentRow, 1, 1, DASHBOARD.studentHeaders.length).getDisplayValues()[0];
+    const groups = [];
+    function addGroup(groupId, role) {
+      if (!groupId) return;
+      let entry = groups.find(function(item) { return item.groupId === groupId; });
+      if (!entry) { entry = {groupId: groupId, roles: []}; groups.push(entry); }
+      if (entry.roles.indexOf(role) < 0) entry.roles.push(role);
+    }
+    addGroup(student[3], 'official');
     const enrollments = spreadsheet.getSheetByName(DASHBOARD.enrollments);
     const enrollmentRows = [];
     rows_(enrollments).forEach(function(row, index) {
-      if (row[1] === studentId) enrollmentRows.push(index + 2);
+      if (row[1] !== studentId) return;
+      enrollmentRows.push(index + 2);
+      addGroup(row[0], 'enrolled');
+    });
+    const checklists = spreadsheet.getSheetByName(DASHBOARD.checklists);
+    rowsWithDates_(checklists, [1]).forEach(function(row) {
+      if (!row[4]) return;
+      const payload = parseChecklistJson_(row[4], row[0], row[1], row[2]);
+      if (payload.records.some(function(record) { return record.studentId === studentId; })) addGroup(row[0], 'attendance');
     });
     const legacyRecords = spreadsheet.getSheetByName(DASHBOARD.studentRecords);
-    const legacyRows = [];
-    rows_(legacyRecords).forEach(function(row, index) {
-      if (row[3] === studentId) legacyRows.push(index + 2);
+    rows_(legacyRecords).forEach(function(row) {
+      if (row[3] === studentId) addGroup(row[0], 'attendance');
     });
-    legacyRows.reverse().forEach(function(row) { legacyRecords.deleteRow(row); });
+    ensureTab_(spreadsheet, DASHBOARD.archivedStudents, DASHBOARD.archivedStudentHeaders);
+    const archived = spreadsheet.getSheetByName(DASHBOARD.archivedStudents);
+    const archivedRow = findRow_(archived, function(row) { return row[0] === studentId; });
+    const archiveEntry = [studentId, student[1], JSON.stringify(groups), JSON.stringify([studentId]), today_(), student[3]];
+    if (archivedRow) archived.getRange(archivedRow, 1, 1, archiveEntry.length).setValues([archiveEntry]);
+    else archived.appendRow(archiveEntry);
     enrollmentRows.reverse().forEach(function(row) { enrollments.deleteRow(row); });
     students.deleteRow(studentRow);
     return loadDashboard_();
@@ -86,6 +88,12 @@ function studentGroupSegment_(groupId) {
 
 function newStudentId_(sheet, groupId, usedIds) {
   const used = usedIds || new Set(rows_(sheet).map(function(row) { return row[0]; }));
+  const spreadsheet = sheet.getParent && sheet.getParent();
+  const archived = spreadsheet && spreadsheet.getSheetByName(DASHBOARD.archivedStudents);
+  if (archived) rows_(archived).forEach(function(row) {
+    if (row[0]) used.add(row[0]);
+    JSON.parse(row[3] || '[]').forEach(function(id) { used.add(id); });
+  });
   const prefix = 'ST-' + studentGroupSegment_(groupId) + '-';
   for (let attempt = 0; attempt < 100; attempt++) {
     const random = parseInt(Utilities.getUuid().replace(/-/g, '').slice(0, 10), 16).toString(36).padStart(8, '0');
