@@ -171,7 +171,7 @@
               <h2 id="student-panel-title">Attendance & participation</h2>
               <p id="checklist-summary">Choose a class to take attendance.</p>
             </div>
-            <button type="button" class="button button-quiet" id="add-student-button">Add student</button>
+            <button type="button" class="button button-quiet" id="add-student-button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="4"></circle><path d="M2.5 20a6.5 6.5 0 0 1 13 0M19 8v8m-4-4h8"></path></svg>Add student</button>
           </div>
           <div id="checklist-stats" class="checklist-stats" aria-live="polite"></div>
           <div class="attendance-toolbar">
@@ -179,7 +179,7 @@
             <label class="attendance-search-label" for="student-search">Find a student
               <input id="student-search" type="search" placeholder="Search roster…" autocomplete="off">
             </label>
-            <button type="button" class="button button-quiet" id="bulk-attendance-button">Mark whole group absent</button>
+            <button type="button" class="button button-quiet" id="bulk-attendance-button" data-attendance="absent">❌ Mark whole group absent</button>
             <span id="checklist-status" role="status" aria-live="polite"></span>
             <button type="submit" form="checklist-form" class="button button-primary" id="save-checklist-button">Save checklist</button>
           </div>
@@ -275,7 +275,7 @@
       <div id="student-totals" class="student-totals"></div>
       <div id="student-history" class="student-history"></div>
       <p class="dialog-error" id="history-error" role="alert" hidden></p>
-      <div class="dialog-actions"><button type="button" class="button button-danger" id="remove-student-button">Remove from class</button></div>
+      <div class="dialog-actions"><button type="button" class="button button-danger" id="remove-student-button">Delete student everywhere</button></div>
     </div>
   </dialog>
   <dialog id="attendance-history-dialog" aria-labelledby="attendance-history-title">
