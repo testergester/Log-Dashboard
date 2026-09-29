@@ -15,6 +15,7 @@ const state = {
   classes: [],
   logs: [],
   students: [],
+  archivedStudents: [],
   enrollments: [],
   checklists: [],
   studentRecords: [],
@@ -176,6 +177,7 @@ function handleError(error, target = "global") {
     state.classes = [];
     state.logs = [];
     state.students = [];
+    state.archivedStudents = [];
     state.enrollments = [];
     state.checklists = [];
     state.studentRecords = [];
@@ -203,6 +205,7 @@ function applyDashboardData(data) {
   state.classes = data.classes.map(item => ({...item, start: canonicalTime(item.start), end: canonicalTime(item.end)}));
   state.logs = data.logs.map(item => ({...item, start: canonicalTime(item.start), end: canonicalTime(item.end)}));
   state.students = hasStudentData ? data.students : [];
+  state.archivedStudents = hasStudentData && Array.isArray(data.archivedStudents) ? data.archivedStudents : [];
   state.enrollments = hasStudentData ? data.enrollments : [];
   state.checklists = hasStudentData ? data.checklists : [];
   state.studentRecords = hasStudentData ? data.studentRecords : [];
@@ -552,7 +555,8 @@ function checklistRows() {
 }
 
 function studentName(id) {
-  return state.students.find(item => item.id === id)?.name || "Unknown student";
+  return state.students.find(item => item.id === id)?.name ||
+    state.archivedStudents.find(item => item.id === id || item.ids?.includes(id))?.name || "Unknown student";
 }
 
 function markScore(item) {
@@ -648,8 +652,9 @@ function updateStudentRow(row) {
   });
   const classTotal = state.studentRecords.filter(item => item.studentId === row.dataset.studentId &&
     item.classId === state.selectedClassId).reduce((sum, item) => sum + markScore(item), 0);
+  const archived = state.archivedStudents.some(item => item.id === row.dataset.studentId || item.ids?.includes(row.dataset.studentId));
   row.querySelector(".student-score").textContent = markReason({attendance: row.dataset.attendance,
-    participation: row.dataset.participation}) + " · " + pointLabel(classTotal) + " in this class";
+    participation: row.dataset.participation}) + " · " + pointLabel(classTotal) + " in this class" + (archived ? " · Archived" : "");
 }
 
 function renderStudents() {
@@ -699,10 +704,10 @@ function renderStudents() {
       const deleteButton = document.createElement("button");
       deleteButton.type = "button";
       deleteButton.className = "student-delete-button";
-      deleteButton.setAttribute("aria-label", "Delete " + student.name + " everywhere");
-      deleteButton.title = "Delete student everywhere";
+      deleteButton.setAttribute("aria-label", "Archive " + student.name);
+      deleteButton.title = "Archive student";
       deleteButton.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3m3 0-1 13H7L6 7m4 4v5m4-5v5"/></svg>';
-      deleteButton.addEventListener("click", () => deleteStudent(student.id));
+      deleteButton.addEventListener("click", () => archiveStudent(student.id));
       identity.append(deleteButton);
     }
     const attendance = document.createElement("div");
@@ -789,9 +794,11 @@ function openStudentHistory(studentId) {
   saveChecklistDraft();
   state.selectedStudentId = studentId;
   const student = state.students.find(item => item.id === studentId);
-  if (!student) return;
-  $("#history-title").textContent = student.name + " · history";
-  $("#rename-student-name").value = student.name;
+  const archivedStudent = state.archivedStudents.find(item => item.id === studentId || item.ids?.includes(studentId));
+  if (!student && !archivedStudent) return;
+  $("#history-title").textContent = (student || archivedStudent).name + (archivedStudent ? " · archived history" : " · history");
+  $("#rename-student-form").hidden = Boolean(archivedStudent);
+  $("#rename-student-name").value = (student || archivedStudent).name;
   $("#history-error").hidden = true;
   const records = state.studentRecords.filter(item => item.studentId === studentId)
     .sort((a, b) => b.date.localeCompare(a.date));
@@ -823,7 +830,7 @@ function openStudentHistory(studentId) {
     }
     list.append(entry);
   });
-  $("#remove-student-button").hidden = false;
+  $("#remove-student-button").hidden = Boolean(archivedStudent);
   $("#history-dialog").showModal();
 }
 
@@ -1009,22 +1016,24 @@ function applyChecklist(saved) {
   }));
 }
 
-async function deleteStudent(studentId) {
+async function archiveStudent(studentId) {
   if (state.pending) return;
   const student = state.students.find(item => item.id === studentId);
   if (!student) return;
-  if (!confirm('Permanently delete ' + student.name + ' from the student database, every group, and all saved attendance records? This cannot be undone.')) return;
+  if (!confirm('Archive ' + student.name + '? They will leave all active groups. Their ID, group history, and saved attendance will be kept.')) return;
   saveChecklistDraft();
   state.pending = true;
   try {
-    const data = await request('deleteStudent', {token: state.token, studentId});
+    const data = await request('archiveStudent', {token: state.token, studentId});
     state.checklistDrafts.forEach((rows, key) => {
-      state.checklistDrafts.set(key, rows.filter(item => item.studentId !== studentId));
+      const [classId, date] = key.split('|');
+      const hasSavedChecklist = data.checklists.some(item => item.classId === classId && item.date === date);
+      if (!hasSavedChecklist) state.checklistDrafts.set(key, rows.filter(item => item.studentId !== studentId));
     });
     state.selectedStudentId = '';
     if ($('#history-dialog').open) $('#history-dialog').close();
     applyDashboardData(data);
-    setNotice(student.name + ' deleted from every group and saved attendance record.');
+    setNotice(student.name + ' moved to ArchivedStudents. Saved attendance was kept.');
   } catch (error) {
     if (isSessionError(error) && $('#history-dialog').open) $('#history-dialog').close();
     handleError(error);
@@ -1110,6 +1119,7 @@ $("#sign-out-button").addEventListener("click", () => {
   state.classes = [];
   state.logs = [];
   state.students = [];
+  state.archivedStudents = [];
   state.enrollments = [];
   state.checklists = [];
   state.studentRecords = [];
@@ -1374,7 +1384,7 @@ $("#rename-student-form").addEventListener("submit", async event => {
     state.pending = false;
   }
 });
-$("#remove-student-button").addEventListener("click", () => deleteStudent(state.selectedStudentId));
+$("#remove-student-button").addEventListener("click", () => archiveStudent(state.selectedStudentId));
 
 $("#checklist-form").addEventListener("submit", async event => {
   event.preventDefault();
