@@ -32,6 +32,8 @@ The trash icon archives a student after confirmation. `setupDashboard()` creates
 
 ## Official groups and student IDs
 
+In a group record, **Check sheet IDs** reloads the dashboard data and compares that group's `ClassStudents` IDs with the `Students` sheet. Green rows have IDs in both sheets; orange rows are students whose official group is this group but who have no matching `ClassStudents` row; red rows are `ClassStudents` IDs with no matching `Students` row. The check reports IDs and whether memberships are active. It only diagnoses the sheets and does not delete or reconstruct rows. Missing names in the attendance list display their IDs, so orphaned references can be located without guessing. A saved checklist can also retain a former student's ID; that historical row is separate from this two-sheet comparison.
+
 New students receive an ID such as `ST-8E-th324frf` automatically. The middle part comes from their fixed official group ID, cleaned to uppercase letters, numbers, and hyphens. Adding an existing student from another group tags them for the currently selected meeting only; save that meeting's checklist to record their attendance.
 
 You can also add students directly in the `Students` sheet: enter the name in column B and an existing active official group ID in column D. Leave column A empty. After either field is edited, the sheet's `onEdit` handler fills A with a unique ID, fills C if its timestamp is blank, and adds the student to `ClassStudents`. Pasting several complete rows works the same way. Rows missing a name or valid active group wait until corrected. Running `setupDashboard()` also fills complete rows that were added before this handler was installed.
