@@ -1,10 +1,17 @@
 /**
- * Keeps the generated Monday-Friday view current when the source timetable is
- * edited directly. Dashboard writes call refreshWeeklyView_ themselves because
- * Apps Script edits do not fire simple onEdit triggers.
+ * Handles direct edits to the Students and Timetable sheets. Dashboard writes
+ * call their own helpers because Apps Script edits do not fire onEdit triggers.
  */
 function onEdit(e) {
-  if (!e || !e.range || e.range.getSheet().getName() !== DASHBOARD.timetable) return;
+  if (!e || !e.range) return;
+  const sheet = e.range.getSheet();
+  if (sheet.getName() === DASHBOARD.students) {
+    if (e.range.getLastRow() >= 2 && e.range.getColumn() <= DASHBOARD.studentHeaders.length) {
+      fillMissingStudentIds_(e.source || sheet.getParent(), e.range.getRow(), e.range.getLastRow());
+    }
+    return;
+  }
+  if (sheet.getName() !== DASHBOARD.timetable) return;
   if (e.range.getLastRow() < 2 || e.range.getColumn() > DASHBOARD.timetableHeaders.length) return;
   const lock = LockService.getScriptLock();
   if (!lock.tryLock(5000)) return;
@@ -104,4 +111,3 @@ function normalizeTimetableTimes_(sheet) {
   });
   range.setNumberFormat('@').setValues(values);
 }
-

@@ -5,8 +5,8 @@ function saveChecklist_(request) {
   const classId = String(input.classId || '');
   const date = date_(input.date);
   const expectedRevision = input.revision == null ? '' : String(input.revision);
-  if (!Array.isArray(input.records) || !input.records.length || input.records.length > 100) {
-    throw new Error('A checklist needs 1 to 100 students.');
+  if (!Array.isArray(input.records) || input.records.length > 100) {
+    throw new Error('A checklist can have at most 100 students.');
   }
   const records = input.records.map(function(item) {
     item = item || {};
@@ -41,23 +41,17 @@ function saveChecklist_(request) {
     const previousRow = checklistRowNumber
       ? checklistSheet.getRange(checklistRowNumber, 1, 1, DASHBOARD.checklistHeaders.length).getDisplayValues()[0]
       : null;
+    if (!records.length && !previousRow) throw new Error('Add a student before saving a new checklist.');
     const previousRevision = previousRow ? previousRow[2] : '';
     if (expectedRevision !== previousRevision) {
       throw new Error('Checklist changed on another device. Reload the dashboard before saving.');
     }
     const previousPayload = previousRow && previousRow[4]
       ? parseChecklistJson_(previousRow[4], classId, date, previousRevision) : null;
-    const savedIds = previousPayload
-      ? previousPayload.records.map(function(record) { return record.studentId; })
-      : checklistRowNumber
-        ? rowsWithDates_(spreadsheet.getSheetByName(DASHBOARD.studentRecords), [1]).filter(function(row) {
-            return row[0] === classId && row[1] === date && row[2] === previousRevision;
-          }).map(function(row) { return row[3]; }) : [];
     const enrolledIds = rowsWithDates_(spreadsheet.getSheetByName(DASHBOARD.enrollments), [2, 3]).filter(function(row) {
       return row[0] === classId && enrolledOn_(row, date);
     }).map(function(row) { return row[1]; });
-    const expected = Array.from(new Set(savedIds.concat(enrolledIds)));
-    if (expected.length !== ids.length || expected.some(function(id) { return ids.indexOf(id) < 0; })) {
+    if (Array.from(new Set(enrolledIds)).some(function(id) { return ids.indexOf(id) < 0; })) {
       throw new Error('The class roster changed. Reload the dashboard before saving.');
     }
     const studentSheet = spreadsheet.getSheetByName(DASHBOARD.students);
@@ -110,7 +104,7 @@ function parseChecklistJson_(value, classId, date, revision) {
     throw new Error('Attendance JSON is invalid for ' + classId + ' on ' + date + '.');
   }
   if (!payload || Number(payload.schemaVersion) !== 1 || !Array.isArray(payload.records) ||
-      !payload.records.length || payload.records.length > 100) {
+      payload.records.length > 100) {
     throw new Error('Attendance JSON has an unsupported format for ' + classId + ' on ' + date + '.');
   }
   if (String(payload.classId || '') !== String(classId) || String(payload.lessonDate || '') !== String(date) ||

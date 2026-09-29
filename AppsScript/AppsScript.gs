@@ -31,7 +31,7 @@ const DASHBOARD = Object.freeze({
   studentRecords: 'StudentMeetingRecords',
   timetableHeaders: ['Class ID', 'Class name', 'Subject', 'Weekday', 'Start time', 'End time', 'Room', 'Active', 'Updated at'],
   logHeaders: ['Class ID', 'Lesson date', 'Class name', 'Subject', 'Start time', 'End time', 'Room', 'Notes', 'Rating', 'Updated at', 'Lesson type', 'Lesson status'],
-  studentHeaders: ['Student ID', 'Name', 'Updated at'],
+  studentHeaders: ['Student ID', 'Name', 'Updated at', 'Official Group ID'],
   enrollmentHeaders: ['Class ID', 'Student ID', 'Joined on', 'Left on', 'Active', 'Updated at'],
   checklistHeaders: ['Class ID', 'Lesson date', 'Revision', 'Updated at', 'Checklist JSON'],
   studentRecordHeaders: ['Class ID', 'Lesson date', 'Revision', 'Student ID', 'Attendance', 'Participation', 'Note', 'Updated at']
@@ -43,6 +43,8 @@ function setupDashboard() {
   const props = PropertiesService.getScriptProperties();
   props.setProperty('SPREADSHEET_ID', spreadsheet.getId());
   ensureDashboardTabs_(spreadsheet);
+  repairLegacyClassStudentFormulas_(spreadsheet.getSheetByName(DASHBOARD.enrollments));
+  fillMissingStudentIds_(spreadsheet);
   normalizeTimetableTimes_(spreadsheet.getSheetByName(DASHBOARD.timetable));
   sortTimetable_(spreadsheet.getSheetByName(DASHBOARD.timetable));
   SpreadsheetApp.flush();

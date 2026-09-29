@@ -8,6 +8,23 @@ function ensureDashboardTabs_(spreadsheet) {
   ensureTab_(spreadsheet, DASHBOARD.studentRecords, DASHBOARD.studentRecordHeaders);
 }
 
+// Older ClassStudents sheets may derive column A from the student ID in B.
+// Their digits-only suffix regex fails for the new eight-character IDs.
+function repairLegacyClassStudentFormulas_(sheet) {
+  const count = sheet.getLastRow() - 1;
+  if (count < 1) return 0;
+  const formulas = sheet.getRange(2, 1, count, 1).getFormulas();
+  let repaired = 0;
+  formulas.forEach(function(row, index) {
+    const rowNumber = index + 2;
+    const match = String(row[0] || '').match(/^=REGEXEXTRACT\(\s*B(\d+)\s*,\s*"\^ST-\(\.\*\)-\\d\+\$"\s*\)$/i);
+    if (!match || Number(match[1]) !== rowNumber) return;
+    sheet.getRange(rowNumber, 1).setFormula('=REGEXEXTRACT(B' + rowNumber + ',"^ST-(.+)-[a-z0-9]{8}$")');
+    repaired++;
+  });
+  return repaired;
+}
+
 function ensureTab_(spreadsheet, name, headers) {
   let sheet = spreadsheet.getSheetByName(name);
   if (!sheet) sheet = spreadsheet.insertSheet(name);
@@ -84,4 +101,3 @@ function findRow_(sheet, match) {
   for (let index = 0; index < data.length; index++) if (match(data[index])) return index + 2;
   return 0;
 }
-

@@ -9,7 +9,7 @@ function loadDashboard_() {
     return {classId: row[0], date: row[1], className: row[2], subject: row[3], start: storedTime_(row[4]), end: storedTime_(row[5]), room: row[6], notes: row[7], rating: Number(row[8]) || null, updatedAt: row[9], lessonType: row[10] || 'Lesson', lessonStatus: row[11] || 'Done'};
   }).filter(function(item) { return item.classId && item.date; });
   const students = rows_(spreadsheet.getSheetByName(DASHBOARD.students)).map(function(row) {
-    return {id: row[0], name: row[1], updatedAt: row[2]};
+    return {id: row[0], name: row[1], updatedAt: row[2], officialGroupId: row[3]};
   }).filter(function(item) { return item.id; });
   const enrollments = rowsWithDates_(spreadsheet.getSheetByName(DASHBOARD.enrollments), [2, 3]).map(function(row) {
     return {classId: row[0], studentId: row[1], joinedOn: row[2], leftOn: row[3],

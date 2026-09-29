@@ -175,11 +175,251 @@ function testReadDoesNotWrite() {
   assert.equal(context.loadDashboard_().classes.length, 0);
 }
 
+function testStudentIds() {
+  const students = [];
+  const classRows = [['8 E']];
+  const studentSheet = {
+    rows: students,
+    appendRow(row) { students.push(row); },
+    getRange(row, column) { return {
+      getDisplayValue: () => students[row - 2][column - 1],
+      setValues(values) { values[0].forEach((value, index) => { students[row - 2][column - 1 + index] = value; }); }
+    }; }
+  };
+  const classSheet = {rows: classRows};
+  const spreadsheet = {getSheetByName: name => name === 'Students' ? studentSheet : classSheet};
+  const uuids = ['0000000001', '0000000001', '0000000002'];
+  const context = vm.createContext({
+    String, Set, parseInt,
+    DASHBOARD: {students: 'Students', timetable: 'Timetable'},
+    Utilities: {getUuid: () => uuids.shift()},
+    LockService: {getScriptLock: () => ({waitLock() {}, releaseLock() {}})},
+    spreadsheet_: () => spreadsheet,
+    rows_: sheet => sheet.rows,
+    findRow_: (sheet, match) => { const index = sheet.rows.findIndex(match); return index < 0 ? 0 : index + 2; },
+    text_: value => String(value).trim(), timestamp_: () => 'now'
+  });
+  vm.runInContext(backend('Students.gs'), context);
+  context.setEnrollmentRow_ = (sheet, classId, studentId) => ({classId, studentId, active: true});
+  const first = context.saveStudent_({student: {name: 'First', classId: '8 E'}}).student;
+  const second = context.saveStudent_({student: {name: 'Second', classId: '8 E'}}).student;
+  assert.equal(first.id, 'ST-8-E-00000001');
+  assert.equal(second.id, 'ST-8-E-00000002');
+  assert.equal(first.officialGroupId, '8 E');
+  const renamed = context.saveStudent_({student: {id: first.id, name: 'Renamed'}}).student;
+  assert.equal(renamed.id, first.id);
+  assert.equal(renamed.officialGroupId, '8 E');
+}
+
+function testMeetingGuests() {
+  const {context} = frontend();
+  vm.runInContext(`
+    state.selectedClassId = '8E';
+    state.selectedDate = '2026-09-24';
+    state.students = [{id: 'home', name: 'Home', officialGroupId: '8E'},
+      {id: 'guest', name: 'Guest', officialGroupId: '9A'}];
+    state.enrollments = [{classId: '8E', studentId: 'home', joinedOn: '2026-09-01', leftOn: ''}];
+    state.checklistDrafts.set(checklistKey(), [{studentId: 'home', attendance: 'present', participation: 0, note: ''},
+      {studentId: 'guest', attendance: 'present', participation: 0, note: ''}]);
+  `, context);
+  assert.deepEqual(Array.from(vm.runInContext('checklistRows().map(item => item.studentId)', context)), ['guest', 'home']);
+  vm.runInContext("state.selectedDate = '2026-09-25'", context);
+  assert.deepEqual(Array.from(vm.runInContext('checklistRows().map(item => item.studentId)', context)), ['home']);
+}
+
+function testStudentIdMigration() {
+  function sheet(rows) {
+    return {rows, getRange(firstRow, firstColumn) { return {
+      getDisplayValue: () => rows[firstRow - 1][firstColumn - 1],
+      setValues(values) { values.forEach((value, offset) => value.forEach((cell, column) => {
+        rows[firstRow - 1 + offset][firstColumn - 1 + column] = cell;
+      })); }
+    }; }};
+  }
+  const payload = {schemaVersion: 1, classId: '9A', lessonDate: '2026-09-20', revision: 'r1',
+    classInfo: {id: '9A'}, records: [{studentId: 'old-a'}, {studentId: 'old-b'}]};
+  const sheets = {
+    Students: sheet([['Student ID', 'Name', 'Updated at', 'Official Group ID'],
+      ['old-a', 'A', '', ''], ['old-b', 'B', '', '']]),
+    ClassStudents: sheet([['Class ID', 'Student ID', 'Joined on', 'Left on', 'Active', 'Updated at'],
+      ['8E', 'old-a', '2026-01-01', '', true, ''], ['9A', 'old-a', '2026-02-01', '', true, ''],
+      ['9A', 'old-b', '2026-01-15', '', true, '']]),
+    StudentMeetingRecords: sheet([['header'], ['9A', '2026-09-20', 'r1', 'old-a']]),
+    AttendanceChecklists: sheet([['header'], ['9A', '2026-09-20', 'r1', '', JSON.stringify(payload)]]),
+    Timetable: sheet([['header'], ['8E'], ['9A']])
+  };
+  const values = {};
+  const props = {
+    getProperty: key => values[key] || '',
+    setProperty: (key, value) => { values[key] = value; },
+    setProperties: items => Object.assign(values, items)
+  };
+  const spreadsheet = {getSheetByName: name => sheets[name], getId: () => 'sheet-id', getName: () => 'Dashboard'};
+  let backups = 0;
+  const uuids = ['0000000001', '0000000002'];
+  const context = vm.createContext({
+    String, Set, Object, JSON, parseInt,
+    DASHBOARD: {students: 'Students', enrollments: 'ClassStudents', studentRecords: 'StudentMeetingRecords',
+      checklists: 'AttendanceChecklists', timetable: 'Timetable'},
+    Utilities: {getUuid: () => uuids.shift()},
+    LockService: {getScriptLock: () => ({waitLock() {}, releaseLock() {}})},
+    PropertiesService: {getScriptProperties: () => props},
+    DriveApp: {getFileById: () => ({makeCopy() { backups++; return {getId: () => 'backup-id', getUrl: () => 'backup-url'}; }})},
+    SpreadsheetApp: {flush() {}}, Logger: {log() {}},
+    spreadsheet_: () => spreadsheet,
+    rows_: source => source.rows.slice(1).map(row => row.slice()),
+    rowsWithDates_: source => source.rows.slice(1).map(row => row.slice()),
+    parseChecklistJson_: value => JSON.parse(value),
+    today_: () => '2026-09-29', timestamp_: () => '2026-09-29 10:00:00'
+  });
+  vm.runInContext(backend('Students.gs'), context);
+  vm.runInContext(backend('StudentIdMigration.gs'), context);
+  context.today_ = () => '2026-09-29';
+  context.migrateStudentIds();
+  assert.equal(sheets.Students.rows[1][0], 'ST-8E-00000001');
+  assert.equal(sheets.Students.rows[1][3], '8E');
+  assert.equal(sheets.Students.rows[2][0], 'ST-9A-00000002');
+  assert.equal(sheets.ClassStudents.rows[2][1], 'ST-8E-00000001');
+  assert.equal(sheets.ClassStudents.rows[2][3], '2026-09-29');
+  assert.equal(sheets.ClassStudents.rows[2][4], false);
+  assert.equal(sheets.StudentMeetingRecords.rows[1][3], 'ST-8E-00000001');
+  assert.equal(JSON.parse(sheets.AttendanceChecklists.rows[1][4]).records[1].studentId, 'ST-9A-00000002');
+  assert.equal(values.STUDENT_ID_MIGRATION_STATUS, 'complete');
+  context.migrateStudentIds();
+  assert.equal(backups, 1);
+}
+
+function testGuestChecklistSave() {
+  let savedRow;
+  const classSheet = {getRange: () => ({getDisplayValues: () => [['8E', 'Group 8E', 'Math', '4', '09:00', '10:00', '', 'true']]})};
+  const checklistSheet = {
+    appendRow: row => { savedRow = row; },
+    getRange: () => ({getDisplayValues: () => [savedRow], setValues: values => { savedRow = values[0]; }})
+  };
+  const spreadsheet = {getSheetByName: name => ({Timetable: classSheet,
+    AttendanceChecklists: checklistSheet, ClassStudents: {}, Students: {}})[name]};
+  const context = vm.createContext({
+    String, Number, Set, Array, JSON,
+    DASHBOARD: {timetable: 'Timetable', checklists: 'AttendanceChecklists', enrollments: 'ClassStudents',
+      students: 'Students', timetableHeaders: Array(9), checklistHeaders: Array(5)},
+    LockService: {getScriptLock: () => ({waitLock() {}, releaseLock() {}})},
+    Utilities: {getUuid: () => 'revision-1'},
+    spreadsheet_: () => spreadsheet,
+    date_: value => value, jsonText_: value => value,
+    findRow_: () => 2, findDateRows_: () => savedRow ? [2] : [],
+    rowsWithDates_: () => [['8E', 'home', '2026-09-01', '', true]],
+    rows_: () => [['home', 'Home'], ['guest', 'Guest']],
+    enrolledOn_: (row, date) => row[2] <= date && (!row[3] || date < row[3]),
+    timestamp_: () => 'now'
+  });
+  vm.runInContext(backend('Attendance.gs'), context);
+  const saved = context.saveChecklist_({checklist: {classId: '8E', date: '2026-09-24', records: [
+    {studentId: 'home', attendance: 'present', participation: 0, note: ''},
+    {studentId: 'guest', attendance: 'present', participation: 0, note: ''}
+  ]}});
+  assert.equal(saved.checklist.records.length, 2);
+  assert.equal(JSON.parse(savedRow[4]).records[1].studentId, 'guest');
+  context.rowsWithDates_ = () => [];
+  const corrected = context.saveChecklist_({checklist: {classId: '8E', date: '2026-09-24',
+    revision: saved.revision, records: []}});
+  assert.equal(corrected.checklist.records.length, 0);
+}
+
+function testLegacyClassStudentFormulaRepair() {
+  const formulas = [
+    '=REGEXEXTRACT(B2,"^ST-(.*)-\\d+$")',
+    '=REGEXEXTRACT(B3,"^ST-(.+)-[a-z0-9]{8}$")',
+    ''
+  ];
+  const sheet = {
+    getLastRow: () => 4,
+    getRange(row) { return {
+      getFormulas: () => formulas.map(value => [value]),
+      setFormula(value) { formulas[row - 2] = value; }
+    }; }
+  };
+  const context = vm.createContext({String, Number});
+  vm.runInContext(backend('Sheets.gs'), context);
+  assert.equal(context.repairLegacyClassStudentFormulas_(sheet), 1);
+  assert.equal(formulas[0], '=REGEXEXTRACT(B2,"^ST-(.+)-[a-z0-9]{8}$")');
+  assert.equal(formulas[1], '=REGEXEXTRACT(B3,"^ST-(.+)-[a-z0-9]{8}$")');
+}
+
+function testStudentSheetEdits() {
+  function sheet(name, rows) {
+    return {
+      name, rows,
+      getName() { return name; },
+      getLastRow() { return rows.length; },
+      getMaxRows() { return 1000; },
+      getParent() { return spreadsheet; },
+      insertRowsAfter() {},
+      getRange(firstRow, firstColumn, count = 1, width = 1) { return {
+        getDisplayValues: () => Array.from({length: count}, (_, offset) =>
+          Array.from({length: width}, (_, column) => String(rows[firstRow - 1 + offset]?.[firstColumn - 1 + column] ?? ''))),
+        getFormulas: () => Array.from({length: count}, () => ['']),
+        setValues(values) { values.forEach((value, offset) => value.forEach((cell, column) => {
+          const index = firstRow - 1 + offset;
+          if (!rows[index]) rows[index] = [];
+          rows[index][firstColumn - 1 + column] = cell;
+        })); }
+      }; }
+    };
+  }
+  const students = sheet('Students', [
+    ['Student ID', 'Name', 'Updated at', 'Official Group ID'],
+    ['', 'Single edit', 'existing timestamp', '10B'],
+    ['', 'Group entered later', '', ''],
+    ['', 'Pasted student', '', '10B'],
+    ['ST-10B-existing', 'Existing', 'earlier', '10B'],
+    ['', 'Unknown group', '', '10C']
+  ]);
+  const timetable = sheet('Timetable', [['Class ID'], ['10B', '', '', '', '', '', '', true]]);
+  const enrollments = sheet('ClassStudents', [['Class ID', 'Student ID', 'Joined on', 'Left on', 'Active', 'Updated at']]);
+  const spreadsheet = {getSheetByName: name => ({Students: students, Timetable: timetable,
+    ClassStudents: enrollments})[name]};
+  const uuids = ['0000000001', '0000000002', '0000000003'];
+  const context = vm.createContext({
+    String, Set, parseInt,
+    DASHBOARD: {students: 'Students', timetable: 'Timetable', enrollments: 'ClassStudents',
+      studentHeaders: Array(4), enrollmentHeaders: Array(6)},
+    LockService: {getScriptLock: () => ({waitLock() {}, releaseLock() {}})},
+    Utilities: {getUuid: () => uuids.shift()},
+    rows_: source => source.rows.slice(1).map(row => row.slice()),
+    timestamp_: () => 'now'
+  });
+  vm.runInContext(backend('Students.gs'), context);
+  vm.runInContext(backend('WeeklyView.gs'), context);
+  context.today_ = () => '2026-09-29';
+  const edit = (row, lastRow, column) => context.onEdit({source: spreadsheet, range: {
+    getSheet: () => students, getRow: () => row, getLastRow: () => lastRow, getColumn: () => column
+  }});
+  edit(2, 6, 2);
+  assert.equal(students.rows[1][0], 'ST-10B-00000001');
+  assert.equal(students.rows[1][2], 'existing timestamp');
+  assert.equal(students.rows[2][0], '');
+  assert.equal(students.rows[3][0], 'ST-10B-00000002');
+  assert.equal(students.rows[4][0], 'ST-10B-existing');
+  assert.equal(students.rows[5][0], '');
+  assert.equal(enrollments.rows.length, 3);
+  students.rows[2][3] = '10B';
+  edit(3, 3, 4);
+  assert.equal(students.rows[2][0], 'ST-10B-00000003');
+  edit(3, 3, 4);
+  assert.equal(enrollments.rows.length, 4);
+}
+
 (async () => {
   testSessionExpiry();
   testChecklistConflict();
   testReadDoesNotWrite();
+  testStudentIds();
+  testMeetingGuests();
+  testStudentIdMigration();
+  testGuestChecklistSave();
+  testLegacyClassStudentFormulaRepair();
+  testStudentSheetEdits();
   await testFrontend();
   await testChecklistFrontend();
-  console.log('Regression checks passed: sessions, conflicting attendance, read-only load, saved edits, endpoint, and no post-save reload.');
+  console.log('Regression checks passed: sessions, attendance conflicts, student IDs, sheet edits and pastes, guest meetings, migration, read-only load, and saved edits.');
 })().catch(error => { console.error(error); process.exitCode = 1; });
