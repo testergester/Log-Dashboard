@@ -32,11 +32,15 @@ function refreshWeeklyView_(spreadsheet) {
   let view = spreadsheet.getSheetByName(DASHBOARD.weeklyView);
   if (!view) view = spreadsheet.insertSheet(DASHBOARD.weeklyView);
 
-  const classes = rows_(source).map(function(row) {
-    return {name: row[1], subject: row[2], weekday: Number(row[3]), start: storedTime_(row[4]), end: storedTime_(row[5]),
-      room: row[6], active: String(row[7]).toLowerCase() !== 'false'};
-  }).filter(function(item) {
-    return item.active && item.name && item.weekday >= 1 && item.weekday <= 5 &&
+  const classes = rows_(source).reduce(function(all, row) {
+    if (String(row[7]).toLowerCase() === 'false') return all;
+    classMeetingsFromRow_(row).forEach(function(meeting) {
+      all.push({name: row[1], subject: row[2], weekday: meeting.weekday, start: meeting.start,
+        end: meeting.end, room: meeting.room});
+    });
+    return all;
+  }, []).filter(function(item) {
+    return item.name && item.weekday >= 1 && item.weekday <= 5 &&
       /^([01]\d|2[0-3]):[0-5]\d$/.test(item.start) && /^([01]\d|2[0-3]):[0-5]\d$/.test(item.end);
   });
   const periodsByKey = {};
