@@ -40,6 +40,14 @@ async function testFrontend() {
   const custom = 'https://script.google.com/macros/s/custom/exec';
   const {context, element} = frontend(custom);
   assert.equal(vm.runInContext('state.endpoint', context), custom);
+  assert.equal(vm.runInContext('state.view', context), 'week');
+  const hues = vm.runInContext(`groupHuesFor([
+    {id: 'B', active: true}, {id: 'A', active: true},
+    {id: 'A', active: true}, {id: 'C', active: false}
+  ])`, context);
+  assert.equal(hues.size, 2);
+  assert.notEqual(hues.get('A'), hues.get('B'));
+  assert.equal(hues.get('A'), vm.runInContext("groupHuesFor([{id: 'A', active: true}, {id: 'B', active: true}]).get('A')", context));
   vm.runInContext(`
     state.token = 'test';
     state.selectedDate = '2026-09-24';

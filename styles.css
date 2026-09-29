@@ -158,12 +158,12 @@ input::placeholder, textarea::placeholder { color: #8b99a9; }
 }
 .week-grid-cell { min-height: 94px; padding: .38rem; background: #edf8f2; }
 .week-grid-cell.is-today { box-shadow: inset 0 0 0 2px #b8cef2; }
-.week-grid-cell.is-occupied { display: flex; flex-direction: column; gap: .35rem; background: #fff7bf; }
+.week-grid-cell.is-occupied { display: flex; flex-direction: column; gap: .35rem; background: #f8faff; }
 .week-class-button, .week-free-button {
   width: 100%; min-height: 100%; border: 0; border-radius: 8px; text-align: left;
 }
-.week-class-button { padding: .65rem; color: #27320c; background: #f5e95a; }
-.week-class-button:hover { background: #ecdd35; }
+.week-class-button { padding: .65rem; color: #213047; background: hsl(var(--group-hue) 75% 88%); border: 1px solid hsl(var(--group-hue) 55% 69%); }
+.week-class-button:hover { background: hsl(var(--group-hue) 75% 81%); }
 .week-class-button strong, .week-class-button span { display: block; }
 .week-class-button strong { font-size: .94rem; }
 .week-class-button span { margin-top: .18rem; font-size: .76rem; line-height: 1.3; }

@@ -22,7 +22,7 @@ const state = {
   selectedDate: todayInTashkent(),
   selectedClassId: "",
   selectedStudentId: "",
-  view: "day",
+  view: "week",
   drafts: new Map(),
   checklistDrafts: new Map(),
   savingLessonKey: "",
@@ -351,7 +351,13 @@ function renderSchedule() {
   }
 }
 
+function groupHuesFor(classes) {
+  return new Map([...new Set(classes.filter(item => item.active).map(item => String(item.id)))].sort()
+    .map((id, index) => [id, ((210 + index * 137.508) % 360).toFixed(1)]));
+}
+
 function renderWeekGrid(container, dates) {
+  const groupHues = groupHuesFor(state.classes);
   const periods = new Map();
   state.classes.filter(item => item.active && Number(item.weekday) >= 1 && Number(item.weekday) <= 5).forEach(item => {
     periods.set(item.start + "|" + item.end, {start: item.start, end: item.end});
@@ -399,7 +405,7 @@ function renderWeekGrid(container, dates) {
       cell.classList.toggle("is-today", date === today);
       if (items.length) {
         cell.classList.add("is-occupied");
-        items.forEach(item => cell.append(weekClassButton(item, date)));
+        items.forEach(item => cell.append(weekClassButton(item, date, groupHues.get(String(item.id)))));
       } else {
         const free = document.createElement("button");
         free.type = "button";
@@ -426,10 +432,11 @@ function weekGridHeading(text, className) {
   return heading;
 }
 
-function weekClassButton(item, date) {
+function weekClassButton(item, date, hue) {
   const button = document.createElement("button");
   button.type = "button";
   button.className = "week-class-button";
+  button.style.setProperty("--group-hue", hue);
   const name = document.createElement("strong");
   name.textContent = item.name;
   const detail = document.createElement("span");
@@ -921,6 +928,8 @@ function render() {
     : "Your schedule and lesson notes in one place.";
   $("#day-view-button").setAttribute("aria-pressed", String(state.view === "day"));
   $("#week-view-button").setAttribute("aria-pressed", String(state.view === "week"));
+  $("#previous-date").setAttribute("aria-label", state.view === "week" ? "Previous week" : "Previous day");
+  $("#next-date").setAttribute("aria-label", state.view === "week" ? "Next week" : "Next day");
   renderWeekStrip();
   renderSchedule();
   renderLesson();
@@ -1046,6 +1055,9 @@ $("#login-form").addEventListener("submit", async event => {
     });
     if (!response.token) throw new Error("The login response did not include a session.");
     state.token = response.token;
+    state.view = "week";
+    state.selectedDate = todayInTashkent();
+    state.selectedClassId = "";
     localStorage.setItem(SESSION_STORAGE_KEY, state.token);
     authenticated = true;
     updateAccess();
