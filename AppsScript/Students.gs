@@ -30,6 +30,54 @@ function saveStudent_(request) {
   }
 }
 
+function deleteStudent_(request) {
+  const studentId = String(request.studentId || '').trim();
+  if (!studentId) throw new Error('Choose a student to delete.');
+  const lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    const spreadsheet = spreadsheet_();
+    const students = spreadsheet.getSheetByName(DASHBOARD.students);
+    const studentRow = findRow_(students, function(row) { return row[0] === studentId; });
+    if (!studentRow) throw new Error('Student no longer exists. Reload the dashboard.');
+
+    const checklists = spreadsheet.getSheetByName(DASHBOARD.checklists);
+    const checklistUpdates = [];
+    rowsWithDates_(checklists, [1]).forEach(function(row, index) {
+      if (!row[4]) return;
+      const payload = parseChecklistJson_(row[4], row[0], row[1], row[2]);
+      const records = payload.records.filter(function(record) { return record.studentId !== studentId; });
+      if (records.length === payload.records.length) return;
+      const revision = Utilities.getUuid();
+      const updatedAt = timestamp_();
+      payload.records = records;
+      payload.revision = revision;
+      payload.updatedAt = updatedAt;
+      checklistUpdates.push({row: index + 2, revision: revision, updatedAt: updatedAt, json: JSON.stringify(payload)});
+    });
+    checklistUpdates.forEach(function(item) {
+      checklists.getRange(item.row, 3, 1, 3).setValues([[item.revision, item.updatedAt, item.json]]);
+    });
+
+    const enrollments = spreadsheet.getSheetByName(DASHBOARD.enrollments);
+    const enrollmentRows = [];
+    rows_(enrollments).forEach(function(row, index) {
+      if (row[1] === studentId) enrollmentRows.push(index + 2);
+    });
+    const legacyRecords = spreadsheet.getSheetByName(DASHBOARD.studentRecords);
+    const legacyRows = [];
+    rows_(legacyRecords).forEach(function(row, index) {
+      if (row[3] === studentId) legacyRows.push(index + 2);
+    });
+    legacyRows.reverse().forEach(function(row) { legacyRecords.deleteRow(row); });
+    enrollmentRows.reverse().forEach(function(row) { enrollments.deleteRow(row); });
+    students.deleteRow(studentRow);
+    return loadDashboard_();
+  } finally {
+    lock.releaseLock();
+  }
+}
+
 function studentGroupSegment_(groupId) {
   const segment = String(groupId || '').toUpperCase().replace(/[^A-Z0-9]+/g, '-').replace(/^-+|-+$/g, '');
   if (!segment) throw new Error('Official group ID cannot form a student ID.');
