@@ -106,7 +106,9 @@ function exportLegacyForMigration() {
     const json = JSON.stringify(payload);
     const stamp = Utilities.formatDate(new Date(), 'UTC', 'yyyyMMdd-HHmmss');
     const file = DriveApp.createFile('teaching-dashboard-legacy-' + stamp + '.json', json, MimeType.PLAIN_TEXT);
-    const digest = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, json)
+    // Hash the bytes saved in Drive, so the logged value can be compared with
+    // the downloaded file even if Drive applies a text encoding conversion.
+    const digest = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, file.getBlob().getBytes())
       .map(function(byte) { return ('0' + (byte & 255).toString(16)).slice(-2); }).join('');
     Logger.log('Migration export created. Drive file ID: ' + file.getId() + '; SHA-256: ' + digest);
     return {fileId: file.getId(), sha256: digest};
