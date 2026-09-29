@@ -219,6 +219,58 @@ function testStudentIds() {
   assert.equal(renamed.officialGroupId, '8 E');
 }
 
+function testDeleteStudentEverywhere() {
+  const sheet = rows => ({
+    rows,
+    deleteRow(row) { rows.splice(row - 1, 1); },
+    getRange(row, column, height = 1, width = 1) { return {
+      setValues(values) { values.forEach((cells, offset) => cells.forEach((value, index) => {
+        rows[row - 1 + offset][column - 1 + index] = value;
+      })); }
+    }; }
+  });
+  const payload = (classId, records) => ({schemaVersion: 1, classId, lessonDate: '2026-09-24',
+    revision: 'old-' + classId, updatedAt: 'earlier', classInfo: {id: classId}, records});
+  const record = studentId => ({studentId, studentName: studentId, attendance: 'present', participation: 0, note: ''});
+  const sheets = {
+    Students: sheet([['ID', 'Name'], ['student-a', 'A'], ['student-b', 'B']]),
+    ClassStudents: sheet([['Class', 'Student'], ['home', 'student-a'], ['guest', 'student-a'], ['home', 'student-b']]),
+    StudentMeetingRecords: sheet([['Class', 'Date', 'Revision', 'Student'], ['old', '2026-09-20', 'r1', 'student-a'],
+      ['old', '2026-09-20', 'r1', 'student-b'], ['old', '2026-09-19', 'r0', 'student-a']]),
+    AttendanceChecklists: sheet([['Class', 'Date', 'Revision', 'Updated', 'JSON'],
+      ['home', '2026-09-24', 'old-home', 'earlier', JSON.stringify(payload('home', [record('student-a'), record('student-b')]))],
+      ['guest', '2026-09-24', 'old-guest', 'earlier', JSON.stringify(payload('guest', [record('student-a')]))],
+      ['other', '2026-09-24', 'old-other', 'earlier', JSON.stringify(payload('other', [record('student-b')]))]])
+  };
+  let revision = 0;
+  const context = vm.createContext({
+    String, JSON,
+    DASHBOARD: {students: 'Students', enrollments: 'ClassStudents', studentRecords: 'StudentMeetingRecords',
+      checklists: 'AttendanceChecklists'},
+    LockService: {getScriptLock: () => ({waitLock() {}, releaseLock() {}})},
+    Utilities: {getUuid: () => 'new-' + ++revision},
+    spreadsheet_: () => ({getSheetByName: name => sheets[name]}),
+    rows_: source => source.rows.slice(1).map(row => row.slice()),
+    rowsWithDates_: source => source.rows.slice(1).map(row => row.slice()),
+    findRow_: (source, match) => { const index = source.rows.slice(1).findIndex(match); return index < 0 ? 0 : index + 2; },
+    parseChecklistJson_: value => JSON.parse(value),
+    timestamp_: () => 'now',
+    loadDashboard_: () => ({students: sheets.Students.rows.slice(1)})
+  });
+  vm.runInContext(backend('Students.gs'), context);
+  const result = context.deleteStudent_({studentId: 'student-a'});
+  assert.equal(result.students.length, 1);
+  assert.equal(sheets.Students.rows.length, 2);
+  assert.equal(sheets.ClassStudents.rows.length, 2);
+  assert.equal(sheets.StudentMeetingRecords.rows.length, 2);
+  assert.deepEqual(JSON.parse(sheets.AttendanceChecklists.rows[1][4]).records.map(item => item.studentId), ['student-b']);
+  assert.deepEqual(JSON.parse(sheets.AttendanceChecklists.rows[2][4]).records, []);
+  assert.equal(sheets.AttendanceChecklists.rows[1][2], 'new-1');
+  assert.equal(sheets.AttendanceChecklists.rows[2][2], 'new-2');
+  assert.equal(sheets.AttendanceChecklists.rows[3][2], 'old-other');
+  assert.throws(() => context.deleteStudent_({studentId: 'student-a'}), /no longer exists/);
+}
+
 function testMeetingGuests() {
   const {context} = frontend();
   vm.runInContext(`
@@ -422,6 +474,7 @@ function testStudentSheetEdits() {
   testChecklistConflict();
   testReadDoesNotWrite();
   testStudentIds();
+  testDeleteStudentEverywhere();
   testMeetingGuests();
   testStudentIdMigration();
   testGuestChecklistSave();
@@ -429,5 +482,5 @@ function testStudentSheetEdits() {
   testStudentSheetEdits();
   await testFrontend();
   await testChecklistFrontend();
-  console.log('Regression checks passed: sessions, attendance conflicts, student IDs, sheet edits and pastes, guest meetings, migration, read-only load, and saved edits.');
+  console.log('Regression checks passed: sessions, attendance conflicts, student deletion, student IDs, sheet edits and pastes, guest meetings, migration, read-only load, and saved edits.');
 })().catch(error => { console.error(error); process.exitCode = 1; });
