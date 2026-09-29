@@ -85,6 +85,7 @@ function doPost(e) {
       case 'archiveClass': requireSession_(request); data = archiveClass_(request); break;
       case 'saveLog': requireSession_(request); data = saveLog_(request); break;
       case 'saveStudent': requireSession_(request); data = saveStudent_(request); break;
+      case 'deleteStudent': requireSession_(request); data = deleteStudent_(request); break;
       case 'setEnrollment': requireSession_(request); data = setEnrollment_(request); break;
       case 'saveChecklist': requireSession_(request); data = saveChecklist_(request); break;
       default: throw new Error('Unknown action.');
