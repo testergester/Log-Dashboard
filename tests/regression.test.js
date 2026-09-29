@@ -352,6 +352,18 @@ function testMeetingGuests() {
   assert.deepEqual(Array.from(vm.runInContext('checklistRows().map(item => item.studentId)', context)), ['home']);
 }
 
+async function testArchiveRequiresDeployedBackend() {
+  const {context} = frontend();
+  vm.runInContext("state.students = [{id: 'student-a', name: 'Student A'}]", context);
+  let requested = false;
+  let notice = '';
+  context.request = () => { requested = true; throw new Error('Unexpected request'); };
+  context.setNotice = message => { notice = message; };
+  await context.archiveStudent('student-a');
+  assert.equal(requested, false);
+  assert.match(notice, /updated Apps Script backend/);
+}
+
 function testStudentIdMigration() {
   function sheet(rows) {
     return {rows, getRange(firstRow, firstColumn) { return {
@@ -582,5 +594,6 @@ function testStudentSheetEdits() {
   testStudentSheetEdits();
   await testFrontend();
   await testChecklistFrontend();
+  await testArchiveRequiresDeployedBackend();
   console.log('Regression checks passed: weekly meetings, attendance conflicts, student archiving, student IDs, sheet edits and pastes, guest meetings, migration, read-only load, and saved edits.');
 })().catch(error => { console.error(error); process.exitCode = 1; });
