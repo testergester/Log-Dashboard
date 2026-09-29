@@ -219,6 +219,57 @@ function testStudentIds() {
   assert.equal(renamed.officialGroupId, '8 E');
 }
 
+function testMultipleWeeklyMeetings() {
+  const rows = [['Class ID', 'Class name', 'Subject', 'Weekday', 'Start time', 'End time', 'Room', 'Active', 'Updated at', 'Additional meetings JSON'],
+    ['other', 'Other class', 'Math', 2, '09:00', '10:00', '', true, 'earlier', '[]']];
+  const sheet = {
+    appendRow(row) { rows.push(row); },
+    getRange(row, column, height = 1, width = 1) { return {
+      getDisplayValues: () => Array.from({length: height}, (_, offset) =>
+        rows[row - 1 + offset].slice(column - 1, column - 1 + width)),
+      setValues: values => values.forEach((cells, offset) => cells.forEach((value, index) => {
+        rows[row - 1 + offset][column - 1 + index] = value;
+      })),
+      getValue: () => rows[row - 1][column - 1]
+    }; }
+  };
+  const spreadsheet = {getSheetByName: () => sheet};
+  const context = vm.createContext({
+    Date, Number, JSON, String,
+    DASHBOARD: {timetable: 'Timetable', timetableHeaders: Array(10)},
+    Utilities: {getUuid: () => 'new-class'},
+    LockService: {getScriptLock: () => ({waitLock() {}, releaseLock() {}})},
+    SpreadsheetApp: {flush() {}},
+    spreadsheet_: () => spreadsheet,
+    rows_: () => rows.slice(1).map(row => row.slice()),
+    findRow_: (source, match) => { const index = rows.slice(1).findIndex(match); return index < 0 ? 0 : index + 2; },
+    text_: value => String(value || '').trim(), groupId_: value => value,
+    time_: value => value, storedTime_: value => value,
+    timeMinutes_: value => Number(value.slice(0, 2)) * 60 + Number(value.slice(3)),
+    timestamp_: () => 'now', sortTimetable_: () => {}, refreshWeeklyView_: () => {}
+  });
+  vm.runInContext(backend('ClassesAndLogs.gs'), context);
+  const request = {class: {name: 'Multi-day class', subject: 'Science', weekday: 1,
+    start: '08:00', end: '08:45', room: '101',
+    meetings: [{weekday: 3, start: '10:00', end: '10:45', room: '202'}]}};
+  const saved = context.saveClass_(request);
+  assert.equal(saved.meetings.length, 2);
+  assert.equal(rows[2][9], '[{"weekday":3,"start":"10:00","end":"10:45","room":"202"}]');
+  assert.equal(context.classMeetingsFromRow_(rows[2])[1].room, '202');
+  assert.throws(() => context.saveClass_({class: {...request.class, meetings: [
+    {weekday: 1, start: '10:00', end: '10:45'}]}}), /each weekday only once/);
+  assert.throws(() => context.saveClass_({class: {...request.class, id: 'new-class', meetings: [
+    {weekday: 2, start: '09:30', end: '10:15'}]}}), /overlaps with Other class/);
+
+  const {context: ui} = frontend();
+  vm.runInContext(`state.classes = [{id: 'new-class', name: 'Multi-day class', active: true,
+    meetings: [{weekday: 1, start: '08:00', end: '08:45', room: '101'},
+      {weekday: 3, start: '10:00', end: '10:45', room: '202'}]}]`, ui);
+  assert.equal(vm.runInContext("activeClassesOn('2026-09-28')[0].start", ui), '08:00');
+  assert.equal(vm.runInContext("activeClassesOn('2026-09-30')[0].start", ui), '10:00');
+  assert.equal(vm.runInContext("activeClassesOn('2026-09-29').length", ui), 0);
+}
+
 function testArchiveStudent() {
   const sheet = rows => ({
     rows,
@@ -383,6 +434,7 @@ function testGuestChecklistSave() {
     findRow_: () => 2, findDateRows_: () => savedRow ? [2] : [],
     rowsWithDates_: () => [['8E', 'home', '2026-09-01', '', true]],
     rows_: () => [['home', 'Home'], ['guest', 'Guest']],
+    classMeetingsFromRow_: row => [{weekday: 4, start: row[4], end: row[5], room: row[6]}],
     enrolledOn_: (row, date) => row[2] <= date && (!row[3] || date < row[3]),
     timestamp_: () => 'now'
   });
@@ -420,6 +472,7 @@ function testArchivedStudentChecklistCorrection() {
     findRow_: () => 2, findDateRows_: () => [2],
     rowsWithDates_: () => [],
     rows_: source => source === sheets.ArchivedStudents ? [['archived', 'Archived Student']] : [],
+    classMeetingsFromRow_: row => [{weekday: 4, start: row[4], end: row[5], room: row[6]}],
     enrolledOn_: () => false, timestamp_: () => 'now'
   });
   vm.runInContext(backend('Attendance.gs'), context);
@@ -519,6 +572,7 @@ function testStudentSheetEdits() {
   testChecklistConflict();
   testReadDoesNotWrite();
   testStudentIds();
+  testMultipleWeeklyMeetings();
   testArchiveStudent();
   testMeetingGuests();
   testStudentIdMigration();
@@ -528,5 +582,5 @@ function testStudentSheetEdits() {
   testStudentSheetEdits();
   await testFrontend();
   await testChecklistFrontend();
-  console.log('Regression checks passed: sessions, attendance conflicts, student archiving, student IDs, sheet edits and pastes, guest meetings, migration, read-only load, and saved edits.');
+  console.log('Regression checks passed: weekly meetings, attendance conflicts, student archiving, student IDs, sheet edits and pastes, guest meetings, migration, read-only load, and saved edits.');
 })().catch(error => { console.error(error); process.exitCode = 1; });
