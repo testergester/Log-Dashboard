@@ -8,6 +8,21 @@ function saveClass_(request) {
   const end = time_(item.end, 'End time');
   if (start >= end) throw new Error('End time must be after start time.');
   const room = text_(item.room, 'Room', 120, false);
+  const extras = item.meetings == null ? [] : item.meetings;
+  if (!Array.isArray(extras) || extras.length > 6) throw new Error('A class can meet once on each weekday.');
+  const meetings = [{weekday: weekday, start: start, end: end, room: room}];
+  extras.forEach(function(entry) {
+    entry = entry || {};
+    const day = Number(entry.weekday);
+    if (!Number.isInteger(day) || day < 1 || day > 7 || meetings.some(function(meeting) { return meeting.weekday === day; })) {
+      throw new Error('Choose each weekday only once for a class.');
+    }
+    const extraStart = time_(entry.start, 'Start time');
+    const extraEnd = time_(entry.end, 'End time');
+    if (extraStart >= extraEnd) throw new Error('End time must be after start time for every meeting.');
+    meetings.push({weekday: day, start: extraStart, end: extraEnd,
+      room: text_(entry.room, 'Room', 120, false)});
+  });
   const editingId = item.id ? String(item.id).trim() : '';
   const requestedId = item.requestedId ? groupId_(item.requestedId) : '';
   if (editingId && requestedId) throw new Error('Choose either an existing class ID or a new group ID.');
@@ -21,22 +36,25 @@ function saveClass_(request) {
     if (editingId && !rowNumber) throw new Error('Class no longer exists. Reload the dashboard.');
     if (!editingId && rowNumber) throw new Error('That group ID is already in use. Choose another one.');
     if (rowNumber && String(sheet.getRange(rowNumber, 8).getValue()).toLowerCase() === 'false') throw new Error('Archived classes cannot be edited.');
-    const conflict = rows_(sheet).map(function(row) {
-      return {id: row[0], name: row[1], weekday: Number(row[3]), start: storedTime_(row[4]),
-        end: storedTime_(row[5]), active: String(row[7]).toLowerCase() !== 'false'};
+    const conflict = rows_(sheet).filter(function(row) {
+      return row[0] !== id && String(row[7]).toLowerCase() !== 'false';
+    }).map(function(row) {
+      return {name: row[1], meetings: classMeetingsFromRow_(row)};
     }).find(function(existing) {
-      return existing.active && existing.id !== id && existing.weekday === weekday &&
-        timeMinutes_(start) < timeMinutes_(existing.end) && timeMinutes_(end) > timeMinutes_(existing.start);
+      return meetings.some(function(meeting) { return existing.meetings.some(function(other) {
+        return other.weekday === meeting.weekday && timeMinutes_(meeting.start) < timeMinutes_(other.end) &&
+          timeMinutes_(meeting.end) > timeMinutes_(other.start);
+      }); });
     });
-    if (conflict) throw new Error('This time overlaps with ' + conflict.name + ' (' + conflict.start + '–' + conflict.end + ').');
-    const row = [id, name, subject, weekday, start, end, room, true, timestamp_()];
+    if (conflict) throw new Error('A meeting overlaps with ' + conflict.name + '.');
+    const row = [id, name, subject, weekday, start, end, room, true, timestamp_(), JSON.stringify(meetings.slice(1))];
     if (rowNumber) sheet.getRange(rowNumber, 1, 1, row.length).setValues([row]);
     else sheet.appendRow(row);
     sortTimetable_(sheet);
     SpreadsheetApp.flush();
     refreshWeeklyView_(spreadsheet);
     return {id: id, name: name, subject: subject, weekday: weekday, start: start,
-      end: end, room: room, active: true, updatedAt: row[8]};
+      end: end, room: room, meetings: meetings, active: true, updatedAt: row[8]};
   } finally {
     lock.releaseLock();
   }
@@ -85,7 +103,9 @@ function saveLog_(request) {
     // The dashboard opens a concrete class meeting. Do not reject that meeting
     // because the weekly timetable was edited after the selected date.
     const previous = rowNumber ? logSheet.getRange(rowNumber, 1, 1, DASHBOARD.logHeaders.length).getDisplayValues()[0] : null;
-    const row = [classId, date, previous ? previous[2] : classRow[1], previous ? previous[3] : classRow[2], previous ? previous[4] : classRow[4], previous ? previous[5] : classRow[5], previous ? previous[6] : classRow[6], notes, rating, timestamp_(), lessonType, lessonStatus];
+    const lessonDay = (new Date(date + 'T00:00:00Z').getUTCDay() + 6) % 7 + 1;
+    const meeting = classMeetingsFromRow_(classRow).find(function(item) { return item.weekday === lessonDay; });
+    const row = [classId, date, previous ? previous[2] : classRow[1], previous ? previous[3] : classRow[2], previous ? previous[4] : meeting ? meeting.start : classRow[4], previous ? previous[5] : meeting ? meeting.end : classRow[5], previous ? previous[6] : meeting ? meeting.room : classRow[6], notes, rating, timestamp_(), lessonType, lessonStatus];
     if (rowNumber) logSheet.getRange(rowNumber, 1, 1, row.length).setValues([row]);
     else logSheet.appendRow(row);
     return {classId: classId, date: date, className: row[2], subject: row[3],
@@ -95,4 +115,13 @@ function saveLog_(request) {
   } finally {
     lock.releaseLock();
   }
+}
+
+function classMeetingsFromRow_(row) {
+  const primary = {weekday: Number(row[3]), start: storedTime_(row[4]), end: storedTime_(row[5]), room: row[6] || ''};
+  const extras = row[9] ? JSON.parse(row[9]) : [];
+  if (!Array.isArray(extras)) throw new Error('Additional meetings JSON must be an array for ' + row[0] + '.');
+  return [primary].concat(extras.map(function(item) {
+    return {weekday: Number(item.weekday), start: storedTime_(item.start), end: storedTime_(item.end), room: item.room || ''};
+  }));
 }
