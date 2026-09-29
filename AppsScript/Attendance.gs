@@ -70,8 +70,12 @@ function saveChecklist_(request) {
     }
     const revision = Utilities.getUuid();
     const updatedAt = timestamp_();
+    const lessonDay = (new Date(date + 'T00:00:00Z').getUTCDay() + 6) % 7 + 1;
+    const meeting = classMeetingsFromRow_(classRow).find(function(item) { return item.weekday === lessonDay; });
     const classInfo = previousPayload ? previousPayload.classInfo : {
-      id: classId, name: classRow[1], subject: classRow[2], start: classRow[4], end: classRow[5], room: classRow[6]
+      id: classId, name: classRow[1], subject: classRow[2],
+      start: meeting ? meeting.start : classRow[4], end: meeting ? meeting.end : classRow[5],
+      room: meeting ? meeting.room : classRow[6]
     };
     const payload = {
       schemaVersion: 1,
