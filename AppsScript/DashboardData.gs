@@ -11,6 +11,11 @@ function loadDashboard_() {
   const students = rows_(spreadsheet.getSheetByName(DASHBOARD.students)).map(function(row) {
     return {id: row[0], name: row[1], updatedAt: row[2], officialGroupId: row[3]};
   }).filter(function(item) { return item.id; });
+  const archiveSheet = spreadsheet.getSheetByName(DASHBOARD.archivedStudents);
+  const archivedStudents = archiveSheet ? rows_(archiveSheet).map(function(row) {
+    return {id: row[0], name: row[1], groups: JSON.parse(row[2] || '[]'),
+      ids: JSON.parse(row[3] || '[]'), removedOn: row[4], officialGroupId: row[5]};
+  }).filter(function(item) { return item.id; }) : [];
   const enrollments = rowsWithDates_(spreadsheet.getSheetByName(DASHBOARD.enrollments), [2, 3]).map(function(row) {
     return {classId: row[0], studentId: row[1], joinedOn: row[2], leftOn: row[3],
       active: String(row[4]).toLowerCase() !== 'false'};
@@ -51,6 +56,6 @@ function loadDashboard_() {
       }).forEach(function(record) { studentRecords.push(record); });
     }
   });
-  return {classes: classes, logs: logs, students: students, enrollments: enrollments,
+  return {classes: classes, logs: logs, students: students, archivedStudents: archivedStudents, enrollments: enrollments,
     checklists: checklists, studentRecords: studentRecords, attendanceStorage: 'json-v1', timezone: DASHBOARD.timezone};
 }
