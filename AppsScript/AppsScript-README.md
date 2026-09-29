@@ -24,6 +24,10 @@ After updating the website and backend together, saves update the dashboard from
 
 Run the local regression checks with the bundled Node.js runtime: `node tests/regression.test.js`.
 
+## Archived students
+
+The trash icon archives a student after confirmation. `setupDashboard()` creates the `ArchivedStudents` sheet; the archive action also creates it if it is missing. Each row keeps the student's full name, their known student IDs as a JSON array, previous group IDs and their roles as JSON, the removal date, and their former official group ID. Students with the same full name remain separate rows. The action removes the student from `Students` and all `ClassStudents` memberships, while saved JSON and legacy attendance records remain unchanged. Archived names remain available when viewing or correcting those saved checklists.
+
 ## Official groups and student IDs
 
 New students receive an ID such as `ST-8E-th324frf` automatically. The middle part comes from their fixed official group ID, cleaned to uppercase letters, numbers, and hyphens. Adding an existing student from another group tags them for the currently selected meeting only; save that meeting's checklist to record their attendance.
