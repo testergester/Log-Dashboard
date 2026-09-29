@@ -69,6 +69,28 @@ test('refresh restores lesson fields only for the same teacher and never saves a
   assert.equal(other.$('[data-form="attendance"] [name="attendance"]').value, 'present');
 });
 
+test('lesson pills save their values in the recoverable draft', async () => {
+  const drafts = memoryDrafts(); const first = harness(drafts); await first.open();
+  first.$('[data-lesson-field="rating"][data-lesson-value="4"]').click();
+  first.$('[data-lesson-field="lesson_type"][data-lesson-value="__custom"]').click();
+  assert.equal(first.$('[name="custom_lesson_type"]').closest('label').hidden, false);
+  first.edit('[name="custom_lesson_type"]', 'Workshop');
+  first.$('[data-lesson-field="status"][data-lesson-value="Late"]').click();
+  await first.controller.flush();
+  assert.equal(first.$('[data-lesson-field="rating"][data-lesson-value="4"]').getAttribute('aria-pressed'), 'true');
+  assert.equal(first.$('[data-form="lesson"] [name="lesson_type"]').value, '__custom');
+  const restored = harness(drafts); await restored.open();
+  assert.equal(restored.$('[data-lesson-field="rating"][data-lesson-value="4"]').getAttribute('aria-pressed'), 'true');
+  assert.equal(restored.$('[data-lesson-field="lesson_type"][data-lesson-value="__custom"]').getAttribute('aria-pressed'), 'true');
+  assert.equal(restored.$('[name="custom_lesson_type"]').value, 'Workshop');
+  assert.equal(restored.$('[name="custom_lesson_type"]').closest('label').hidden, false);
+  assert.equal(restored.$('[data-lesson-field="status"][data-lesson-value="Late"]').getAttribute('aria-pressed'), 'true');
+  restored.submit('[data-form="lesson"]'); await settle();
+  assert.equal(restored.calls[0].payload.rating, 4);
+  assert.equal(restored.calls[0].payload.lesson_type, 'Workshop');
+  assert.equal(restored.calls[0].payload.status, 'Late');
+});
+
 test('reloading meeting details before the debounce fires keeps the visible draft', async () => {
   const drafts = memoryDrafts(); const h = harness(drafts); await h.open();
   h.edit('[data-form="lesson"] [name="notes"]', 'Typed just before reload');

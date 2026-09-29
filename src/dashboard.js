@@ -42,6 +42,29 @@ function select(name, options, selected) {
   for (const [value, label] of options) { const option = node('option', '', label); option.value = value; item.append(option); }
   item.value = selected; return item;
 }
+function lessonChoiceField(label, name, options, selected) {
+  const group = node('div', 'dashboard-pill-group');
+  group.setAttribute('role', 'group'); group.setAttribute('aria-label', label);
+  const choice = select(name, options, selected); choice.hidden = true; group.append(choice);
+  for (const [value, text] of options) {
+    const pill = button(text, 'lesson-choice', 'dashboard-pill');
+    pill.dataset.lessonField = name; pill.dataset.lessonValue = value;
+    pill.setAttribute('aria-pressed', String(value === selected));
+    group.append(pill);
+  }
+  const wrap = controlField(label, group); wrap.classList.add('dashboard-choice-field');
+  return wrap;
+}
+function rescheduleIcon() {
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('viewBox', '0 0 24 24'); svg.setAttribute('width', '18'); svg.setAttribute('height', '18');
+  svg.setAttribute('fill', 'none'); svg.setAttribute('stroke', 'currentColor'); svg.setAttribute('stroke-width', '2');
+  svg.setAttribute('stroke-linecap', 'round'); svg.setAttribute('stroke-linejoin', 'round');
+  svg.setAttribute('aria-hidden', 'true');
+  const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  path.setAttribute('d', 'M7 3v4m10-4v4M4 9h16M6 5h12a2 2 0 0 1 2 2v5M4 17V7a2 2 0 0 1 2-2M12 18h8m0 0-3-3m3 3-3 3');
+  svg.append(path); return svg;
+}
 function formButton(text, className = 'button button-primary') {
   const item = node('button', className, text); item.type = 'submit'; return item;
 }
@@ -240,8 +263,7 @@ export function createDashboardController({ access, render, drafts = null, onAut
       if (points.disabled) points.value = '0';
       syncAttendanceControls(row);
     }
-    const custom = root.querySelector('[data-form="lesson"] [name="custom_lesson_type"]')?.closest('label');
-    if (custom) custom.hidden = root.querySelector('[data-form="lesson"] [name="lesson_type"]')?.value !== '__custom';
+    syncLessonControls(root.querySelector('[data-form="lesson"]'));
     updateAttendanceSummary();
   };
   function build() {
@@ -355,8 +377,7 @@ export function createDashboardController({ access, render, drafts = null, onAut
       }
       if (event.target.closest('[data-form="attendance"]')) updateAttendanceSummary();
       if (event.target.name === 'lesson_type') {
-        const custom = event.target.form?.elements.namedItem('custom_lesson_type')?.closest('label');
-        if (custom) custom.hidden = event.target.value !== '__custom';
+        syncLessonControls(event.target.form);
       }
     });
     for (const submit of root.querySelectorAll('button[type="submit"]')) submit.disabled = state.busy;
@@ -381,6 +402,13 @@ export function createDashboardController({ access, render, drafts = null, onAut
     if (number) number.textContent = attendance === 'absent' ? '—' : String(points);
     for (const control of row.querySelectorAll('[data-points-step]'))
       control.disabled = attendance === 'absent' || (Number(control.dataset.pointsStep) < 0 ? points <= -1 : points >= 1);
+  }
+  function syncLessonControls(form) {
+    if (!form) return;
+    for (const pill of form.querySelectorAll('[data-lesson-field]'))
+      pill.setAttribute('aria-pressed', String(form.elements.namedItem(pill.dataset.lessonField)?.value === pill.dataset.lessonValue));
+    const custom = form.elements.namedItem('custom_lesson_type')?.closest('label');
+    if (custom) custom.hidden = form.elements.namedItem('lesson_type')?.value !== '__custom';
   }
   function buildWeekStrip() {
     const strip = node('nav', 'dashboard-week-strip');
@@ -691,7 +719,8 @@ export function createDashboardController({ access, render, drafts = null, onAut
     if (!detail || detail.key !== meeting.meeting_key) { panel.append(node('p', 'field-hint', 'Loading meeting details…')); return panel; }
     if (!detail.lesson && !detail.attendance) {
       const controls = node('div', 'dashboard-schedule-controls');
-      const open = button('Reschedule this meeting', 'open-reschedule', 'button button-secondary');
+      const open = button('Reschedule this meeting', 'open-reschedule', 'button dashboard-reschedule-button');
+      open.prepend(rescheduleIcon());
       controls.append(open);
       if (meeting.is_rescheduled) controls.append(button('Restore original schedule', 'preview-restore', 'button button-quiet'));
       panel.append(controls);
@@ -719,14 +748,13 @@ export function createDashboardController({ access, render, drafts = null, onAut
       }
     }
     const lesson = document.createElement('form'); lesson.dataset.form = 'lesson'; lesson.dataset.meeting = meeting.meeting_key; lesson.className = 'dashboard-record-form';
-    const lessonType = select('lesson_type', [...LESSON_TYPES.map(type => [type, type]), ['__custom', 'Custom']],
-      detail.lesson?.lesson_type && !LESSON_TYPES.includes(detail.lesson.lesson_type) ? '__custom' : detail.lesson?.lesson_type || 'Lesson');
-    const customType = field('Custom lesson type', input('text', 'custom_lesson_type', detail.lesson?.lesson_type && !LESSON_TYPES.includes(detail.lesson.lesson_type) ? detail.lesson.lesson_type : ''));
-    customType.hidden = lessonType.value !== '__custom';
+    const lessonType = detail.lesson?.lesson_type && !LESSON_TYPES.includes(detail.lesson.lesson_type) ? '__custom' : detail.lesson?.lesson_type || 'Lesson';
+    const customType = field('Custom lesson type', input('text', 'custom_lesson_type', lessonType === '__custom' ? detail.lesson.lesson_type : ''), 'wide');
+    customType.hidden = lessonType !== '__custom';
     lesson.append(node('h4', '', 'Lesson record'), field('Notes', Object.assign(document.createElement('textarea'), { name: 'notes', maxLength: 5000, value: detail.lesson?.notes || '' }), 'wide'),
-      field('Rating', select('rating', [['', 'No rating'], ['1', '1 · Poor'], ['2', '2 · Fair'], ['3', '3 · Okay'], ['4', '4 · Good'], ['5', '5 · Excellent']], detail.lesson?.rating ? String(detail.lesson.rating) : '')),
-      field('Lesson type', lessonType), customType,
-      field('Status', select('status', LESSON_STATUSES.map(value => [value, value]), detail.lesson?.status || 'Done')),
+      lessonChoiceField('Rating', 'rating', [['', 'No rating'], ['1', '1 · Poor'], ['2', '2 · Fair'], ['3', '3 · Okay'], ['4', '4 · Good'], ['5', '5 · Excellent']], detail.lesson?.rating ? String(detail.lesson.rating) : ''),
+      lessonChoiceField('Lesson type', 'lesson_type', [...LESSON_TYPES.map(type => [type, type]), ['__custom', 'Custom']], lessonType), customType,
+      lessonChoiceField('Status', 'status', LESSON_STATUSES.map(value => [value, value]), detail.lesson?.status || 'Done'),
       node('small', 'dashboard-save-status', ''), formButton('Save lesson'));
     lesson.append(buildDraftChoice(meeting, 'lesson'));
     const previous = node('section', 'dashboard-previous-notes');
@@ -1118,6 +1146,16 @@ export function createDashboardController({ access, render, drafts = null, onAut
   async function onClick(event) {
     const action = event.target.closest('[data-action]')?.dataset.action; if (!action) return;
     const target = event.target.closest('[data-action]');
+    if (action === 'lesson-choice') {
+      const form = target.closest('form[data-form="lesson"]');
+      const choice = form?.elements.namedItem(target.dataset.lessonField);
+      if (!form || !choice || state.busy) return;
+      choice.value = target.dataset.lessonValue;
+      syncLessonControls(form);
+      state.editorVersion++;
+      void persistRecord(form, true);
+      return;
+    }
     if (action === 'set-attendance' || action === 'step-points') {
       const row = target.closest('.dashboard-attendance-row');
       const form = target.closest('form[data-form="attendance"]');
