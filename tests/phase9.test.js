@@ -60,3 +60,22 @@ test('migration rejects sensitive export fields and unknown references', () => {
   assert.throws(() => prepareLegacyExport({ ...base, snapshot: { ...snapshot, sessionToken: 'no' } }, options), /Sensitive field/);
   assert.throws(() => prepareLegacyExport({ ...base, snapshot: { ...snapshot, enrollments: [{ classId: 'missing', studentId: 's1', joinedOn: '2025-01-01' }] } }, options), /unknown class/);
 });
+
+test('repeated legacy class IDs become one group with separate schedule slots', () => {
+  const source = { formatVersion: 1, exportedAt: '2026-09-29T00:00:00Z', snapshot: {
+    ...snapshot,
+    classes: [
+      { id: 'a', name: 'Same', subject: 'Math', weekday: 1, start: '09:00', end: '10:00', active: true },
+      { id: 'a', name: 'Same', subject: 'Math', weekday: 3, start: '11:00', end: '12:00', active: true }
+    ],
+    enrollments: [{ classId: 'a', studentId: 's1', joinedOn: '2025-01-01', leftOn: '' }],
+    logs: [{ classId: 'a', date: '2025-02-04', className: 'Former title', subject: 'Math', start: '08:30', end: '09:30', notes: 'Historical note' }],
+    checklists: []
+  } };
+  const { mapped, expected } = prepareLegacyExport(source, { ownerId: teacherA, workspaceId, scheduleStartDate: '2026-09-29' });
+  assert.equal(expected.groups, 1);
+  assert.equal(expected.schedule_slots, 2);
+  assert.ok(mapped.schedule_slots.some(slot => slot.id === mapped.meetings[0].schedule_slot_id));
+  assert.equal(mapped.meetings[0].start_time, '08:30');
+  assert.equal(mapped.migration_warnings.historical_slot_fallbacks, 1);
+});

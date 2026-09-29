@@ -15,10 +15,11 @@ Run locally with Node 22.12+ after `pnpm install --frozen-lockfile`:
 
 ```sh
 node scripts/migrate-legacy.js --export /private/path/teaching-dashboard-legacy-YYYYMMDD-HHMMSS.json --owner-id OWNER_UUID --workspace-id WORKSPACE_UUID --schedule-start YYYY-MM-DD
+node scripts/rehearse-legacy.js --export /private/path/teaching-dashboard-legacy-YYYYMMDD-HHMMSS.json --schedule-start YYYY-MM-DD
 node scripts/migrate-legacy.js --export /private/path/teaching-dashboard-legacy-YYYYMMDD-HHMMSS.json --owner-id OWNER_UUID --workspace-id WORKSPACE_UUID --schedule-start YYYY-MM-DD --output /private/path/legacy-migration-rehearsal.sql
 ```
 
-The first command is a dry run: it validates the export and prints only entity counts and the number of students with saved attendance. The second writes SQL with mode `0600`; the file contains student data. Keep it outside the repository. The generated SQL checks the owner/workspace pair, inserts deterministic legacy IDs in one transaction, compares every mapped row and table count, and checks each student's attendance counts and point total. A rerun inserts no duplicates. Any mismatch aborts the transaction. Check for `MIGRATION_ERROR`, `TD003`, or `TD004` and correct the source/target mismatch before proceeding. Do not work around a mismatch by deleting records.
+The first command is a dry run: it validates the export and prints only entity counts and the number of students with saved attendance. The second imports the actual export twice into a disposable local PGlite database, then verifies the same checks. The third writes SQL with mode `0600`; the file contains student data. Keep it outside the repository. The generated SQL checks the owner/workspace pair, inserts deterministic legacy IDs in one transaction, compares every mapped row and table count, and checks each student's attendance counts and point total. A rerun inserts no duplicates. Any mismatch aborts the transaction. Check for `MIGRATION_ERROR`, `REHEARSAL_ERROR`, `TD003`, or `TD004` and correct the source/target mismatch before proceeding. Do not work around a mismatch by deleting records.
 
 Rehearse first in an isolated Supabase project or database with the same migrations and a test Auth owner/workspace. Use a session with database write privileges, not a browser publishable key. `psql -X -v ON_ERROR_STOP=1 --file /private/path/legacy-migration-rehearsal.sql` uses normal libpq connection settings (`PGHOST`, `PGPORT`, `PGDATABASE`, `PGUSER`, `PGPASSWORD`); keep the password in a secret manager or protected local environment. Run the SQL a second time. Confirm both runs succeed and counts remain unchanged. The automated PGlite rehearsal covers a historical meeting, duplicate names, archived class, canonical attendance, snapshots, and rerun safety; hosted Postgres and browser behavior still require the rehearsal above.
 
@@ -26,7 +27,7 @@ The SQL's checks establish these comparisons against the source export:
 
 | Source | Target |
 | --- | --- |
-| Classes | Groups and slots, one of each per class |
+| Distinct class IDs and timetable rows | One group per class ID and one slot per timetable row; matching names stay separate when IDs differ |
 | Students | Students, without name based merging |
 | Enrollment intervals | Enrollments with inclusive start and exclusive end |
 | Unique class/date keys in lessons or checklists | Persisted meetings |

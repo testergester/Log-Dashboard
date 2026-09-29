@@ -29,7 +29,7 @@ export function prepareLegacyExport(source, options) {
       check(child);
     }
   }
-  check(source.snapshot);
+  check(source);
   const mapped = mapLegacyDashboard(source.snapshot, { workspaceId: options.workspaceId, scheduleStartDate: options.scheduleStartDate });
   const expected = Object.fromEntries(TABLES.map(([table]) => [table, mapped[table].length]));
   const perStudent = {};
@@ -96,7 +96,8 @@ async function main() {
   }
   console.log(JSON.stringify({ mode: args.output ? 'sql-generated' : 'dry-run', exportedAt: source.exportedAt,
     exportSha256: createHash('sha256').update(sourceText).digest('hex'), ownerId, workspaceId, counts: prepared.expected,
-    studentsWithAttendance: Object.values(prepared.perStudent).filter(item => item.recorded).length }));
+    studentsWithAttendance: Object.values(prepared.perStudent).filter(item => item.recorded).length,
+    historicalSlotFallbacks: prepared.mapped.migration_warnings.historical_slot_fallbacks }));
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) main().catch(error => {
