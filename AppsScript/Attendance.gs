@@ -57,6 +57,14 @@ function saveChecklist_(request) {
     const studentSheet = spreadsheet.getSheetByName(DASHBOARD.students);
     const studentNames = {};
     rows_(studentSheet).forEach(function(row) { if (row[0]) studentNames[row[0]] = row[1]; });
+    const previousIds = previousPayload ? previousPayload.records.map(function(item) { return item.studentId; })
+      : checklistRowNumber ? rowsWithDates_(spreadsheet.getSheetByName(DASHBOARD.studentRecords), [1])
+        .filter(function(row) { return row[0] === classId && row[1] === date && row[2] === previousRevision; })
+        .map(function(row) { return row[3]; }) : [];
+    const archiveSheet = spreadsheet.getSheetByName(DASHBOARD.archivedStudents);
+    if (archiveSheet) rows_(archiveSheet).forEach(function(row) {
+      if (previousIds.indexOf(row[0]) >= 0 && !studentNames[row[0]]) studentNames[row[0]] = row[1];
+    });
     if (ids.some(function(id) { return !studentNames[id]; })) {
       throw new Error('A student no longer exists. Reload the dashboard.');
     }
