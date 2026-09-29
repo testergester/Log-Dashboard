@@ -62,6 +62,53 @@ function testRosterIdComparison() {
   assert.equal(vm.runInContext("studentName('orphan')", context), 'Unknown student · orphan');
 }
 
+function testSheetStudentIdCheck() {
+  const backgrounds = {};
+  const sheet = (name, rows) => ({
+    rows,
+    getRange(row, column, height, width) {
+      assert.equal(row, 2);
+      assert.equal(column, 1);
+      assert.equal(height, rows.length - 1);
+      return {setBackgrounds(colors) {
+        assert.equal(colors.length, height);
+        assert.ok(colors.every(item => item.length === width));
+        backgrounds[name] = colors;
+      }};
+    }
+  });
+  const sheets = {
+    Students: sheet('Students', [['ID', 'Name', 'Updated', 'Group'],
+      ['both', 'A', '', '10B'], ['student-only', 'B', '', '10B'], ['space ', 'C', '', '10B'], ['', 'D', '', '10B']]),
+    ClassStudents: sheet('ClassStudents', [['Group', 'ID', 'Joined', 'Left', 'Active', 'Updated'],
+      ['10B', 'both'], ['11A', 'both'], ['10B', 'orphan'], ['10B', 'space'], ['10B', '']])
+  };
+  let toast;
+  let locked = false;
+  const spreadsheet = {getSheetByName: name => sheets[name], toast: (...args) => { toast = args; }};
+  const context = vm.createContext({
+    DASHBOARD: {students: 'Students', enrollments: 'ClassStudents', studentHeaders: Array(4), enrollmentHeaders: Array(6)},
+    SpreadsheetApp: {getActiveSpreadsheet: () => spreadsheet, flush() {}},
+    LockService: {getScriptLock: () => ({waitLock() { locked = true; }, releaseLock() { locked = false; }})},
+    rows_: source => source.rows.slice(1)
+  });
+  vm.runInContext(backend('Students.gs'), context);
+  const result = context.checkStudentSheetIds();
+  assert.deepEqual([result.matched, result.studentsOnly, result.classStudentsOnly], [1, 2, 2]);
+  assert.deepEqual(backgrounds.Students.map(row => row[0]), ['#e7f6ee', '#fff0d8', '#fff0d8', null]);
+  assert.deepEqual(backgrounds.ClassStudents.map(row => row[0]),
+    ['#e7f6ee', '#e7f6ee', '#ffe5e5', '#ffe5e5', null]);
+  assert.match(toast[0], /1 green, 2 orange, 2 red/);
+  assert.equal(locked, false);
+
+  let item;
+  const menu = {addItem(label, handler) { item = [label, handler]; return this; }, addToUi() {}};
+  const menuContext = vm.createContext({SpreadsheetApp: {getUi: () => ({createMenu: () => menu})}});
+  vm.runInContext(backend('AppsScript.gs'), menuContext);
+  menuContext.onOpen();
+  assert.deepEqual(item, ['Check student IDs', 'checkStudentSheetIds']);
+}
+
 async function testFrontend() {
   const custom = 'https://script.google.com/macros/s/custom/exec';
   const {context, element} = frontend(custom);
@@ -620,8 +667,9 @@ function testStudentSheetEdits() {
   testLegacyClassStudentFormulaRepair();
   testStudentSheetEdits();
   testRosterIdComparison();
+  testSheetStudentIdCheck();
   await testFrontend();
   await testChecklistFrontend();
   await testArchiveRequiresDeployedBackend();
-  console.log('Regression checks passed: roster ID comparison, weekly meetings, attendance conflicts, student archiving, student IDs, sheet edits and pastes, guest meetings, migration, read-only load, and saved edits.');
+  console.log('Regression checks passed: spreadsheet and dashboard roster ID checks, weekly meetings, attendance conflicts, student archiving, student IDs, sheet edits and pastes, guest meetings, migration, read-only load, and saved edits.');
 })().catch(error => { console.error(error); process.exitCode = 1; });
