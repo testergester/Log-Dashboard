@@ -464,8 +464,6 @@ export function createDashboardController({ access, render, drafts = null, onAut
   }
   function buildGroupManager() {
     const panel = node('section', 'dashboard-section');
-    const heading = node('div', 'dashboard-section-heading'); heading.append(node('h3', '', 'Groups and schedules'));
-    panel.append(heading);
     const list = node('div', 'dashboard-groups');
     for (const group of state.groups) {
       const card = node('article', 'dashboard-group');
