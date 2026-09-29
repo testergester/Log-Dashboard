@@ -222,6 +222,8 @@
       <input id="class-name" maxlength="120" placeholder="e.g. Grade 5A" required>
       <label for="class-subject">Subject</label>
       <input id="class-subject" maxlength="120" placeholder="e.g. Mathematics" required>
+      <div class="meeting-section-heading"><strong>Weekly meetings</strong><button type="button" class="button button-quiet" id="add-class-meeting" aria-label="Add another meeting day">+ Add day</button></div>
+      <p class="field-hint" id="meeting-upgrade-hint" hidden>Update the Apps Script backend to add more meeting days.</p>
       <div class="form-row">
         <div><label for="class-weekday">Weekday</label><select id="class-weekday" required>
           <option value="1">Monday</option><option value="2">Tuesday</option><option value="3">Wednesday</option>
@@ -233,6 +235,7 @@
         <div><label for="class-start">Starts</label><input id="class-start" type="time" required></div>
         <div><label for="class-end">Ends</label><input id="class-end" type="time" required></div>
       </div>
+      <div id="additional-class-meetings" class="additional-class-meetings"></div>
       <p class="dialog-error" id="class-error" role="alert" hidden></p>
       <div class="dialog-actions">
         <button type="button" class="button button-danger" id="archive-class-button" hidden>Archive class</button>
