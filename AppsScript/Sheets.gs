@@ -3,6 +3,7 @@ function ensureDashboardTabs_(spreadsheet) {
   ensureTab_(spreadsheet, DASHBOARD.timetable, DASHBOARD.timetableHeaders);
   ensureTab_(spreadsheet, DASHBOARD.logs, DASHBOARD.logHeaders);
   ensureTab_(spreadsheet, DASHBOARD.students, DASHBOARD.studentHeaders);
+  ensureTab_(spreadsheet, DASHBOARD.archivedStudents, DASHBOARD.archivedStudentHeaders);
   ensureTab_(spreadsheet, DASHBOARD.enrollments, DASHBOARD.enrollmentHeaders);
   ensureTab_(spreadsheet, DASHBOARD.checklists, DASHBOARD.checklistHeaders);
   ensureTab_(spreadsheet, DASHBOARD.studentRecords, DASHBOARD.studentRecordHeaders);
