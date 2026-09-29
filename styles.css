@@ -105,7 +105,13 @@ input::placeholder, textarea::placeholder { color: #8b99a9; }
 .group-notes-grid { display: flex; align-items: stretch; gap: 1.2rem; }
 .group-notes-grid > .surface { flex: 1 1 0; min-width: 0; }
 .previous-notes-surface { display: flex; flex-direction: column; min-height: 0; }
-.previous-notes-list { flex: 1 1 auto; min-height: 0; overflow: auto; padding: .4rem 1.4rem 1.2rem; background-color: lightblue; }
+.previous-notes-list { flex: 1 1 auto; min-height: 0; overflow: auto; padding: .4rem 1.4rem 1.2rem; background: #fff; }
+@media (min-width: 901px) {
+  .previous-notes-surface { height: 833px; }
+  @supports (contain: size) {
+    .previous-notes-surface { height: auto; contain: size; }
+  }
+}
 .previous-note { padding: .9rem 0; border-bottom: 1px solid var(--line); }
 .previous-note:last-child { border-bottom: 0; }
 .previous-note-date { color: var(--blue); font-size: .8rem; font-weight: 800; }
@@ -300,6 +306,8 @@ dialog::backdrop { background: #13284a8c; }
 .dialog-actions .button-danger { margin-right: auto; }
 @media (max-width: 900px) {
   .group-notes-grid { flex-direction: column; }
+  .group-notes-grid > .surface { flex: none; }
+  .previous-notes-surface { max-height: 833px; overflow: hidden; }
   .table-scroll-hint { display: block; }
   .student-list-head, .student-row { gap: .5rem; }
   .student-identity, .student-list-head span:first-child { position: sticky; left: 0; z-index: 1; background: white; box-shadow: 8px 0 10px -10px #24395470; }
