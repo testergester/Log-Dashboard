@@ -190,6 +190,10 @@ function handleError(error, target = "global") {
 
 async function loadData() {
   const data = await request("load", {token: state.token});
+  applyDashboardData(data);
+}
+
+function applyDashboardData(data) {
   if (!Array.isArray(data.classes) || !Array.isArray(data.logs)) throw new Error("The spreadsheet returned unexpected data.");
   const studentKeys = ["students", "enrollments", "checklists", "studentRecords"];
   const hasStudentData = studentKeys.every(key => Array.isArray(data[key]));
@@ -623,7 +627,7 @@ function updateChecklistStats() {
   const bulkButton = $("#bulk-attendance-button");
   const markAbsent = records.length > 0 && present === records.length;
   bulkButton.dataset.attendance = markAbsent ? "absent" : "present";
-  bulkButton.textContent = markAbsent ? "Mark whole group absent" : "Mark whole group present";
+  bulkButton.textContent = markAbsent ? "❌ Mark whole group absent" : "✅ Mark whole group present";
 }
 
 function filterStudentRows() {
@@ -691,17 +695,15 @@ function renderStudents() {
     score.className = "student-score";
     identity.append(history, score);
     const student = state.students.find(value => value.id === item.studentId);
-    if (student && student.officialGroupId !== state.selectedClassId && !lesson.archived) {
-      const removeGuest = document.createElement("button");
-      removeGuest.type = "button";
-      removeGuest.className = "button button-text";
-      removeGuest.textContent = "Remove from this meeting";
-      removeGuest.addEventListener("click", () => {
-        saveChecklistDraft();
-        state.checklistDrafts.set(checklistKey(), checklistRows().filter(value => value.studentId !== item.studentId));
-        renderStudents();
-      });
-      identity.append(removeGuest);
+    if (student) {
+      const deleteButton = document.createElement("button");
+      deleteButton.type = "button";
+      deleteButton.className = "student-delete-button";
+      deleteButton.setAttribute("aria-label", "Delete " + student.name + " everywhere");
+      deleteButton.title = "Delete student everywhere";
+      deleteButton.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3m3 0-1 13H7L6 7m4 4v5m4-5v5"/></svg>';
+      deleteButton.addEventListener("click", () => deleteStudent(student.id));
+      identity.append(deleteButton);
     }
     const attendance = document.createElement("div");
     attendance.className = "choice-group attendance-group";
@@ -821,8 +823,7 @@ function openStudentHistory(studentId) {
     }
     list.append(entry);
   });
-  const isEnrolled = state.enrollments.some(item => item.classId === state.selectedClassId && item.studentId === studentId && item.active);
-  $("#remove-student-button").hidden = !isEnrolled || Boolean(selectedLesson()?.archived);
+  $("#remove-student-button").hidden = false;
   $("#history-dialog").showModal();
 }
 
@@ -1006,6 +1007,31 @@ function applyChecklist(saved) {
     studentName: item.studentName, attendance: item.attendance,
     participation: Number(item.participation), note: item.note, updatedAt: saved.updatedAt
   }));
+}
+
+async function deleteStudent(studentId) {
+  if (state.pending) return;
+  const student = state.students.find(item => item.id === studentId);
+  if (!student) return;
+  if (!confirm('Permanently delete ' + student.name + ' from the student database, every group, and all saved attendance records? This cannot be undone.')) return;
+  saveChecklistDraft();
+  state.pending = true;
+  try {
+    const data = await request('deleteStudent', {token: state.token, studentId});
+    state.checklistDrafts.forEach((rows, key) => {
+      state.checklistDrafts.set(key, rows.filter(item => item.studentId !== studentId));
+    });
+    state.selectedStudentId = '';
+    if ($('#history-dialog').open) $('#history-dialog').close();
+    applyDashboardData(data);
+    setNotice(student.name + ' deleted from every group and saved attendance record.');
+  } catch (error) {
+    if (isSessionError(error) && $('#history-dialog').open) $('#history-dialog').close();
+    handleError(error);
+  } finally {
+    state.pending = false;
+    updateChecklistSaveButton();
+  }
 }
 
 function finishWrite(message) {
@@ -1348,30 +1374,7 @@ $("#rename-student-form").addEventListener("submit", async event => {
     state.pending = false;
   }
 });
-$("#remove-student-button").addEventListener("click", async () => {
-  if (state.pending || !state.selectedStudentId) return;
-  if (!confirm("Remove this student from future class checklists? Past records will remain.")) return;
-  saveChecklistDraft();
-  state.pending = true;
-  $("#history-error").hidden = true;
-  try {
-    const saved = await request("setEnrollment", {token: state.token, classId: state.selectedClassId,
-      studentId: state.selectedStudentId, active: false});
-    applyEnrollment(saved);
-    $("#history-dialog").close();
-    finishWrite("Student removed from class.");
-  } catch (error) {
-    if (isSessionError(error)) {
-      $("#history-dialog").close();
-      handleError(error);
-    } else {
-      $("#history-error").textContent = error.message;
-      $("#history-error").hidden = false;
-    }
-  } finally {
-    state.pending = false;
-  }
-});
+$("#remove-student-button").addEventListener("click", () => deleteStudent(state.selectedStudentId));
 
 $("#checklist-form").addEventListener("submit", async event => {
   event.preventDefault();
