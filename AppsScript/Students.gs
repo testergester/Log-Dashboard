@@ -80,6 +80,55 @@ function archiveStudent_(request) {
   }
 }
 
+// Run from the spreadsheet's Teaching Dashboard menu. Compare exact displayed
+// IDs, including case and whitespace, because the dashboard joins them exactly.
+function checkStudentSheetIds() {
+  const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
+  if (!spreadsheet) throw new Error('Open the dashboard spreadsheet to check student IDs.');
+  const students = spreadsheet.getSheetByName(DASHBOARD.students);
+  const enrollments = spreadsheet.getSheetByName(DASHBOARD.enrollments);
+  if (!students || !enrollments) throw new Error('Students or ClassStudents is missing. Run setupDashboard first.');
+  const lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    const studentRows = rows_(students);
+    const enrollmentRows = rows_(enrollments);
+    const studentIds = new Set(studentRows.map(function(row) { return String(row[0] || ''); })
+      .filter(function(id) { return id.trim(); }));
+    const enrollmentIds = new Set(enrollmentRows.map(function(row) { return String(row[1] || ''); })
+      .filter(function(id) { return id.trim(); }));
+    const colors = {matched: '#e7f6ee', studentsOnly: '#fff0d8', enrollmentsOnly: '#ffe5e5'};
+    if (studentRows.length) {
+      students.getRange(2, 1, studentRows.length, DASHBOARD.studentHeaders.length).setBackgrounds(
+        studentRows.map(function(row) {
+          const id = String(row[0] || '');
+          const color = !id.trim() ? null : enrollmentIds.has(id) ? colors.matched : colors.studentsOnly;
+          return Array(DASHBOARD.studentHeaders.length).fill(color);
+        }));
+    }
+    if (enrollmentRows.length) {
+      enrollments.getRange(2, 1, enrollmentRows.length, DASHBOARD.enrollmentHeaders.length).setBackgrounds(
+        enrollmentRows.map(function(row) {
+          const id = String(row[1] || '');
+          const color = !id.trim() ? null : studentIds.has(id) ? colors.matched : colors.enrollmentsOnly;
+          return Array(DASHBOARD.enrollmentHeaders.length).fill(color);
+        }));
+    }
+    const result = {
+      matched: [...studentIds].filter(function(id) { return enrollmentIds.has(id); }).length,
+      studentsOnly: [...studentIds].filter(function(id) { return !enrollmentIds.has(id); }).length,
+      classStudentsOnly: [...enrollmentIds].filter(function(id) { return !studentIds.has(id); }).length
+    };
+    SpreadsheetApp.flush();
+    spreadsheet.toast(result.matched + ' green, ' + result.studentsOnly + ' orange, ' +
+      result.classStudentsOnly + ' red IDs. Review the colored rows in Students and ClassStudents.',
+    'Student ID check', 10);
+    return result;
+  } finally {
+    lock.releaseLock();
+  }
+}
+
 function studentGroupSegment_(groupId) {
   const segment = String(groupId || '').toUpperCase().replace(/[^A-Z0-9]+/g, '-').replace(/^-+|-+$/g, '');
   if (!segment) throw new Error('Official group ID cannot form a student ID.');
