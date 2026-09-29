@@ -22,6 +22,8 @@ const state = {
   studentsReady: false,
   meetingScheduleReady: false,
   studentArchiveReady: false,
+  rosterAudit: null,
+  rosterAuditBusy: false,
   selectedDate: todayInTashkent(),
   selectedClassId: "",
   selectedStudentId: "",
@@ -186,6 +188,7 @@ function handleError(error, target = "global") {
     state.studentsReady = false;
     state.meetingScheduleReady = false;
     state.studentArchiveReady = false;
+    state.rosterAudit = null;
     updateAccess();
     setAccessError("Your session expired. Please sign in again.");
     return;
@@ -218,6 +221,7 @@ function applyDashboardData(data) {
   state.studentsReady = hasStudentData;
   state.meetingScheduleReady = data.meetingScheduleVersion === 1;
   state.studentArchiveReady = data.studentArchiveVersion === 1;
+  state.rosterAudit = null;
   render();
 }
 
@@ -568,7 +572,91 @@ function checklistRows() {
 
 function studentName(id) {
   return state.students.find(item => item.id === id)?.name ||
-    state.archivedStudents.find(item => item.id === id || item.ids?.includes(id))?.name || "Unknown student";
+    state.archivedStudents.find(item => item.id === id || item.ids?.includes(id))?.name || "Unknown student · " + id;
+}
+
+// Compare the two sheet ID columns for one group. Students whose official group
+// is this group belong in the report even when their enrollment row is missing.
+function compareStudentSheetIds(students, enrollments, classId) {
+  const byId = new Map(students.filter(item => item.id).map(item => [String(item.id), item]));
+  const memberships = new Map();
+  enrollments.filter(item => item.classId === classId && item.studentId).forEach(item => {
+    const id = String(item.studentId);
+    if (!memberships.has(id)) memberships.set(id, []);
+    memberships.get(id).push(item);
+  });
+  const ids = new Set(memberships.keys());
+  students.filter(item => item.id && item.officialGroupId === classId).forEach(item => ids.add(String(item.id)));
+  const order = {"enrollment-only": 0, "student-only": 1, matched: 2};
+  return [...ids].map(id => {
+    const student = byId.get(id);
+    const rows = memberships.get(id) || [];
+    return {id, name: student?.name || "Unknown student", status: student
+      ? rows.length ? "matched" : "student-only" : "enrollment-only",
+    enrollmentCount: rows.length, activeEnrollmentCount: rows.filter(item => item.active).length};
+  }).sort((a, b) => order[a.status] - order[b.status] || a.name.localeCompare(b.name) || a.id.localeCompare(b.id));
+}
+
+function renderRosterAudit() {
+  if (state.rosterAudit && state.rosterAudit.classId !== state.selectedClassId) state.rosterAudit = null;
+  const report = state.rosterAudit;
+  const shown = report && report.classId === state.selectedClassId;
+  $("#roster-check").hidden = !shown;
+  $("#roster-check-button").disabled = !state.studentsReady || state.rosterAuditBusy;
+  $("#roster-check-button").textContent = state.rosterAuditBusy ? "Checking…" : shown ? "Recheck sheet IDs" : "Check sheet IDs";
+  if (!shown) return;
+  const counts = {matched: 0, "student-only": 0, "enrollment-only": 0};
+  report.rows.forEach(item => { counts[item.status]++; });
+  $("#roster-check-summary").textContent = report.groupName + ": " + counts.matched + " green, " +
+    counts["student-only"] + " orange, " + counts["enrollment-only"] + " red · checked " + report.checkedAt;
+  const list = $("#roster-check-list");
+  list.replaceChildren();
+  if (!report.rows.length) {
+    const empty = document.createElement("p");
+    empty.className = "student-empty";
+    empty.textContent = "No student IDs are linked to this group in either sheet.";
+    list.append(empty);
+  }
+  report.rows.forEach(item => {
+    const row = document.createElement("div");
+    row.className = "roster-check-row is-" + item.status;
+    const identity = document.createElement("div");
+    const name = document.createElement("strong");
+    name.textContent = item.name;
+    const id = document.createElement("code");
+    id.textContent = item.id;
+    identity.append(name, id);
+    const detail = document.createElement("span");
+    detail.textContent = item.status === "matched"
+      ? "In both sheets" + (item.activeEnrollmentCount ? " · active membership" : " · inactive membership")
+      : item.status === "student-only"
+        ? "In Students; no ClassStudents row for this group"
+        : "In ClassStudents; missing from Students" + (item.activeEnrollmentCount ? " · active membership" : " · inactive membership");
+    row.append(identity, detail);
+    list.append(row);
+  });
+}
+
+async function checkRosterIds() {
+  if (state.pending || state.rosterAuditBusy || !state.studentsReady || !state.selectedClassId) return;
+  const classId = state.selectedClassId;
+  saveDraft();
+  saveChecklistDraft();
+  state.rosterAuditBusy = true;
+  renderRosterAudit();
+  try {
+    const data = await request("load", {token: state.token});
+    applyDashboardData(data);
+    if (state.selectedClassId !== classId) return;
+    state.rosterAudit = {classId, groupName: state.classes.find(item => item.id === classId)?.name || classId,
+      rows: compareStudentSheetIds(state.students, state.enrollments, classId),
+      checkedAt: new Date().toLocaleTimeString([], {hour: "2-digit", minute: "2-digit"})};
+  } catch (error) {
+    handleError(error);
+  } finally {
+    state.rosterAuditBusy = false;
+    renderRosterAudit();
+  }
 }
 
 function markScore(item) {
@@ -673,6 +761,7 @@ function renderStudents() {
   const lesson = selectedLesson();
   $("#student-panel").hidden = !lesson;
   if (!lesson) return;
+  renderRosterAudit();
   $("#checklist-form").hidden = !state.studentsReady;
   $(".attendance-toolbar").hidden = !state.studentsReady;
   $("#add-student-button").hidden = !state.studentsReady || lesson.archived;
@@ -701,6 +790,11 @@ function renderStudents() {
     row.dataset.studentId = item.studentId;
     row.dataset.attendance = item.attendance;
     row.dataset.participation = String(item.participation);
+    const inStudents = state.students.some(value => value.id === item.studentId);
+    const inClassStudents = state.enrollments.some(value => value.classId === state.selectedClassId &&
+      value.studentId === item.studentId);
+    row.classList.add(inStudents ? inClassStudents ? "roster-matched" : "roster-student-only"
+      : inClassStudents ? "roster-enrollment-only" : "roster-history-only");
     const identity = document.createElement("div");
     identity.className = "student-identity";
     const history = document.createElement("button");
@@ -1108,6 +1202,7 @@ async function archiveStudent(studentId) {
 }
 
 function finishWrite(message) {
+  state.rosterAudit = null;
   render();
   setNotice(message);
 }
@@ -1344,6 +1439,12 @@ $("#archive-class-button").addEventListener("click", async () => {
     state.pending = false;
     $("#archive-class-button").disabled = false;
   }
+});
+
+$("#roster-check-button").addEventListener("click", checkRosterIds);
+$("#roster-check-close").addEventListener("click", () => {
+  state.rosterAudit = null;
+  renderRosterAudit();
 });
 
 $("#add-student-button").addEventListener("click", () => {
