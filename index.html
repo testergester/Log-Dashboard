@@ -7,8 +7,8 @@
   <meta name="description" content="A private teaching timetable and lesson log.">
   <title>Teaching Dashboard</title>
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%231b4ca1'/%3E%3Cpath d='M16 18h32v30H16z' fill='none' stroke='white' stroke-width='4'/%3E%3Cpath d='M22 12v12m20-12v12M16 29h32M24 37h7' stroke='white' stroke-width='4' stroke-linecap='round'/%3E%3C/svg%3E">
-  <link rel="stylesheet" href="./styles.css?v=1270c6fa95d8">
-  <script src="./script.js?v=4d9edba64bf3" defer></script>
+  <link rel="stylesheet" href="./styles.css?v=c7f7c7bdaf34">
+  <script src="./script.js?v=d9e942f5b3c5" defer></script>
 </head>
 <body>
   <div class="app-shell">
@@ -172,8 +172,22 @@
               <p id="checklist-summary">Choose a class to take attendance.</p>
               <p class="field-hint" id="student-archive-upgrade-hint" hidden>Student archiving needs the updated Apps Script backend.</p>
             </div>
-            <button type="button" class="button button-quiet" id="add-student-button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="4"></circle><path d="M2.5 20a6.5 6.5 0 0 1 13 0M19 8v8m-4-4h8"></path></svg>Add student</button>
+            <div class="student-panel-actions">
+              <button type="button" class="button button-quiet" id="roster-check-button">Check sheet IDs</button>
+              <button type="button" class="button button-quiet" id="add-student-button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="4"></circle><path d="M2.5 20a6.5 6.5 0 0 1 13 0M19 8v8m-4-4h8"></path></svg>Add student</button>
+            </div>
           </div>
+          <section id="roster-check" class="roster-check" aria-labelledby="roster-check-title" hidden>
+            <div class="roster-check-heading">
+              <div>
+                <h3 id="roster-check-title">Students / ClassStudents ID check</h3>
+                <p id="roster-check-summary" role="status" aria-live="polite"></p>
+              </div>
+              <button type="button" class="button button-quiet" id="roster-check-close">Close</button>
+            </div>
+            <p class="roster-check-legend"><span class="roster-key is-matched">Green: in both</span><span class="roster-key is-student-only">Orange: Students only</span><span class="roster-key is-enrollment-only">Red: ClassStudents only</span></p>
+            <div id="roster-check-list" class="roster-check-list"></div>
+          </section>
           <div id="checklist-stats" class="checklist-stats" aria-live="polite"></div>
           <div class="attendance-toolbar">
             <button type="button" class="button button-quiet" id="previous-attendance-button">Previous class attendance</button>
