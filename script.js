@@ -20,6 +20,7 @@ const state = {
   checklists: [],
   studentRecords: [],
   studentsReady: false,
+  meetingScheduleReady: false,
   selectedDate: todayInTashkent(),
   selectedClassId: "",
   selectedStudentId: "",
@@ -182,6 +183,7 @@ function handleError(error, target = "global") {
     state.checklists = [];
     state.studentRecords = [];
     state.studentsReady = false;
+    state.meetingScheduleReady = false;
     updateAccess();
     setAccessError("Your session expired. Please sign in again.");
     return;
@@ -202,7 +204,9 @@ function applyDashboardData(data) {
   if (!hasStudentData && studentKeys.some(key => data[key] !== undefined)) {
     throw new Error("Student records are incomplete. Run setupDashboard and redeploy Apps Script.");
   }
-  state.classes = data.classes.map(item => ({...item, start: canonicalTime(item.start), end: canonicalTime(item.end)}));
+  state.classes = data.classes.map(item => ({...item, start: canonicalTime(item.start), end: canonicalTime(item.end),
+    meetings: (item.meetings || [{weekday: item.weekday, start: item.start, end: item.end, room: item.room}])
+      .map(meeting => ({...meeting, start: canonicalTime(meeting.start), end: canonicalTime(meeting.end)}))}));
   state.logs = data.logs.map(item => ({...item, start: canonicalTime(item.start), end: canonicalTime(item.end)}));
   state.students = hasStudentData ? data.students : [];
   state.archivedStudents = hasStudentData && Array.isArray(data.archivedStudents) ? data.archivedStudents : [];
@@ -210,12 +214,15 @@ function applyDashboardData(data) {
   state.checklists = hasStudentData ? data.checklists : [];
   state.studentRecords = hasStudentData ? data.studentRecords : [];
   state.studentsReady = hasStudentData;
+  state.meetingScheduleReady = data.meetingScheduleVersion === 1;
   render();
 }
 
 function activeClassesOn(date) {
   const day = weekday(date);
-  return state.classes.filter(item => item.active && Number(item.weekday) === day);
+  return state.classes.filter(item => item.active).flatMap(item => item.meetings
+    .filter(meeting => Number(meeting.weekday) === day)
+    .map(meeting => ({...item, weekday: day, start: meeting.start, end: meeting.end, room: meeting.room})));
 }
 
 function lessonsOn(date) {
@@ -366,8 +373,10 @@ function groupHuesFor(classes) {
 function renderWeekGrid(container, dates) {
   const groupHues = groupHuesFor(state.classes);
   const periods = new Map();
-  state.classes.filter(item => item.active && Number(item.weekday) >= 1 && Number(item.weekday) <= 5).forEach(item => {
-    periods.set(item.start + "|" + item.end, {start: item.start, end: item.end});
+  state.classes.filter(item => item.active).forEach(item => {
+    item.meetings.filter(meeting => Number(meeting.weekday) >= 1 && Number(meeting.weekday) <= 5).forEach(meeting => {
+      periods.set(meeting.start + "|" + meeting.end, {start: meeting.start, end: meeting.end});
+    });
   });
   const orderedPeriods = [...periods.values()].sort((left, right) =>
     minutes(left.start) - minutes(right.start) || minutes(left.end) - minutes(right.end));
@@ -955,6 +964,7 @@ function changeDate(date) {
 
 function openClassDialog(item, defaults = {}) {
   $("#class-form").reset();
+  $("#additional-class-meetings").replaceChildren();
   $("#class-error").hidden = true;
   $("#class-id").value = item?.id || "";
   $("#group-id-fields").hidden = Boolean(item);
@@ -967,6 +977,7 @@ function openClassDialog(item, defaults = {}) {
     $("#class-start").value = item.start;
     $("#class-end").value = item.end;
     $("#class-room").value = item.room || "";
+    (item.meetings || []).slice(1).forEach(meeting => appendClassMeeting(meeting));
   } else {
     $("#random-group-id").checked = true;
     updateGroupIdFields();
@@ -974,8 +985,50 @@ function openClassDialog(item, defaults = {}) {
     $("#class-start").value = defaults.start || "";
     $("#class-end").value = defaults.end || "";
   }
+  updateAddClassMeetingButton();
   $("#class-dialog").showModal();
   $("#class-name").focus();
+}
+
+let nextMeetingFieldId = 0;
+function appendClassMeeting(meeting = {}) {
+  if ($("#additional-class-meetings").children.length >= 6) return;
+  const fieldId = ++nextMeetingFieldId;
+  const card = document.createElement("div");
+  card.className = "additional-meeting";
+  card.innerHTML = '<div class="additional-meeting-heading"><strong>Another day</strong><button type="button" class="button button-text remove-meeting">Remove</button></div>' +
+    '<div class="form-row"><div><label for="meeting-day-' + fieldId + '">Weekday</label><select id="meeting-day-' + fieldId + '" class="meeting-weekday" required>' +
+    WEEKDAYS.map((day, index) => '<option value="' + (index + 1) + '">' + day + '</option>').join('') +
+    '</select></div><div><label for="meeting-room-' + fieldId + '">Room (optional)</label><input id="meeting-room-' + fieldId + '" class="meeting-room" maxlength="120" placeholder="e.g. 201"></div></div>' +
+    '<div class="form-row"><div><label for="meeting-start-' + fieldId + '">Starts</label><input id="meeting-start-' + fieldId + '" class="meeting-start" type="time" required></div>' +
+    '<div><label for="meeting-end-' + fieldId + '">Ends</label><input id="meeting-end-' + fieldId + '" class="meeting-end" type="time" required></div></div>';
+  const used = new Set([Number($("#class-weekday").value),
+    ...[...$("#additional-class-meetings").querySelectorAll(".meeting-weekday")].map(input => Number(input.value))]);
+  card.querySelector(".meeting-weekday").value = String(meeting.weekday ||
+    [1, 2, 3, 4, 5, 6, 7].find(day => !used.has(day)) || 1);
+  card.querySelector(".meeting-start").value = meeting.start || "";
+  card.querySelector(".meeting-end").value = meeting.end || "";
+  card.querySelector(".meeting-room").value = meeting.room || "";
+  card.querySelector(".remove-meeting").addEventListener("click", () => {
+    card.remove();
+    updateAddClassMeetingButton();
+  });
+  $("#additional-class-meetings").append(card);
+  updateAddClassMeetingButton();
+}
+
+function updateAddClassMeetingButton() {
+  $("#add-class-meeting").disabled = !state.meetingScheduleReady || $("#additional-class-meetings").children.length >= 6;
+  $("#meeting-upgrade-hint").hidden = state.meetingScheduleReady;
+}
+
+function additionalClassMeetings() {
+  return [...$("#additional-class-meetings").children].map(card => ({
+    weekday: Number(card.querySelector(".meeting-weekday").value),
+    start: card.querySelector(".meeting-start").value,
+    end: card.querySelector(".meeting-end").value,
+    room: card.querySelector(".meeting-room").value.trim()
+  }));
 }
 
 function updateGroupIdFields() {
@@ -1124,6 +1177,7 @@ $("#sign-out-button").addEventListener("click", () => {
   state.checklists = [];
   state.studentRecords = [];
   state.studentsReady = false;
+  state.meetingScheduleReady = false;
   state.selectedClassId = "";
   state.selectedStudentId = "";
   state.drafts.clear();
@@ -1174,6 +1228,7 @@ $("#edit-class-button").addEventListener("click", () => {
 $("#close-dialog").addEventListener("click", () => $("#class-dialog").close());
 $("#cancel-class-button").addEventListener("click", () => $("#class-dialog").close());
 $("#random-group-id").addEventListener("change", updateGroupIdFields);
+$("#add-class-meeting").addEventListener("click", () => appendClassMeeting());
 $("#class-dialog").addEventListener("click", event => {
   if (event.target === $("#class-dialog")) $("#class-dialog").close();
 });
@@ -1190,7 +1245,8 @@ $("#class-form").addEventListener("submit", async event => {
     weekday: Number($("#class-weekday").value),
     start: $("#class-start").value,
     end: $("#class-end").value,
-    room: $("#class-room").value.trim()
+    room: $("#class-room").value.trim(),
+    meetings: additionalClassMeetings()
   };
   if (!item.id && !$("#random-group-id").checked && !item.requestedId) {
     $("#class-error").textContent = "Enter a custom group ID or choose random ID generation.";
@@ -1202,17 +1258,24 @@ $("#class-form").addEventListener("submit", async event => {
     $("#class-error").hidden = false;
     return;
   }
-  if (item.start >= item.end) {
-    $("#class-error").textContent = "End time must be after start time.";
+  const allMeetings = [{weekday: item.weekday, start: item.start, end: item.end, room: item.room}, ...item.meetings];
+  if (new Set(allMeetings.map(meeting => meeting.weekday)).size !== allMeetings.length) {
+    $("#class-error").textContent = "Choose each weekday only once for this class.";
     $("#class-error").hidden = false;
     return;
   }
-  const conflict = state.classes.find(existing => existing.active && existing.id !== item.id &&
-    Number(existing.weekday) === item.weekday && minutes(item.start) < minutes(existing.end) &&
-    minutes(item.end) > minutes(existing.start));
+  if (allMeetings.some(meeting => meeting.start >= meeting.end)) {
+    $("#class-error").textContent = "End time must be after start time for every meeting.";
+    $("#class-error").hidden = false;
+    return;
+  }
+  const conflict = state.classes.filter(existing => existing.active && existing.id !== item.id)
+    .flatMap(existing => (existing.meetings || [existing]).map(meeting => ({name: existing.name, ...meeting})))
+    .find(existing => allMeetings.some(meeting => Number(existing.weekday) === meeting.weekday &&
+      minutes(meeting.start) < minutes(existing.end) && minutes(meeting.end) > minutes(existing.start)));
   if (conflict) {
-    $("#class-error").textContent = "This time overlaps with " + conflict.name + " (" +
-      conflict.start + "–" + conflict.end + ") on " + WEEKDAYS[item.weekday - 1] + ".";
+    $("#class-error").textContent = "A meeting overlaps with " + conflict.name + " (" +
+      conflict.start + "–" + conflict.end + ") on " + WEEKDAYS[Number(conflict.weekday) - 1] + ".";
     $("#class-error").hidden = false;
     return;
   }
@@ -1224,7 +1287,7 @@ $("#class-form").addEventListener("submit", async event => {
     const saved = await request("saveClass", {token: state.token, class: item});
     $("#class-dialog").close();
     state.selectedClassId = saved.id;
-    if (Number(item.weekday) !== weekday(state.selectedDate)) {
+    if (!saved.meetings.some(meeting => Number(meeting.weekday) === weekday(state.selectedDate))) {
       state.selectedDate = addDays(mondayOf(state.selectedDate), Number(item.weekday) - 1);
     }
     upsert(state.classes, existing => existing.id === saved.id, saved);
