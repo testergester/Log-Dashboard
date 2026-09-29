@@ -26,12 +26,14 @@ const DASHBOARD = Object.freeze({
   weeklyView: 'WeeklyView',
   logs: 'LessonLogs',
   students: 'Students',
+  archivedStudents: 'ArchivedStudents',
   enrollments: 'ClassStudents',
   checklists: 'AttendanceChecklists',
   studentRecords: 'StudentMeetingRecords',
   timetableHeaders: ['Class ID', 'Class name', 'Subject', 'Weekday', 'Start time', 'End time', 'Room', 'Active', 'Updated at'],
   logHeaders: ['Class ID', 'Lesson date', 'Class name', 'Subject', 'Start time', 'End time', 'Room', 'Notes', 'Rating', 'Updated at', 'Lesson type', 'Lesson status'],
   studentHeaders: ['Student ID', 'Name', 'Updated at', 'Official Group ID'],
+  archivedStudentHeaders: ['Student ID', 'Full name', 'Previous groups JSON', 'Student IDs JSON', 'Removed on', 'Official Group ID'],
   enrollmentHeaders: ['Class ID', 'Student ID', 'Joined on', 'Left on', 'Active', 'Updated at'],
   checklistHeaders: ['Class ID', 'Lesson date', 'Revision', 'Updated at', 'Checklist JSON'],
   studentRecordHeaders: ['Class ID', 'Lesson date', 'Revision', 'Student ID', 'Attendance', 'Participation', 'Note', 'Updated at']
@@ -85,7 +87,7 @@ function doPost(e) {
       case 'archiveClass': requireSession_(request); data = archiveClass_(request); break;
       case 'saveLog': requireSession_(request); data = saveLog_(request); break;
       case 'saveStudent': requireSession_(request); data = saveStudent_(request); break;
-      case 'deleteStudent': requireSession_(request); data = deleteStudent_(request); break;
+      case 'archiveStudent': requireSession_(request); data = archiveStudent_(request); break;
       case 'setEnrollment': requireSession_(request); data = setEnrollment_(request); break;
       case 'saveChecklist': requireSession_(request); data = saveChecklist_(request); break;
       default: throw new Error('Unknown action.');
