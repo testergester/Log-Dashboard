@@ -2,10 +2,20 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
+const crypto = require('node:crypto');
 
 const root = path.join(__dirname, '..');
 const source = fs.readFileSync(path.join(root, 'script.js'), 'utf8');
 const backend = name => fs.readFileSync(path.join(root, 'AppsScript', name), 'utf8');
+
+function testAssetVersions() {
+  const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+  for (const name of ['script.js', 'styles.css']) {
+    const contents = fs.readFileSync(path.join(root, name));
+    const hash = crypto.createHash('sha1').update('blob ' + contents.length + '\0').update(contents).digest('hex').slice(0, 12);
+    assert.ok(html.includes('./' + name + '?v=' + hash), name + ' needs a fresh cache version in index.html');
+  }
+}
 
 for (const name of fs.readdirSync(path.join(root, 'AppsScript')).filter(name => name.endsWith('.gs'))) {
   new vm.Script(backend(name), {filename: name});
@@ -580,6 +590,7 @@ function testStudentSheetEdits() {
 }
 
 (async () => {
+  testAssetVersions();
   testSessionExpiry();
   testChecklistConflict();
   testReadDoesNotWrite();
