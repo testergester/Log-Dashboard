@@ -24,6 +24,7 @@ function saveChecklist_(request) {
   const lock = LockService.getScriptLock();
   lock.waitLock(30000);
   try {
+    assertLegacyWritable_();
     const spreadsheet = spreadsheet_();
     const classSheet = spreadsheet.getSheetByName(DASHBOARD.timetable);
     const classRowNumber = findRow_(classSheet, function(row) { return row[0] === classId; });

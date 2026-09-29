@@ -159,7 +159,8 @@ function testChecklistConflict() {
     date_: value => value,
     jsonText_: value => value,
     findRow_: () => 2,
-    findDateRows_: () => [2]
+    findDateRows_: () => [2],
+    assertLegacyWritable_: () => {}
   });
   vm.runInContext(backend('Attendance.gs'), context);
   assert.throws(() => context.saveChecklist_({checklist: {

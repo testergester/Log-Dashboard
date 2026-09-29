@@ -69,6 +69,12 @@ export function createView(document) {
       $('#workspace-detail').textContent = state.workspace ? `Your workspace is ready. Timezone: ${state.workspace.timezone}.` : '';
       $('#timezone-hint').textContent = state.hasSchedules ? 'Your timezone is fixed because this workspace has schedules.' : 'You can change your timezone until you create a schedule.';
     }
+    $('#dashboard-app').hidden = !ready || settingsOpen;
+    document.querySelector('.first-use-grid').hidden = ready;
+  }
+
+  function renderDashboard(content) {
+    $('#dashboard-app').replaceChildren(content);
   }
 
   function bind(controller) {
@@ -91,5 +97,5 @@ export function createView(document) {
       });
     }
   }
-  return { render, bind };
+  return { render, renderDashboard, bind };
 }

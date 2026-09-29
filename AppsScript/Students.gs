@@ -6,6 +6,7 @@ function saveStudent_(request) {
   const lock = LockService.getScriptLock();
   lock.waitLock(30000);
   try {
+    assertLegacyWritable_();
     const spreadsheet = spreadsheet_();
     const sheet = spreadsheet.getSheetByName(DASHBOARD.students);
     const rowNumber = findRow_(sheet, function(row) { return row[0] === id; });
@@ -32,6 +33,7 @@ function setEnrollment_(request) {
   const lock = LockService.getScriptLock();
   lock.waitLock(30000);
   try {
+    assertLegacyWritable_();
     const spreadsheet = spreadsheet_();
     const classRow = findRow_(spreadsheet.getSheetByName(DASHBOARD.timetable), function(row) {
       return row[0] === classId && String(row[7]).toLowerCase() !== 'false';

@@ -1,8 +1,10 @@
 # Teaching dashboard
 
-A private teaching workspace built with vanilla JavaScript, Vite, and Supabase. Phase 3 implements **passwordless email-link signup and sign-in**, workspace onboarding, session restoration, and account settings. The owner chose email links on September 26, 2026, replacing the original Google-only plan.
+A private teaching workspace built with vanilla JavaScript, Vite, and Supabase. Phase 3 added passwordless email-link sign-in and private workspaces. Phase 4 adds groups with multiple recurring meeting times, the day/week timetable, student enrollment and history, and separate lesson and attendance records.
 
-Group creation and student import are visible but disabled until their planned phases. The existing Apps Script dashboard is preserved separately in [`legacy/`](legacy/README.md).
+Phase 9 migration tooling and the pilot checklist are in [the cutover runbook](docs/phase-9-runbook.md). Production migration and release remain pending the owner's final export and deployment details.
+
+Group-level student import accepts pasted names or CSV with a reviewed preview and an atomic commit. Student history can preview and download a progress report for one group and date range, with individual student notes selected explicitly. The existing Apps Script dashboard is preserved separately in [`legacy/`](legacy/README.md).
 
 ## Run locally
 
@@ -18,7 +20,7 @@ pnpm dev
 Open **http://127.0.0.1:5173/**. The configured project must have the [database migrations](supabase/README.md) applied and the [email authentication setup](docs/email-auth-setup.md) completed.
 
 ```sh
-pnpm test           # Legacy regressions, both adapters/auth, PostgreSQL rules
+pnpm test           # Legacy regressions, auth, Phase 4 workflows, PostgreSQL rules
 pnpm test:auth      # Auth transitions, UI, and Supabase request contracts
 pnpm test:db        # Migrations, ownership, revisions, transaction rollback
 pnpm build         # New product → dist/
@@ -46,19 +48,24 @@ The new build includes no Apps Script login, endpoint setting, or legacy backend
 | --- | --- |
 | `src/main.js` | Build provider/controller/view and restore session |
 | `src/config.js` | Validate public settings and derive the exact same-origin callback |
-| `src/data/supabase.js` | Supabase SDK boundary: PKCE, email links, verified identity, workspace reads/RPCs |
+| `src/data/supabase.js` | Supabase SDK boundary: PKCE, workspace and teaching reads/RPCs |
 | `src/auth.js` | Auth state machine, callback exchange, account isolation, retry-safe workspace writes |
+| `src/dashboard.js` | Teaching timetable, groups, rosters, records, and history |
+| `src/import-students.js` | Papa Parse CSV intake, column mapping, and import preview rules |
+| `src/progress-report.js`, `src/progress-report-pdf.js` | Shared report totals and local PDF rendering |
 | `src/view.js` | DOM rendering and event binding; no SDK or network calls |
 | `src/product.css`, `styles.css` | New workspace layout and existing design tokens |
 | `legacy/` | Preserved frontend and Apps Script adapter |
 | `supabase/migrations/` | Versioned database schema, RLS, transactional writes, occurrence reads |
+| `supabase/legacy-mapping.js` | Deterministic mapping of each legacy class to its own group and slot |
+| `scripts/migrate-legacy.js` | Dry run and guarded, repeat-safe migration SQL generation |
 
 Auth callbacks remove codes/error details from browser history before performing network calls. Private screens open only after Auth verifies the user and workspace reads succeed. A generation guard discards responses from a signed-out or previous account. Auth-event callbacks remain synchronous and defer SDK work to avoid callback lock deadlocks. Sign-out and account switches remove rendered account data immediately.
 
 First use collects a display name and timezone before `ensure_workspace`, which enforces one workspace per owner. Settings use `save_workspace` with the current revision. An uncertain request retries the same operation ID and immutable payload; confirmed writes read back the latest revision. Timezone becomes read-only after schedules exist, with database enforcement as well. Availability of future features does not imply migrated records.
 
-## Validation and remaining work
+## Validation and later phases
 
-Automated tests cover new/returning users, replayed or failed callbacks, account switches during requests, expiration, email-delivery failures, retries, settings conflicts, and no private connected state on authentication failure. PostgreSQL tests cover ownership, idempotent workspace creation, revisions, and timezone locking.
+Automated tests cover auth transitions, account isolation, recurring schedules, independent meetings, roster snapshots, student history pagination, edits made during pending saves, the legacy mapping, and database ownership and revision rules.
 
-Hosted email delivery and a real user's link click must also be verified; unit tests cannot prove mail delivery. Supabase's default sender is limited to project-team recipients. Configure custom SMTP before opening signup to other teachers. The existing Apps Script records have not been migrated.
+The owner manually verified an email sign-in link during Phase 3. Supabase's default sender is limited to project-team recipients; configure custom SMTP before opening signup to other teachers. The existing Apps Script records have not been migrated. Local drafts, single-meeting rescheduling, group-level bulk student import, and student progress reports are implemented. Their migrations are applied to the hosted development project. The hosted browser move/restore and import smoke tests passed on September 28, 2026; the rescheduling concurrency check also passed. Phase 8's report query, calculations, PDF rendering, and local download-link preparation are verified. The in-app browser did not report a completed PDF download, so a save check in a regular browser remains open.

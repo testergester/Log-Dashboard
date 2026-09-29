@@ -4,11 +4,13 @@
  * Apps Script edits do not fire simple onEdit triggers.
  */
 function onEdit(e) {
+  if (PropertiesService.getScriptProperties().getProperty('LEGACY_READ_ONLY') === 'true') return;
   if (!e || !e.range || e.range.getSheet().getName() !== DASHBOARD.timetable) return;
   if (e.range.getLastRow() < 2 || e.range.getColumn() > DASHBOARD.timetableHeaders.length) return;
   const lock = LockService.getScriptLock();
   if (!lock.tryLock(5000)) return;
   try {
+    assertLegacyWritable_();
     normalizeTimetableTimes_(e.source.getSheetByName(DASHBOARD.timetable));
     sortTimetable_(e.source.getSheetByName(DASHBOARD.timetable));
     SpreadsheetApp.flush();
@@ -104,4 +106,3 @@ function normalizeTimetableTimes_(sheet) {
   });
   range.setNumberFormat('@').setValues(values);
 }
-

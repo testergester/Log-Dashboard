@@ -18,3 +18,8 @@ Thumbs.db
 .vscode/
 .idea/
 *.swp
+
+# Owner exports and generated migration SQL contain student records
+teaching-dashboard-legacy-*.json
+legacy-migration-*.sql
+backups/

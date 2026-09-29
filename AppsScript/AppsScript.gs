@@ -74,6 +74,10 @@ function doPost(e) {
       throw new Error('Set ALLOWED_ORIGIN to the dashboard website origin in Script properties.');
     }
     const action = request && request.action;
+    if (PropertiesService.getScriptProperties().getProperty('LEGACY_READ_ONLY') === 'true' &&
+        ['saveClass', 'archiveClass', 'saveLog', 'saveStudent', 'setEnrollment', 'saveChecklist'].indexOf(action) !== -1) {
+      throw new Error('LEGACY_READ_ONLY: Use the new teaching dashboard for changes.');
+    }
     let data;
     switch (action) {
       case 'login': data = login_(request); break;
@@ -90,6 +94,42 @@ function doPost(e) {
     return response_({ok: true, data: data, requestId: request.requestId}, request);
   } catch (error) {
     return response_({ok: false, error: String(error.message || error), requestId: request.requestId}, request);
+  }
+}
+
+/** Run from the owner-controlled Apps Script editor, never from the web app. */
+function exportLegacyForMigration() {
+  const lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    const payload = {formatVersion: 1, exportedAt: new Date().toISOString(), snapshot: loadDashboard_()};
+    const json = JSON.stringify(payload);
+    const stamp = Utilities.formatDate(new Date(), 'UTC', 'yyyyMMdd-HHmmss');
+    const file = DriveApp.createFile('teaching-dashboard-legacy-' + stamp + '.json', json, MimeType.PLAIN_TEXT);
+    const digest = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, json)
+      .map(function(byte) { return ('0' + (byte & 255).toString(16)).slice(-2); }).join('');
+    Logger.log('Migration export created. Drive file ID: ' + file.getId() + '; SHA-256: ' + digest);
+    return {fileId: file.getId(), sha256: digest};
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/** Run only after the final export is verified and the replacement is ready. */
+function freezeLegacyWritesForCutover() {
+  const lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    PropertiesService.getScriptProperties().setProperty('LEGACY_READ_ONLY', 'true');
+    Logger.log('Legacy writes disabled. Existing deployed versions need this write guard before cutover.');
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function assertLegacyWritable_() {
+  if (PropertiesService.getScriptProperties().getProperty('LEGACY_READ_ONLY') === 'true') {
+    throw new Error('LEGACY_READ_ONLY: Use the new teaching dashboard for changes.');
   }
 }
 

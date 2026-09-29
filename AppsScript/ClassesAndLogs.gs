@@ -17,6 +17,7 @@ function saveClass_(request) {
   const lock = LockService.getScriptLock();
   lock.waitLock(30000);
   try {
+    assertLegacyWritable_();
     const rowNumber = findRow_(sheet, function(row) { return row[0] === id; });
     if (editingId && !rowNumber) throw new Error('Class no longer exists. Reload the dashboard.');
     if (!editingId && rowNumber) throw new Error('That group ID is already in use. Choose another one.');
@@ -50,6 +51,7 @@ function archiveClass_(request) {
   const lock = LockService.getScriptLock();
   lock.waitLock(30000);
   try {
+    assertLegacyWritable_();
     const rowNumber = findRow_(sheet, function(row) { return row[0] === id; });
     if (!rowNumber) throw new Error('Class no longer exists. Reload the dashboard.');
     const updatedAt = timestamp_();
@@ -74,6 +76,7 @@ function saveLog_(request) {
   const lock = LockService.getScriptLock();
   lock.waitLock(30000);
   try {
+    assertLegacyWritable_();
     const spreadsheet = spreadsheet_();
     const classSheet = spreadsheet.getSheetByName(DASHBOARD.timetable);
     const classRowNumber = findRow_(classSheet, function(row) { return row[0] === classId; });

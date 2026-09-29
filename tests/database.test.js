@@ -229,7 +229,9 @@ test('occurrence reads create no rows and preserve stable keys, versions, and sa
     assert.ok(future.some(row => row.schedule_slot_id === second.id));
     // Privileged fixture simulates a future reschedule; no reschedule RPC ships in Phase Two.
     await db.query("update public.meetings set actual_date = '2026-10-01', is_rescheduled = true where workspace_id = $1 and id = $2", [ws, record.meeting.id]);
-    assert.equal((await meetings(db, teacherA, ws, '2026-09-21', '2026-09-21')).length, 1);
+    const sourceDay = await meetings(db, teacherA, ws, '2026-09-21', '2026-09-21');
+    assert.equal(sourceDay.filter(row => !row.is_marker).length, 1);
+    assert.equal(sourceDay.filter(row => row.is_marker).length, 1);
     const moved = await meetings(db, teacherA, ws, '2026-10-01', '2026-10-01');
     assert.equal(moved.length, 1);
     assert.equal(moved[0].meeting_key, saved.meeting_key);
@@ -318,6 +320,33 @@ test('schedule and enrollment constraints reject overlap but allow adjacent rang
     await rejectsCode(db.query("insert into public.schedule_slot_versions(workspace_id,schedule_slot_id,weekday,start_time,end_time,effective_from) values ($1,$2,2,'11:00','12:00','2026-02-01')", [ws, d.slot.id]), '23P01');
     await rejectsCode(write(db, teacherA, ws, 'save_workspace', {display_name: 'Teacher', timezone: 'UTC', expected_revision: 1}), 'TD002');
     await rejectsCode(write(db, teacherA, ws, 'save_workspace', {display_name: 'Teacher', timezone: 'Not/A_Zone', expected_revision: 1}), 'TD002');
+  } finally { await db.close(); }
+});
+
+test('an unsaved current schedule version can be corrected from today without changing saved history', async () => {
+  const db = await createDatabase();
+  try {
+    const d = await fixture(db);
+    const ws = d.workspace.id;
+    const parts = new Intl.DateTimeFormat('en', { timeZone: 'Asia/Tashkent', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date());
+    const value = type => parts.find(part => part.type === type).value;
+    const today = `${value('year')}-${value('month')}-${value('day')}`;
+    const group = await write(db, teacherA, ws, 'save_group', { name: 'Science', subject: 'Science', expected_revision: 0 });
+    const created = await write(db, teacherA, ws, 'save_schedule_slot', {
+      group_id: group.id, weekday: 1, start_time: '11:00', end_time: '12:00', effective_from: today, expected_revision: 0
+    });
+    const corrected = await write(db, teacherA, ws, 'save_schedule_slot', {
+      id: created.id, group_id: group.id, weekday: 1, start_time: '12:00', end_time: '13:00', effective_from: today, expected_revision: 1
+    });
+    assert.equal(corrected.revision, 2);
+    assert.notEqual(corrected.version.id, created.version.id);
+    const count = await db.query('select count(*)::integer as n from public.schedule_slot_versions where workspace_id = $1 and schedule_slot_id = $2', [ws, created.id]);
+    assert.equal(count.rows[0].n, 1);
+    const nextMonday = (() => { const date = new Date(`${today}T12:00:00Z`); date.setUTCDate(date.getUTCDate() + ((8 - date.getUTCDay()) % 7)); return date.toISOString().slice(0, 10); })();
+    await write(db, teacherA, ws, 'save_lesson_record', { schedule_slot_id: created.id, original_date: nextMonday, notes: 'Saved', expected_revision: 0 });
+    await rejectsCode(write(db, teacherA, ws, 'save_schedule_slot', {
+      id: created.id, group_id: group.id, weekday: 1, start_time: '13:00', end_time: '14:00', effective_from: today, expected_revision: 2
+    }), 'TD006');
   } finally { await db.close(); }
 });
 

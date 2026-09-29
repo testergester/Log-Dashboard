@@ -1,6 +1,6 @@
-# Phase Two database foundation
+# Supabase database and teaching workflows
 
-The migrations in this directory define the Supabase PostgreSQL database. Phase 3 now uses these migrations for email-link authentication and workspace onboarding; the Apps Script frontend is preserved in `legacy/`. No legacy records are imported.
+The migrations in this directory define the Supabase PostgreSQL database for private workspaces and teaching workflows. The Apps Script frontend is preserved in `legacy/`. No legacy records are imported.
 
 ## Recreate and test locally
 
@@ -24,7 +24,7 @@ supabase db reset --local
 
 The reset command **recreates this local database and deletes its existing local data**. It applies the committed migrations to the local PostgreSQL 17 instance configured in `config.toml`. No seed file is enabled. Supabase provides the real `auth.users`, `auth.uid()`, `anon`, and `authenticated` roles; the test-only auth bootstrap must never be deployed. Do not use `--linked` or `db push` as part of these local instructions.
 
-The embedded tests have been run in this workspace. The full Docker/Supabase stack has not been started here because Docker and the Supabase CLI are unavailable. PGlite uses one connection, so it verifies transactional rollback, replay, and stale-revision outcomes but does not simulate simultaneous PostgreSQL connections or Supabase's HTTP/JWT layer. Those integration checks remain necessary when connecting the hosted development project. Email authentication and workspace integration are Phase Three work; teaching workflows remain Phase Four.
+The embedded tests have been run in this workspace. The full Docker/Supabase stack has not been started here because Docker and the Supabase CLI are unavailable. PGlite uses one connection, so it verifies transactional rollback, replay, and stale-revision outcomes but does not simulate simultaneous PostgreSQL connections or Supabase's HTTP/JWT layer. The schedule-version, rescheduling, and bulk-import migrations were applied to the hosted development project through the Supabase MCP. On September 28, 2026, two overlapping authenticated HTTP writes were tested against hosted PostgreSQL while a separate SQL connection held the workspace row lock. After the lock released, the empty lesson save succeeded and the stale move failed with `TD004`; a fresh move was rejected with `TD008`. A separate move-first run confirmed that a lesson save followed the moved occurrence and then blocked restore. The hosted browser also completed a cross-week move, verified the source marker and destination badge/count, and restored the original schedule. The import browser check parsed quoted Unicode CSV, required explicit decisions for an existing and an invalid row, then confirmed the created/reused/enrolled/skipped counts against the temporary group's roster. Temporary test records were removed.
 
 ## Migration order
 
@@ -33,6 +33,11 @@ The embedded tests have been run in this workspace. The full Docker/Supabase sta
 | `20260925000100_workspace_schema.sql` | Tables, constraints, indexes, read policies, and table privileges |
 | `20260925000200_transactional_writes.sql` | Private validation/write helpers and authenticated `dashboard_write` RPC |
 | `20260925000300_occurrence_reads.sql` | Read-only `list_meetings` RPC |
+| `20260927183818_edit_unsaved_schedule_version.sql` | Correct a current or future slot version on its start date when no saved meeting uses it |
+| `20260928061935_reschedule_meeting.sql` | Transactional single-meeting moves, restoration, and source-date markers |
+| `20260928063507_check_moved_schedule_conflicts.sql` | Prevent recurring edits from overlapping meetings moved in from the same slot |
+| `20260928094710_bulk_student_import.sql` | Atomic, idempotent group import using the workspace write lock and roster checks |
+| `20260928182830_student_progress_report.sql` | Authenticated single-snapshot report read for one student, group, and inclusive date range |
 
 Once applied to a shared environment, add a new migration for subsequent changes rather than rewriting its history. See [Supabase migration guidance](https://supabase.com/docs/guides/deployment/database-migrations).
 
@@ -41,9 +46,10 @@ Once applied to a shared environment, add a new migration for subsequent changes
 - **Workspace:** one per `auth.users.id`, enforced by a unique owner constraint. Default timezone is `Asia/Tashkent`; an IANA timezone is validated by PostgreSQL. The timezone cannot change once any schedule slot exists.
 - **Group:** name, subject, optional workspace-unique code, archive flag, and revision. Archiving retains historical records. Restoring an archived group is intentionally not exposed yet because its schedule must be checked for conflicts.
 - **Schedule slot:** stable identity and group membership. **Slot versions** contain weekday (Monday = 1), minute-precision times, room, and effective dates. Versions for a slot cannot overlap.
-- **Meeting:** materialized only during a record save. Its unique identity is `(workspace_id, schedule_slot_id, original_date)`. Its display key is `schedule_slot_id:YYYY-MM-DD`. Actual date/time and group/subject/room snapshots are stored separately; changing the actual date in a future rescheduling RPC must not change identity.
+- **Meeting:** materialized during a record save or single-meeting reschedule. Its unique identity is `(workspace_id, schedule_slot_id, original_date)`. Its display key is `schedule_slot_id:YYYY-MM-DD`. Actual date/time and group/subject/room snapshots are stored separately; moving it does not change identity. A record-free override is removed when the original schedule is restored.
 - **Student:** workspace-wide identity; matching names are permitted. Nonempty external IDs are unique only within the workspace.
 - **Enrollment:** group/student relationship with inclusive `starts_on` and exclusive `ends_on`. Multiple non-overlapping membership periods are supported. Each group is limited to 100 enrolled students at any date.
+- **Bulk student import:** one confirmed `dashboard_write` action accepts up to 100 reviewed rows, creates or reuses workspace students, and enrolls them in the selected group at the requested date. The workspace lock, operation receipt, student revision checks, external-ID uniqueness, and existing roster limit apply to the entire transaction. A failed row rolls back every preceding row.
 - **Lesson record:** meeting-specific notes (up to 5,000 characters), optional rating 1–5, lesson type (1–60 characters), status (`Done`, `Late`, `Cancelled`, or `Skipped`), and revision.
 - **Attendance checklist:** independently revised official attendance for a meeting. **Attendance entries** store the frozen roster and student-name snapshots, `present`/`absent`, participation −1/0/+1, and a note up to 300 characters. An absent student must have participation 0; the existing score rule remains −1 for absence and the participation value for presence.
 
@@ -55,10 +61,11 @@ Schedule and enrollment end dates are exclusive internally. A future UI offering
 
 `authenticated` receives SELECT privileges and owner-filtered RLS policies on business tables. It has no INSERT, UPDATE, DELETE, TRUNCATE, or table write policies. `anon` has no business-table or RPC access. Missing authentication inside an authenticated RPC call is rejected as well.
 
-There are only two public application RPCs:
+There are three public application RPCs:
 
 1. `dashboard_write`: SECURITY DEFINER, fixed empty search path, explicit `auth.uid()` ownership check, workspace transaction lock, validated writes, and atomic retry receipt.
 2. `list_meetings`: SECURITY INVOKER, fixed empty search path, explicit authentication/ownership checks, and RLS-protected reads.
+3. `student_progress_report`: SECURITY INVOKER, fixed empty search path, explicit authentication/ownership checks, and one consistent RLS-protected result containing only the selected student's qualifying saved records.
 
 All write helpers and the operation ledger are in `dashboard_private`, which is absent from the exposed API schemas. Browser roles have neither schema access nor helper EXECUTE privileges. The ledger has RLS enabled and no browser policies. The migration owner can perform maintenance; privileged service credentials must never be shipped to the browser.
 
@@ -87,6 +94,13 @@ const { data, error } = await supabase.rpc('dashboard_write', {
 
 The Phase 3 Supabase adapter uses this RPC for workspace onboarding and settings.
 
+### Legacy record mapping for Phase Four
+
+`legacy-mapping.js` exports `mapLegacyDashboard(snapshot, { workspaceId, scheduleStartDate, groupKeyByClass })`.
+It converts the Apps Script `loadDashboard_` JSON shape into deterministic rows for groups, one schedule slot per legacy class, students, enrollment periods, and independent meetings keyed by each class/date pair. Lesson and attendance rows keep their saved meeting details and student-name snapshots. `groupKeyByClass` can merge legacy classes that represent one real group; their matching enrollment periods are combined. The caller must supply the date when the current recurring timetable should begin, because the legacy timetable did not store a start date. `identity_map` records the legacy-to-new IDs. Conflicting names or unknown references fail validation instead of guessing.
+
+This is a preparation step only. It does not connect to Supabase or insert data. A later production migration must validate overlap conflicts, review the resulting groups, insert the rows transactionally with privileged migration credentials, and record a rollback plan. Legacy timetable edits did not store complete slot-version history, so the mapping keeps each known meeting snapshot and creates one version from the currently available class schedule; it does not fabricate unknown historical versions. No production legacy migration has been run.
+
 Except `ensure_workspace`, every action requires a workspace owned by the signed-in teacher. Never send an owner ID; ownership comes exclusively from `auth.uid()`. Every mutable entity uses an integer revision: create with `expected_revision: 0`, and update with the last confirmed revision. Entity IDs for creation are generated on the server. Missing IDs for edits do not silently create replacement rows.
 
 | Action | Payload | Confirmed result |
@@ -102,7 +116,7 @@ Except `ensure_workspace`, every action requires a workspace owned by the signed
 
 Payloads are full replacements for editable content, not arbitrary patches: omitted student external IDs/group codes clear them; omitted lesson values use their documented defaults. `save_group.archived` and workspace timezone are retained on update if omitted. Unknown extra payload fields never become table columns and cannot change ownership, revisions, snapshots, or arbitrary relationships.
 
-`save_schedule_slot` creation adds the first version. Updates append a version with the same slot ID and increment the slot revision; they must start today or later and after the last version's start date. The previous version is closed if needed. Changes that would cut through saved meetings are rejected. All slot times must be non-overlapping across the workspace; touching end/start times are allowed. More elaborate schedule editing UI belongs to Phase Four.
+`save_schedule_slot` creation adds the first version. Updates from a later selected date append a version and close the previous one. An unsaved current or future version may be corrected on its own start date; this replaces that version without touching older versions. All edits start today or later, and saved meetings block changes to their range or referenced version. All slot times must be non-overlapping across the workspace; touching end/start times are allowed.
 
 The first attendance save must contain exactly the roster resolved from enrollment dates on the meeting's actual date. Corrections must contain exactly the saved roster; later enrollment/name edits cannot silently rewrite saved snapshots. An empty lesson save is still an official record. A lesson and attendance checklist have separate revisions and Save operations.
 
@@ -134,6 +148,7 @@ Supabase exposes PostgreSQL SQLSTATE as `error.code`. Use the code, not human-re
 | `TD005` | `OPERATION_CONFLICT` | Operation ID reused with a different action/payload |
 | `TD006` | `SCHEDULE_CONFLICT` | Overlapping commitment or saved meeting prevents a schedule change |
 | `TD007` | `ROSTER_CONFLICT` | Roster changed, differs from saved roster, or exceeds 100 students |
+| `TD008` | `MEETING_HAS_SAVED_RECORDS` | A saved lesson or attendance checklist prevents moving or restoring a meeting |
 
 Malformed UUID/date arguments rejected before entering an RPC retain PostgreSQL's `22…` validation codes. Disallowed direct table/helper calls return `42501` (insufficient privilege). Constraint details from the write gateway are sanitized rather than returning teaching data.
 
@@ -147,7 +162,7 @@ const { data, error } = await supabase.rpc('list_meetings', {
 });
 ```
 
-The range is inclusive and limited to 93 days. Unsaved occurrences have `id: null`, `revision: 0`, and a stable `meeting_key`. Saved meetings override generated occurrences and retain their snapshots. Archived groups contribute saved meetings only. Persisted meetings are queried on `actual_date`, so the read model already supports future moved-in/moved-out exceptions without duplicate occurrences. No reschedule write operation is exposed in this phase.
+The range is inclusive and limited to 93 days. Unsaved occurrences have `id: null`, `revision: 0`, and a stable `meeting_key`. Materialized meetings override generated occurrences and retain their snapshots. Archived groups contribute saved meetings only. Moved meetings appear on `actual_date`; a row with `is_marker: true` links from the original date and must not count as a meeting. `reschedule_meeting` and `restore_meeting` use the same authenticated write RPC and require `schedule_slot_id`, `original_date`, and `expected_revision` (`0` for an unmaterialized occurrence). Rescheduling also requires `actual_date`, minute-precision `start_time` and `end_time`, and `room`.
 
 ## Validation coverage
 

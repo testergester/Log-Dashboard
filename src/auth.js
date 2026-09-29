@@ -13,6 +13,7 @@ export function errorMessage(error) {
 
 /** Owns session transitions. Generation guards discard late responses from an old account. */
 export function createAuthController({ access, render, location, history,
+  beforeSignOut = async () => true, afterSignOut = async () => {},
   uuid = () => crypto.randomUUID(), now = () => Date.now(), defer = fn => setTimeout(fn, 0) }) {
   let version = 0;
   let initializing = true;
@@ -147,13 +148,18 @@ export function createAuthController({ access, render, location, history,
         else publish({ phase, message: errorMessage(error), reloadRequired: error.code === 'TD004' });
       }
     },
-    async signOut() {
+    async signOut({ skipDraftPrompt = false } = {}) {
       if (signingOut) return;
+      const accountId = state.user?.id;
+      if (accountId && !skipDraftPrompt && !(await beforeSignOut(accountId))) return;
       signingOut = true;
       clear('signing-out', 'Signing out…');
       try {
         await access.signOut();
-        clear('signed-out');
+        try {
+          if (accountId) await afterSignOut(accountId);
+          clear('signed-out');
+        } catch { clear('signed-out', 'Signed out, but this device could not remove its drafts. Clear this site’s browser data before sharing the device.'); }
       } catch { clear('signout-error', 'Sign-out could not finish. Your workspace is hidden. Retry sign-out to remove the session from this browser.'); }
       finally { signingOut = false; }
     },

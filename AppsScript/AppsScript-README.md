@@ -2,6 +2,8 @@
 
 The backend is split across these `.gs` files. Put **all of them in the same Google Apps Script project** as separate script files:
 
+For Phase 9, deploy these updated files before cutover. Run `exportLegacyForMigration()` from the owner-controlled Apps Script editor to create a Drive JSON file containing only teaching records. After the final rehearsal and before the final export, run `freezeLegacyWritesForCutover()`; every save path rechecks the read-only property after taking the script lock. Older deployed versions that do not contain this guard must be retired. See [the Phase 9 runbook](../docs/phase-9-runbook.md).
+
 | File | Responsibility |
 | --- | --- |
 | `AppsScript.gs` | Configuration, setup, and web app entry points |
