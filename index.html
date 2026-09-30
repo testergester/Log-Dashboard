@@ -7,8 +7,8 @@
   <meta name="description" content="A private teaching timetable and lesson log.">
   <title>Teaching Dashboard</title>
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%231b4ca1'/%3E%3Cpath d='M16 18h32v30H16z' fill='none' stroke='white' stroke-width='4'/%3E%3Cpath d='M22 12v12m20-12v12M16 29h32M24 37h7' stroke='white' stroke-width='4' stroke-linecap='round'/%3E%3C/svg%3E">
-  <link rel="stylesheet" href="./styles.css?v=978025156995">
-  <script src="./script.js?v=d28b92064a27" defer></script>
+  <link rel="stylesheet" href="./styles.css?v=595a273f522a">
+  <script src="./script.js?v=7c4fc638a93a" defer></script>
 </head>
 <body>
   <div class="app-shell">
@@ -145,8 +145,13 @@
                   <label><input type="radio" name="lesson-record-status" value="Cancelled"><span>Cancelled</span></label>
                 </div>
               </fieldset>
-              <label class="field-label" for="lesson-notes">What did you do with your students?</label>
-              <textarea id="lesson-notes" rows="7" maxlength="5000" placeholder="Activities, progress, and anything to remember next time…"></textarea>
+              <div class="field-label" id="lesson-notes-label">What did you do with your students?</div>
+              <div class="lesson-notes-toolbar" role="toolbar" aria-label="Note formatting">
+                <button type="button" data-notes-command="removeList" aria-label="No list">None</button>
+                <button type="button" data-notes-command="insertUnorderedList" aria-label="Bullet list">• Bullet list</button>
+                <button type="button" data-notes-command="insertOrderedList" aria-label="Numbered list">1. Numbered list</button>
+              </div>
+              <div id="lesson-notes" class="lesson-notes-content" contenteditable="true" role="textbox" aria-multiline="true" aria-labelledby="lesson-notes-label" data-placeholder="Activities, progress, and anything to remember next time…"></div>
               <fieldset class="rating-fieldset">
                 <legend>How did the class go? (optional)</legend>
                 <div class="rating-options">
