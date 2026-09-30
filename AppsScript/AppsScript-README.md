@@ -20,6 +20,8 @@ Apps Script shares top-level functions across script files in one project, so no
 
 Classes can meet on several different weekdays, with a separate time and room for each day. The first meeting remains in the existing Timetable columns; additional days are stored in its `Additional meetings JSON` column, which `setupDashboard()` adds. The web dashboard and generated `WeeklyView` expand those meetings while keeping one class ID and one lesson record per class per date.
 
+Lesson notes offer None, Bullet list, and Numbered list controls above the editor. New notes are saved as limited HTML in the existing notes column, and Previous records renders that formatting. Older plain-text notes remain readable without migration.
+
 Sessions now expire 24 hours after sign-in. Existing sessions from older deployments have no expiration metadata and will require one new sign-in after deployment. Sign-out revokes the current session immediately. Run `setupDashboard()` before deploying so all required tabs exist; ordinary dashboard loads no longer create tabs or rebuild the weekly view. Timetable changes still update the weekly view.
 
 After updating the website and backend together, saves update the dashboard from the confirmed response instead of loading every record again. If a checklist was changed in another browser or device, its save is rejected and the user's unsaved edits remain visible until they reload and reconcile them.
