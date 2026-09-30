@@ -259,9 +259,8 @@ input::placeholder, textarea::placeholder { color: #8b99a9; }
 .student-list-head { padding-block: .65rem; color: var(--muted); background: #fff; font-size: .72rem; font-weight: 800; text-transform: uppercase; letter-spacing: .07em; }
 .student-row { flex-wrap: wrap; min-height: 80px; padding-block: .8rem; border-top: 1px solid var(--line); }
 .student-row:hover { background: #fbfcff; }
-.student-row.roster-matched, .student-row.roster-matched:hover, .student-row.roster-matched .student-identity { background: #f1faf4; }
-.student-row.roster-student-only, .student-row.roster-student-only:hover, .student-row.roster-student-only .student-identity { background: #fff7e8; }
-.student-row.roster-enrollment-only, .student-row.roster-enrollment-only:hover, .student-row.roster-enrollment-only .student-identity { background: #fff0f0; }
+.student-row[data-attendance="present"], .student-row[data-attendance="present"]:hover, .student-row[data-attendance="present"] .student-identity { background: #f1faf4; }
+.student-row[data-attendance="absent"], .student-row[data-attendance="absent"]:hover, .student-row[data-attendance="absent"] .student-identity { background: #fff0f0; }
 .student-identity { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; min-width: 0; }
 .student-name-button { display: block; max-width: 100%; overflow: hidden; padding: 0; border: 0; background: none; color: var(--blue); font-size: .95rem; font-weight: 750; text-align: left; text-decoration: underline; text-overflow: ellipsis; text-underline-offset: 2px; white-space: nowrap; }
 .student-score { display: block; grid-column: 1; margin-top: .2rem; color: var(--muted); font-size: .76rem; }
