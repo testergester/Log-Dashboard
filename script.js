@@ -481,9 +481,47 @@ function draftKey() {
   return state.selectedClassId + "|" + state.selectedDate;
 }
 
+const LESSON_NOTES_HTML_START = '<div data-lesson-notes-html="1">';
+
+function sanitizeLessonNotes(source) {
+  const safe = document.createElement("div");
+  const allowed = new Set(["DIV", "P", "UL", "OL", "LI", "BR", "STRONG", "EM"]);
+  const discard = new Set(["SCRIPT", "STYLE", "IFRAME", "OBJECT", "SVG", "MATH", "FORM"]);
+  function copy(node, parent) {
+    if (node.nodeType === 3) {
+      parent.append(document.createTextNode(node.textContent));
+    } else if (node.nodeType === 1 && !discard.has(node.tagName)) {
+      const target = allowed.has(node.tagName) ? document.createElement(node.tagName.toLowerCase()) : parent;
+      [...node.childNodes].forEach(child => copy(child, target));
+      if (target !== parent) parent.append(target);
+    }
+  }
+  [...source.childNodes].forEach(node => copy(node, safe));
+  return safe;
+}
+
+function lessonNotesHtmlSource(value) {
+  if (!value?.startsWith(LESSON_NOTES_HTML_START)) return null;
+  const template = document.createElement("template");
+  template.innerHTML = value;
+  const wrapper = template.content.firstElementChild;
+  return wrapper?.getAttribute("data-lesson-notes-html") === "1" ? wrapper : null;
+}
+
+function showLessonNotes(target, value) {
+  const htmlSource = lessonNotesHtmlSource(value);
+  if (htmlSource) target.replaceChildren(...sanitizeLessonNotes(htmlSource).childNodes);
+  else target.textContent = value || "";
+}
+
+function readLessonNotes() {
+  const safe = sanitizeLessonNotes($("#lesson-notes"));
+  return safe.textContent.trim() ? LESSON_NOTES_HTML_START + safe.innerHTML + "</div>" : "";
+}
+
 function saveDraft() {
   if (!state.selectedClassId || $("#lesson-form").hidden) return;
-  const notes = $("#lesson-notes").value;
+  const notes = readLessonNotes();
   const rating = document.querySelector('input[name="rating"]:checked')?.value || "";
   const lessonType = lessonTypeValue();
   const lessonStatus = document.querySelector('input[name="lesson-record-status"]:checked')?.value || "Done";
@@ -519,7 +557,7 @@ function renderLesson() {
   $("#lesson-title").textContent = formatDate(state.selectedDate, {weekday: "long", month: "short", day: "numeric"});
   $("#lesson-class-name").textContent = item.name;
   $("#lesson-class-detail").textContent = [item.subject, item.start + "–" + item.end, item.room && "Room " + item.room].filter(Boolean).join(" · ");
-  $("#lesson-notes").value = draft ? draft.notes : saved?.notes || "";
+  showLessonNotes($("#lesson-notes"), draft ? draft.notes : saved?.notes || "");
   const lessonType = draft ? draft.lessonType : saved?.lessonType || "Lesson";
   const standardType = STANDARD_LESSON_TYPES.includes(lessonType);
   document.querySelectorAll('input[name="lesson-type"]').forEach(input => {
@@ -958,8 +996,9 @@ function renderPreviousNotes() {
     const date = document.createElement("span");
     date.className = "previous-note-date";
     date.textContent = formatDate(item.date, {weekday: "short", month: "short", day: "numeric", year: "numeric"});
-    const notes = document.createElement("p");
-    notes.textContent = item.notes || "No notes added.";
+    const notes = document.createElement("div");
+    notes.className = "lesson-notes-content";
+    showLessonNotes(notes, item.notes || "No notes added.");
     entry.append(date, notes);
     const details = document.createElement("small");
     details.textContent = (item.lessonType || "Lesson") + " · " + (item.lessonStatus || "Done");
@@ -1599,6 +1638,24 @@ $("#lesson-notes").addEventListener("input", () => {
   $("#lesson-status").textContent = "Unsaved changes";
   $("#lesson-status").classList.remove("error");
 });
+$("#lesson-notes").addEventListener("paste", event => {
+  event.preventDefault();
+  document.execCommand("insertText", false, event.clipboardData.getData("text/plain"));
+});
+document.querySelectorAll("[data-notes-command]").forEach(button => {
+  button.addEventListener("mousedown", event => event.preventDefault());
+  button.addEventListener("click", () => {
+    $("#lesson-notes").focus();
+    const command = button.dataset.notesCommand === "removeList"
+      ? document.queryCommandState("insertOrderedList") ? "insertOrderedList"
+        : document.queryCommandState("insertUnorderedList") ? "insertUnorderedList" : null
+      : button.dataset.notesCommand;
+    if (command) document.execCommand(command, false);
+    saveDraft();
+    $("#lesson-status").textContent = "Unsaved changes";
+    $("#lesson-status").classList.remove("error");
+  });
+});
 document.querySelectorAll('input[name="rating"]').forEach(input => input.addEventListener("change", () => {
   saveDraft();
   $("#lesson-status").textContent = "Unsaved changes";
@@ -1639,12 +1696,18 @@ $("#lesson-form").addEventListener("submit", async event => {
   const record = {
     classId: state.selectedClassId,
     date: state.selectedDate,
-    notes: $("#lesson-notes").value,
+    notes: readLessonNotes(),
     rating: rating ? Number(rating) : null,
     lessonType,
     lessonStatus
   };
   const submittedDraft = {notes: record.notes, rating: rating || "", lessonType, lessonStatus};
+  if (record.notes.length > 5000) {
+    $("#lesson-status").textContent = "Notes are too long. Shorten them before saving.";
+    $("#lesson-status").classList.add("error");
+    $("#lesson-notes").focus();
+    return;
+  }
   state.pending = true;
   state.savingLessonKey = key;
   $("#save-lesson-button").disabled = true;
