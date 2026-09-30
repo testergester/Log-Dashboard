@@ -1008,6 +1008,17 @@ function renderPreviousNotes() {
       rating.textContent = "Class rating: " + item.rating + "/5";
       entry.append(rating);
     }
+    const actions = document.createElement("div");
+    actions.className = "record-actions";
+    ["Edit", "Delete"].forEach(label => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "button button-quiet";
+      button.textContent = label;
+      button.addEventListener("click", () => openRecordDialog(item, label === "Delete"));
+      actions.append(button);
+    });
+    entry.append(actions);
     list.append(entry);
   });
 }
@@ -1753,5 +1764,57 @@ async function restoreSession() {
     }
   }
 }
+
+
+
+
+let editingRecord = null;
+let archivingRecord = false;
+function openRecordDialog(item, archive) {
+  if (state.pending) return;
+  editingRecord = {...item};
+  archivingRecord = archive;
+  $("#record-title").textContent = archive ? "Delete lesson record" : "Edit lesson record";
+  $("#record-info").textContent = item.className + " · " + formatDate(item.date, {year: "numeric", month: "short", day: "numeric"});
+  $("#record-edit-fields").hidden = archive;
+  $("#record-archive-fields").hidden = !archive;
+  $("#record-reason").required = archive;
+  $("#record-reason").value = "";
+  $("#record-error").textContent = "";
+  $("#record-confirm").textContent = archive ? "Confirm deletion" : "Save changes";
+  ["className", "subject", "start", "end", "room", "lessonType", "lessonStatus", "rating"].forEach(key => {
+    $("#record-" + key).value = item[key] || (key === "lessonType" ? "Lesson" : key === "lessonStatus" ? "Done" : "");
+  });
+  showLessonNotes($("#record-notes"), item.notes || "");
+  $("#record-dialog").showModal();
+}
+$("#record-cancel").addEventListener("click", () => { if (!state.pending) $("#record-dialog").close(); });
+$("#record-dialog").addEventListener("cancel", event => { if (state.pending) event.preventDefault(); });
+$("#record-form").addEventListener("submit", async event => {
+  event.preventDefault();
+  if (state.pending || !editingRecord) return;
+  const item = editingRecord;
+  const reason = $("#record-reason").value.trim();
+  if (archivingRecord && !reason) { $("#record-error").textContent = "Explain why before confirming."; return; }
+  const record = {...item};
+  ["className", "subject", "start", "end", "room", "lessonType", "lessonStatus", "rating"].forEach(key => { record[key] = $("#record-" + key).value; });
+  const safe = sanitizeLessonNotes($("#record-notes"));
+  record.notes = LESSON_NOTES_HTML_START + safe.innerHTML + "</div>";
+  state.pending = true;
+  $("#record-confirm").disabled = true;
+  try {
+    if (archivingRecord) {
+      await request("archiveLog", {token: state.token, classId: item.classId, date: item.date, reason});
+      state.logs = state.logs.filter(log => !(log.classId === item.classId && log.date === item.date));
+      state.drafts.delete(item.classId + "|" + item.date);
+    } else {
+      const saved = await request("editLog", {token: state.token, log: record});
+      upsert(state.logs, log => log.classId === saved.classId && log.date === saved.date, saved);
+    }
+    $("#record-dialog").close();
+    finishWrite(archivingRecord ? "Lesson moved to ArchivedLessonLogs." : "Lesson record updated.");
+  } catch (error) { $("#record-error").textContent = error.message; }
+  finally { state.pending = false; $("#record-confirm").disabled = false; }
+});
 
 restoreSession();

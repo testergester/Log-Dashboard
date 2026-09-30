@@ -445,3 +445,9 @@ dialog::backdrop { background: #13284a8c; }
   .rating-options { flex-wrap: wrap; }
   .rating-options label { flex-basis: calc(33.333% - .25rem); }
 }
+
+.record-actions { display: flex; gap: 8px; margin-top: 12px; }
+#record-dialog { width: min(560px, calc(100% - 32px)); max-height: 90vh; overflow: auto; }
+#record-edit-fields { display: grid; gap: 8px; }
+#record-notes { min-height: 150px; border: 1px solid #ccd9eb; border-radius: 10px; padding: 12px; }
+#record-reason { width: 100%; min-height: 110px; }

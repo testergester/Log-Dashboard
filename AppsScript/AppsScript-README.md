@@ -49,3 +49,11 @@ For an existing spreadsheet, update all `.gs` files, then run `setupDashboard()`
 `migrateStudentIds()` makes a full Drive copy of the spreadsheet before writing. Its return value and execution log contain the backup URL. If a write fails, restore the original spreadsheet's data from that copy before trying again; the migration blocks a second run while marked `in-progress`. After restoring, delete the `STUDENT_ID_MIGRATION_STATUS` script property, then rerun. Keep the backup until you have checked student histories and guest attendance. Running the migration after a successful completion returns without changing data.
 
 `AppsScript.full-backup.txt` is an unchanged copy of the original, complete script. Keep it outside the Apps Script project while using the split files; adding it alongside them would define every function twice. To restore the original, remove the split `.gs` files from the Apps Script project, create one `AppsScript.gs` file with the backup's contents, then deploy a new web app version.
+
+## Lesson record editing and recovery
+
+Previous records has Edit and Delete buttons. Edit opens recorded class details, times, room, notes, type, status and rating; class ID and lesson date identify the record and stay fixed. Concurrent edits are rejected if the saved timestamp changed. Delete requires a nonempty explanation. It copies the entire LessonLogs row (including extra columns and cell formatting) to ArchivedLessonLogs with Archive reason, Archived at and a Recover checkbox, then removes the original row. Attendance records are retained.
+
+Update all .gs files, run setupDashboard(), deploy a new web app version, and update the website assets. Reload Google Sheets to see Teaching Dashboard → Recover checked lesson logs. Check Recover on the archived rows and use this menu to move them back. Existing class/date records are never overwritten; conflicting rows remain checked in the archive. Reload the dashboard afterward. If you add custom LessonLogs columns after creating the archive, align the archive headers before using it; a header mismatch stops the operation.
+
+Run `node tests/lesson-records.test.js` for archive, recovery, duplicate and edit conflict checks.

@@ -125,3 +125,85 @@ function classMeetingsFromRow_(row) {
     return {weekday: Number(item.weekday), start: storedTime_(item.start), end: storedTime_(item.end), room: item.room || ''};
   }));
 }
+
+
+function ensureArchivedLessonLogs_(spreadsheet) {
+  const source = spreadsheet.getSheetByName(DASHBOARD.logs);
+  const headers = source.getRange(1, 1, 1, source.getLastColumn()).getDisplayValues()[0];
+  ensureTab_(spreadsheet, DASHBOARD.archivedLogs, headers.concat(['Archive reason', 'Archived at', 'Recover']));
+  return spreadsheet.getSheetByName(DASHBOARD.archivedLogs);
+}
+
+function archiveLog_(request) {
+  const reason = text_(request.reason, 'Why', 1000, true);
+  const date = date_(request.date);
+  const lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    const spreadsheet = spreadsheet_();
+    const source = spreadsheet.getSheetByName(DASHBOARD.logs);
+    const matches = findDateRows_(source, request.classId, date);
+    if (matches.length !== 1) throw new Error('Expected one lesson record. Reload and check the sheet for duplicates.');
+    const archive = ensureArchivedLessonLogs_(spreadsheet);
+    const width = source.getLastColumn();
+    const targetRow = archive.getLastRow() + 1;
+    source.getRange(matches[0], 1, 1, width).copyTo(archive.getRange(targetRow, 1, 1, width));
+    archive.getRange(targetRow, width + 1, 1, 2).setValues([[reason, timestamp_()]]);
+    archive.getRange(targetRow, width + 3).insertCheckboxes();
+    SpreadsheetApp.flush();
+    source.deleteRow(matches[0]);
+    return {classId: request.classId, date: date};
+  } finally { lock.releaseLock(); }
+}
+
+function recoverArchivedLessonLogs() {
+  const lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  let recovered = 0;
+  let conflicts = 0;
+  try {
+    const spreadsheet = spreadsheet_();
+    const source = spreadsheet.getSheetByName(DASHBOARD.logs);
+    const archive = ensureArchivedLessonLogs_(spreadsheet);
+    const width = source.getLastColumn();
+    const rows = rowsWithDates_(archive, [1]);
+    for (let index = rows.length - 1; index >= 0; index--) {
+      if (String(rows[index][width + 2]).toLowerCase() !== 'true') continue;
+      if (findDateRow_(source, rows[index][0], rows[index][1])) { conflicts++; continue; }
+      archive.getRange(index + 2, 1, 1, width).copyTo(source.getRange(source.getLastRow() + 1, 1, 1, width));
+      SpreadsheetApp.flush();
+      archive.deleteRow(index + 2);
+      recovered++;
+    }
+  } finally { lock.releaseLock(); }
+  SpreadsheetApp.getUi().alert('Recovered ' + recovered + ' lesson records. ' + conflicts + ' conflicts left in the archive because that class and date already exist. Reload the dashboard to see recovered records.');
+}
+
+function editLog_(request) {
+  const input = request.log || {};
+  const date = date_(input.date);
+  const notes = text_(input.notes, 'Notes', 5000, false);
+  const type = text_(input.lessonType, 'Lesson type', 60, true);
+  const status = text_(input.lessonStatus, 'Lesson status', 20, true);
+  if (['Done', 'Skipped', 'Late', 'Cancelled'].indexOf(status) === -1) throw new Error('Choose a valid lesson status.');
+  const rating = input.rating == null || input.rating === '' ? '' : Number(input.rating);
+  if (rating !== '' && (!Number.isInteger(rating) || rating < 1 || rating > 5)) throw new Error('Choose a rating from 1 to 5.');
+  const name = text_(input.className, 'Class name', 120, true);
+  const subject = text_(input.subject, 'Subject', 120, true);
+  const start = time_(input.start, 'Start time');
+  const end = time_(input.end, 'End time');
+  if (start >= end) throw new Error('End time must be after start time.');
+  const room = text_(input.room, 'Room', 120, false);
+  const lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    const sheet = spreadsheet_().getSheetByName(DASHBOARD.logs);
+    const matches = findDateRows_(sheet, input.classId, date);
+    if (matches.length !== 1) throw new Error('Lesson no longer exists or has duplicates. Reload the dashboard.');
+    const current = sheet.getRange(matches[0], 10).getDisplayValues()[0][0];
+    if (String(current) !== String(input.updatedAt || '')) throw new Error('This lesson changed elsewhere. Reload before editing.');
+    const updated = timestamp_();
+    sheet.getRange(matches[0], 3, 1, 10).setValues([[name, subject, start, end, room, notes, rating, updated, type, status]]);
+    return {classId: input.classId, date: date, className: name, subject: subject, start: start, end: end, room: room, notes: input.notes || '', rating: rating || null, updatedAt: updated, lessonType: type, lessonStatus: status};
+  } finally { lock.releaseLock(); }
+}

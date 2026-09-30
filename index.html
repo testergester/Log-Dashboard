@@ -7,8 +7,8 @@
   <meta name="description" content="A private teaching timetable and lesson log.">
   <title>Teaching Dashboard</title>
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%231b4ca1'/%3E%3Cpath d='M16 18h32v30H16z' fill='none' stroke='white' stroke-width='4'/%3E%3Cpath d='M22 12v12m20-12v12M16 29h32M24 37h7' stroke='white' stroke-width='4' stroke-linecap='round'/%3E%3C/svg%3E">
-  <link rel="stylesheet" href="./styles.css?v=595a273f522a">
-  <script src="./script.js?v=7c4fc638a93a" defer></script>
+  <link rel="stylesheet" href="./styles.css?v=13d79acc2db9">
+  <script src="./script.js?v=f7f3395a85ab" defer></script>
 </head>
 <body>
   <div class="app-shell">
@@ -315,6 +315,25 @@
         <div id="attendance-history-list" class="attendance-history-list"></div>
       </div>
     </div>
+  </dialog>
+  <dialog id="record-dialog" aria-labelledby="record-title">
+    <form id="record-form" class="history-content">
+      <h2 id="record-title">Edit lesson record</h2><p id="record-info"></p>
+      <div id="record-edit-fields">
+        <label for="record-className">Class name</label><input id="record-className" type="text" maxlength="120">
+        <label for="record-subject">Subject</label><input id="record-subject" type="text" maxlength="120">
+        <label for="record-start">Start time</label><input id="record-start" type="time" maxlength="120">
+        <label for="record-end">End time</label><input id="record-end" type="time" maxlength="120">
+        <label for="record-room">Room</label><input id="record-room" type="text" maxlength="120">
+        <label for="record-lessonType">Lesson type</label><input id="record-lessonType" type="text" maxlength="120">
+        <label for="record-lessonStatus">Lesson status</label><select id="record-lessonStatus"><option>Done</option><option>Skipped</option><option>Late</option><option>Cancelled</option></select>
+        <label for="record-notes">Notes</label><div id="record-notes" class="lesson-notes-editor" contenteditable="true" role="textbox" aria-multiline="true" aria-label="Lesson notes"></div>
+        <label for="record-rating">Class rating</label><select id="record-rating"><option value="">No rating</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option></select>
+      </div>
+      <div id="record-archive-fields" hidden><label for="record-reason">Why!</label><textarea id="record-reason" maxlength="1000" placeholder="Explain why you are deleting this lesson record"></textarea><p>The entire lesson row will move to ArchivedLessonLogs.</p></div>
+      <p id="record-error" role="alert" class="dialog-error"></p>
+      <div class="dialog-actions"><button type="button" id="record-cancel" class="button button-quiet">Cancel</button><button type="submit" id="record-confirm" class="button button-primary">Save changes</button></div>
+    </form>
   </dialog>
 </body>
 </html>

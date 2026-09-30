@@ -2,6 +2,7 @@ function ensureDashboardTabs_(spreadsheet) {
   if (!spreadsheet) throw new Error('The dashboard spreadsheet is unavailable. Run setupDashboard again.');
   ensureTab_(spreadsheet, DASHBOARD.timetable, DASHBOARD.timetableHeaders);
   ensureTab_(spreadsheet, DASHBOARD.logs, DASHBOARD.logHeaders);
+  ensureArchivedLessonLogs_(spreadsheet);
   ensureTab_(spreadsheet, DASHBOARD.students, DASHBOARD.studentHeaders);
   ensureTab_(spreadsheet, DASHBOARD.archivedStudents, DASHBOARD.archivedStudentHeaders);
   ensureTab_(spreadsheet, DASHBOARD.enrollments, DASHBOARD.enrollmentHeaders);

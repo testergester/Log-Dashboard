@@ -25,6 +25,7 @@ const DASHBOARD = Object.freeze({
   timetable: 'Timetable',
   weeklyView: 'WeeklyView',
   logs: 'LessonLogs',
+  archivedLogs: 'ArchivedLessonLogs',
   students: 'Students',
   archivedStudents: 'ArchivedStudents',
   enrollments: 'ClassStudents',
@@ -41,6 +42,7 @@ const DASHBOARD = Object.freeze({
 
 function onOpen() {
   SpreadsheetApp.getUi().createMenu('Teaching Dashboard')
+    .addItem('Recover checked lesson logs', 'recoverArchivedLessonLogs')
     .addItem('Check student IDs', 'checkStudentSheetIds')
     .addToUi();
 }
@@ -91,6 +93,8 @@ function doPost(e) {
       case 'load': requireSession_(request); data = loadDashboard_(); break;
       case 'saveClass': requireSession_(request); data = saveClass_(request); break;
       case 'archiveClass': requireSession_(request); data = archiveClass_(request); break;
+      case 'archiveLog': requireSession_(request); data = archiveLog_(request); break;
+      case 'editLog': requireSession_(request); data = editLog_(request); break;
       case 'saveLog': requireSession_(request); data = saveLog_(request); break;
       case 'saveStudent': requireSession_(request); data = saveStudent_(request); break;
       case 'archiveStudent': requireSession_(request); data = archiveStudent_(request); break;
