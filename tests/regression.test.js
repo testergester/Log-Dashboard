@@ -112,6 +112,8 @@ function testSheetStudentIdCheck() {
 async function testFrontend() {
   const custom = 'https://script.google.com/macros/s/custom/exec';
   const {context, element} = frontend(custom);
+  context.readLessonNotes = () => element('#lesson-notes').value;
+  context.showLessonNotes = (target, value) => { target.value = value; };
   assert.equal(vm.runInContext('state.endpoint', context), custom);
   assert.equal(vm.runInContext('state.view', context), 'week');
   const hues = vm.runInContext(`groupHuesFor([
