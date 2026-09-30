@@ -790,11 +790,6 @@ function renderStudents() {
     row.dataset.studentId = item.studentId;
     row.dataset.attendance = item.attendance;
     row.dataset.participation = String(item.participation);
-    const inStudents = state.students.some(value => value.id === item.studentId);
-    const inClassStudents = state.enrollments.some(value => value.classId === state.selectedClassId &&
-      value.studentId === item.studentId);
-    row.classList.add(inStudents ? inClassStudents ? "roster-matched" : "roster-student-only"
-      : inClassStudents ? "roster-enrollment-only" : "roster-history-only");
     const identity = document.createElement("div");
     identity.className = "student-identity";
     const history = document.createElement("button");
