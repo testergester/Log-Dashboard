@@ -112,8 +112,8 @@ input::placeholder, textarea::placeholder { color: #8b99a9; }
     .previous-notes-surface { height: auto; contain: size; }
   }
 }
-.previous-note { padding: 1rem; margin: .6rem 0; border: 1px solid #efc89b; border-radius: 14px; background: #FFDBB0; }
-.previous-note:nth-of-type(even) { background: #FCF9EA; border-color: #e9e3c9; }
+.previous-note { padding: 1rem; margin: .6rem 0; border: 1px solid #efc89b; border-radius: 14px; background: #fff4e5; }
+.previous-note:nth-of-type(even) { background: #fffbe5; border-color: #e9e3c9; }
 .previous-note-date { color: var(--blue); font-size: .8rem; font-weight: 800; }
 .previous-note p { margin: .35rem 0 0; white-space: pre-wrap; font-size: .9rem; }
 .previous-note small { display: block; margin-top: .35rem; color: var(--muted); }
