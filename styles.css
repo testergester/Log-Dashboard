@@ -451,3 +451,12 @@ dialog::backdrop { background: #13284a8c; }
 #record-edit-fields { display: grid; gap: 8px; }
 #record-notes { min-height: 150px; border: 1px solid #ccd9eb; border-radius: 10px; padding: 12px; }
 #record-reason { width: 100%; min-height: 110px; }
+
+.record-icon-button { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; padding: 8px; border: 1px solid; border-radius: 10px; cursor: pointer; }
+.record-icon-button svg, .lesson-notes-toolbar svg { width: 20px; height: 20px; flex: none; }
+.record-edit-button { color: #b45309; background: #fff7ed; border-color: #fed7aa; }
+.record-edit-button:hover { color: #92400e; background: #ffedd5; }
+.record-delete-button { color: #dc2626; background: #fff1f2; border-color: #fecdd3; }
+.record-delete-button:hover { color: #b91c1c; background: #ffe4e6; }
+.record-icon-button:focus-visible, .lesson-notes-toolbar button:focus-visible { outline: 3px solid var(--blue); outline-offset: 3px; }
+.lesson-notes-toolbar button { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; padding: 8px; }

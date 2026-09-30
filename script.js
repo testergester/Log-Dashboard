@@ -1013,8 +1013,10 @@ function renderPreviousNotes() {
     ["Edit", "Delete"].forEach(label => {
       const button = document.createElement("button");
       button.type = "button";
-      button.className = "button button-quiet";
-      button.textContent = label;
+      button.className = "record-icon-button " + (label === "Edit" ? "record-edit-button" : "record-delete-button");
+      button.setAttribute("aria-label", label + " lesson record for " + item.date);
+      button.title = label + " lesson record";
+      button.innerHTML = label === "Edit" ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 5 4 4M4 20l4-1L20 7a2.8 2.8 0 0 0-4-4L4 15v5Z"/></svg>' : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3m3 0-1 13H7L6 7m4 4v5m4-5v5"/></svg>';
       button.addEventListener("click", () => openRecordDialog(item, label === "Delete"));
       actions.append(button);
     });
