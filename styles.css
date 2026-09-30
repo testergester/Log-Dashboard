@@ -17,7 +17,7 @@ body { margin: 0; background: var(--page); color: var(--text); }
 button, input, select, textarea { font: inherit; }
 button { cursor: pointer; }
 button:disabled { cursor: not-allowed; opacity: .52; }
-button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
+button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, [contenteditable="true"]:focus-visible {
   outline: 3px solid #78a6ec; outline-offset: 2px;
 }
 [hidden] { display: none !important; }
@@ -204,6 +204,17 @@ input::placeholder, textarea::placeholder { color: #8b99a9; }
 .custom-type-wrap { margin-top: .65rem; }
 .custom-type-wrap label { display: block; margin-bottom: .35rem; }
 .field-label { display: block; margin-bottom: .5rem; }
+.lesson-notes-toolbar { display: flex; flex-wrap: wrap; gap: .4rem; margin-bottom: .45rem; }
+.lesson-notes-toolbar button { min-height: 36px; padding: .35rem .65rem; border: 1px solid var(--line); border-radius: 8px; background: #f8faff; color: var(--navy); font-size: .8rem; font-weight: 700; }
+.lesson-notes-toolbar button:hover { background: var(--blue-pale); }
+#lesson-notes { width: 100%; min-height: 170px; padding: .65rem .8rem; border: 1px solid #cdd8e8; border-radius: 10px; background: white; color: var(--navy); line-height: 1.55; overflow-wrap: anywhere; white-space: pre-wrap; }
+#lesson-notes:empty::before { content: attr(data-placeholder); color: #8b99a9; pointer-events: none; }
+.lesson-notes-content ul, .lesson-notes-content ol { margin: .35rem 0; padding-left: 1.5rem; }
+.lesson-notes-content ul { list-style: disc; }
+.lesson-notes-content ol { list-style: decimal; }
+.lesson-notes-content li { margin: .15rem 0; }
+.lesson-notes-content p, .lesson-notes-content div { margin: .35rem 0; }
+.previous-note .lesson-notes-content { margin-top: .35rem; font-size: .9rem; white-space: pre-wrap; }
 .rating-fieldset { margin: 1.35rem 0; padding: 0; border: 0; }
 .rating-fieldset legend { margin-bottom: .65rem; color: var(--navy); font-size: .88rem; font-weight: 700; }
 .rating-options { display: flex; gap: .4rem; }
