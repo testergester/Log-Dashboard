@@ -115,7 +115,7 @@ async function testFrontend() {
   context.readLessonNotes = () => element('#lesson-notes').value;
   context.showLessonNotes = (target, value) => { target.value = value; };
   assert.equal(vm.runInContext('state.endpoint', context), custom);
-  assert.equal(vm.runInContext('state.view', context), 'week');
+  assert.equal(vm.runInContext('state.view', context), 'day');
   const hues = vm.runInContext(`groupHuesFor([
     {id: 'B', active: true}, {id: 'A', active: true},
     {id: 'A', active: true}, {id: 'C', active: false}
@@ -655,6 +655,58 @@ function testStudentSheetEdits() {
   assert.equal(enrollments.rows.length, 4);
 }
 
+async function testCombinedTeachingSave() {
+  for (const failAt of ['', 'saveLog', 'saveChecklist']) {
+    const {context, element} = frontend();
+    context.readLessonNotes = () => element('#lesson-notes').value;
+    context.render = () => {};
+    vm.runInContext(`
+      state.token = 'test'; state.studentsReady = true;
+      state.selectedDate = '2026-10-06'; state.selectedClassId = 'group';
+      state.classes = [{id:'group',name:'10B',subject:'English',active:true,
+        meetings:[{weekday:2,start:'08:00',end:'08:45',room:'204'}]}];
+      state.students = [{id:'student',name:'Test student'}];
+      state.enrollments = [{classId:'group',studentId:'student',joinedOn:'2026-01-01'}];
+    `, context);
+    element('#lesson-notes').value = 'Lesson note';
+    const row = {dataset:{studentId:'student',attendance:'present',participation:'1'},
+      querySelector:()=>({value:'Student note'})};
+    element('#student-list').querySelectorAll = () => [row];
+    element('#student-list').querySelector = () => row;
+    const calls = [];
+    context.request = async (action, fields) => {
+      calls.push(action);
+      assert.equal(fields.token, 'test');
+      if(action===failAt) throw new Error('Simulated write failure');
+      if(action==='saveLog') return {...fields.log,className:'10B',subject:'English',updatedAt:'now'};
+      assert.equal(action,'saveChecklist');
+      assert.equal(fields.checklist.classId,'group');
+      assert.equal(fields.checklist.date,'2026-10-06');
+      assert.equal(fields.checklist.records[0].participation,1);
+      return {classId:'group',date:'2026-10-06',revision:'r1',updatedAt:'now',
+        checklist:{classInfo:{id:'group'},records:fields.checklist.records}};
+    };
+    await vm.runInContext('saveAllTeachingRecords()',context);
+    assert.equal(vm.runInContext('state.pending || state.savingAll',context),false);
+    if(failAt==='saveLog') {
+      assert.deepEqual(calls,['saveLog']);
+      assert.equal(vm.runInContext('state.drafts.has(draftKey())',context),true);
+      assert.equal(vm.runInContext('state.logs.length',context),0);
+    } else if(failAt==='saveChecklist') {
+      assert.deepEqual(calls,['saveLog','saveChecklist']);
+      assert.equal(vm.runInContext('state.logs.length',context),1);
+      assert.equal(vm.runInContext('state.checklistDrafts.get(checklistKey())[0].note',context),'Student note');
+      assert.match(element('#global-notice').textContent,/Lesson saved.*Attendance was not saved/);
+    } else {
+      assert.deepEqual(calls,['saveLog','saveChecklist']);
+      assert.equal(vm.runInContext('state.logs.length',context),1);
+      assert.equal(vm.runInContext('state.checklists.length',context),1);
+      assert.equal(vm.runInContext('state.drafts.size + state.checklistDrafts.size',context),0);
+      assert.match(element('#global-notice').textContent,/records saved/);
+    }
+  }
+}
+
 (async () => {
   testAssetVersions();
   testSessionExpiry();
@@ -673,6 +725,7 @@ function testStudentSheetEdits() {
   testSheetStudentIdCheck();
   await testFrontend();
   await testChecklistFrontend();
+  await testCombinedTeachingSave();
   await testArchiveRequiresDeployedBackend();
   console.log('Regression checks passed: spreadsheet and dashboard roster ID checks, weekly meetings, attendance conflicts, student archiving, student IDs, sheet edits and pastes, guest meetings, migration, read-only load, and saved edits.');
 })().catch(error => { console.error(error); process.exitCode = 1; });
