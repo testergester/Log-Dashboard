@@ -34,7 +34,7 @@ const DASHBOARD = Object.freeze({
   timetableHeaders: ['Class ID', 'Class name', 'Subject', 'Weekday', 'Start time', 'End time', 'Room', 'Active', 'Updated at', 'Additional meetings JSON'],
   logHeaders: ['Class ID', 'Lesson date', 'Class name', 'Subject', 'Start time', 'End time', 'Room', 'Notes', 'Rating', 'Updated at', 'Lesson type', 'Lesson status'],
   studentHeaders: ['Student ID', 'Name', 'Updated at', 'Official Group ID'],
-  archivedStudentHeaders: ['Student ID', 'Full name', 'Previous groups JSON', 'Student IDs JSON', 'Removed on', 'Official Group ID'],
+  archivedStudentHeaders: ['Student ID', 'Full name', 'Previous groups JSON', 'Student IDs JSON', 'Removed on', 'Official Group ID', 'Recover'],
   enrollmentHeaders: ['Class ID', 'Student ID', 'Joined on', 'Left on', 'Active', 'Updated at'],
   checklistHeaders: ['Class ID', 'Lesson date', 'Revision', 'Updated at', 'Checklist JSON'],
   studentRecordHeaders: ['Class ID', 'Lesson date', 'Revision', 'Student ID', 'Attendance', 'Participation', 'Note', 'Updated at']
@@ -43,6 +43,7 @@ const DASHBOARD = Object.freeze({
 function onOpen() {
   SpreadsheetApp.getUi().createMenu('Teaching Dashboard')
     .addItem('Recover checked lesson logs', 'recoverArchivedLessonLogs')
+    .addItem('Recover checked students', 'recoverArchivedStudents')
     .addItem('Check student IDs', 'checkStudentSheetIds')
     .addToUi();
 }

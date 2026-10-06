@@ -66,10 +66,9 @@ function archiveStudent_(request) {
     rows_(legacyRecords).forEach(function(row) {
       if (row[3] === studentId) addGroup(row[0], 'attendance');
     });
-    ensureTab_(spreadsheet, DASHBOARD.archivedStudents, DASHBOARD.archivedStudentHeaders);
-    const archived = spreadsheet.getSheetByName(DASHBOARD.archivedStudents);
+    const archived = ensureArchivedStudents_(spreadsheet);
     const archivedRow = findRow_(archived, function(row) { return row[0] === studentId; });
-    const archiveEntry = [studentId, student[1], JSON.stringify(groups), JSON.stringify([studentId]), today_(), student[3]];
+    const archiveEntry = [studentId, student[1], JSON.stringify(groups), JSON.stringify([studentId]), today_(), student[3], false];
     if (archivedRow) archived.getRange(archivedRow, 1, 1, archiveEntry.length).setValues([archiveEntry]);
     else archived.appendRow(archiveEntry);
     enrollmentRows.reverse().forEach(function(row) { enrollments.deleteRow(row); });
@@ -78,6 +77,79 @@ function archiveStudent_(request) {
   } finally {
     lock.releaseLock();
   }
+}
+
+function ensureArchivedStudents_(spreadsheet) {
+  ensureTab_(spreadsheet, DASHBOARD.archivedStudents, DASHBOARD.archivedStudentHeaders);
+  const sheet = spreadsheet.getSheetByName(DASHBOARD.archivedStudents);
+  // Setting validation preserves existing selections when setup runs again.
+  sheet.getRange(2, 7, sheet.getMaxRows() - 1, 1)
+    .setNumberFormat('General')
+    .setDataValidation(SpreadsheetApp.newDataValidation().requireCheckbox().build());
+  return sheet;
+}
+
+function recoverArchivedStudents() {
+  const lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  let recovered = 0;
+  const skipped = [];
+  try {
+    const spreadsheet = spreadsheet_();
+    const archive = ensureArchivedStudents_(spreadsheet);
+    const students = spreadsheet.getSheetByName(DASHBOARD.students);
+    const enrollments = spreadsheet.getSheetByName(DASHBOARD.enrollments);
+    const activeClasses = new Set(rows_(spreadsheet.getSheetByName(DASHBOARD.timetable))
+      .filter(function(row) { return row[0] && String(row[7]).toLowerCase() !== 'false'; })
+      .map(function(row) { return row[0]; }));
+    const rows = rows_(archive);
+    for (let index = rows.length - 1; index >= 0; index--) {
+      const row = rows[index];
+      if (String(row[6]).toLowerCase() !== 'true') continue;
+      const label = 'Row ' + (index + 2) + ' (' + (row[1] || row[0] || 'unnamed') + ')';
+      if (!row[0] || !row[1] || !row[5]) {
+        skipped.push(label + ': missing student ID, name or official group.'); continue;
+      }
+      if (findRow_(students, function(student) { return student[0] === row[0]; }) ||
+          findRow_(enrollments, function(enrollment) { return enrollment[1] === row[0]; })) {
+        skipped.push(label + ': student ID already exists in Students or ClassStudents.'); continue;
+      }
+      let groups;
+      try {
+        groups = JSON.parse(row[2] || '[]');
+        if (!Array.isArray(groups) || groups.some(function(group) {
+          return !group || typeof group.groupId !== 'string' || !group.groupId || !Array.isArray(group.roles);
+        })) throw new Error('Invalid groups');
+      } catch (error) {
+        skipped.push(label + ': invalid Previous groups JSON.'); continue;
+      }
+      // Attendance-only groups are historical visits, not class memberships.
+      const classIds = Array.from(new Set([row[5]].concat(groups.filter(function(group) {
+        return group.roles.indexOf('official') >= 0 || group.roles.indexOf('enrolled') >= 0;
+      }).map(function(group) { return group.groupId; }))));
+      const unavailable = classIds.filter(function(id) { return !activeClasses.has(id); });
+      if (unavailable.length) {
+        skipped.push(label + ': missing or archived classes: ' + unavailable.join(', ') + '.'); continue;
+      }
+      const studentCount = students.getLastRow();
+      const enrollmentCount = enrollments.getLastRow();
+      try {
+        students.appendRow([row[0], row[1], timestamp_(), row[5]]);
+        classIds.forEach(function(classId) { setEnrollmentRow_(spreadsheet, classId, row[0], true); });
+        SpreadsheetApp.flush();
+      } catch (error) {
+        // Keep the archive row available and undo this student's partial writes.
+        while (enrollments.getLastRow() > enrollmentCount) enrollments.deleteRow(enrollments.getLastRow());
+        while (students.getLastRow() > studentCount) students.deleteRow(students.getLastRow());
+        throw error;
+      }
+      archive.deleteRow(index + 2);
+      recovered++;
+    }
+  } finally { lock.releaseLock(); }
+  SpreadsheetApp.getUi().alert('Recovered ' + recovered + ' students. ' + skipped.length +
+    ' students left checked in the archive.' + (skipped.length ? '\n\n' + skipped.join('\n') : '') +
+    '\n\nReload the dashboard to see recovered students.');
 }
 
 // Run from the spreadsheet's Teaching Dashboard menu. Compare exact displayed

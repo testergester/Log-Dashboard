@@ -387,6 +387,7 @@ function testArchiveStudent() {
     loadDashboard_: () => ({students: sheets.Students.rows.slice(1), archivedStudents: sheets.ArchivedStudents.rows.slice(1)})
   });
   vm.runInContext(backend('Students.gs'), context);
+  context.ensureArchivedStudents_ = () => sheets.ArchivedStudents;
   context.today_ = () => '2026-09-30';
   const result = context.archiveStudent_({studentId: 'student-a'});
   assert.equal(result.students.length, 1);

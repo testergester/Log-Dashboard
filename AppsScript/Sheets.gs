@@ -4,7 +4,7 @@ function ensureDashboardTabs_(spreadsheet) {
   ensureTab_(spreadsheet, DASHBOARD.logs, DASHBOARD.logHeaders);
   ensureArchivedLessonLogs_(spreadsheet);
   ensureTab_(spreadsheet, DASHBOARD.students, DASHBOARD.studentHeaders);
-  ensureTab_(spreadsheet, DASHBOARD.archivedStudents, DASHBOARD.archivedStudentHeaders);
+  ensureArchivedStudents_(spreadsheet);
   ensureTab_(spreadsheet, DASHBOARD.enrollments, DASHBOARD.enrollmentHeaders);
   ensureTab_(spreadsheet, DASHBOARD.checklists, DASHBOARD.checklistHeaders);
   ensureTab_(spreadsheet, DASHBOARD.studentRecords, DASHBOARD.studentRecordHeaders);
