@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#f3f5f1"><title>Group analysis · Teaching desk</title>
-  <link rel="stylesheet" href="./styles.css?v=ae95ab9fc416"><link rel="stylesheet" href="./analysis.css?v=9ab0b05cd5ec">
-  <script src="./analysis-model.js?v=318d1a202434" defer></script><script src="./analysis.js?v=53a625ec16a1" defer></script>
+  <link rel="stylesheet" href="./styles.css?v=ae95ab9fc416"><link rel="stylesheet" href="./analysis.css?v=ef16b39dab12">
+  <script src="./analysis-model.js?v=318d1a202434" defer></script><script src="./analysis.js?v=ce47af67411b" defer></script>
 </head>
 <body class="analysis-page">
 <div class="app-shell">
@@ -42,7 +42,7 @@
 
     <div id="analysis-workspace" hidden>
       <section class="analysis-filters" aria-label="Analysis filters">
-        <div class="group-filter"><span class="group-filter-label" id="group-filter-label">Groups</span><details id="group-picker"><summary aria-labelledby="group-filter-label group-selection-label"><span id="group-selection-label">Choose groups</span></summary><div class="group-menu"><label class="group-search-label">Find a group<input type="search" id="group-search" placeholder="Group name or ID…" autocomplete="off"></label><div class="group-menu-actions"><button class="button button-text" id="select-all-groups">Select all</button><button class="button button-text" id="clear-groups">Clear</button></div><div id="group-options"></div><button class="button button-primary" id="done-groups">Done</button></div></details></div>
+        <fieldset class="group-filter"><legend>Groups</legend><div id="group-options" role="group" aria-label="Select groups"></div><div class="group-actions"><button class="button button-text" id="select-all-groups">Select all</button><button class="button button-text" id="clear-groups">Clear</button></div></fieldset>
         <label>From<input type="date" id="analysis-start" aria-describedby="analysis-date-error"></label><label>To<input type="date" id="analysis-end" aria-describedby="analysis-date-error"></label>
         <button class="button button-quiet" id="all-dates">All time</button><span id="analysis-scope"></span>
       </section>

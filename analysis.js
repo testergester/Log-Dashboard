@@ -103,9 +103,6 @@
     $("#analysis-content").hidden = !selectedGroups.size;
     if (data.studentReady) notice("");
     summary = TeachingAnalysis.build(data, {groups:[...selectedGroups],start,end});
-    const names = [...selectedGroups].map(groupName);
-    $("#group-selection-label").innerHTML = names.length ? names.map(name => `<span class="group-chip">${escape(name)}</span>`).join("") : "Choose groups";
-    $("#group-picker summary").setAttribute("aria-label", names.length ? "Groups: " + names.join(", ") : "Choose groups");
     $("#analysis-scope").textContent = quantity(summary.meetings, "saved checklist") + " · " + quantity(summary.logs.length, "lesson record");
     const recorded = summary.students.filter(s => s.count).length;
     $("#record-coverage").textContent = `${recorded} of ${summary.students.length} students have records in this selection. ` +
@@ -141,7 +138,8 @@
     const visible = showAllStudents ? students : students.slice(0, initialStudentCount);
     $("#student-count").textContent = students.length === summary.students.length ? quantity(students.length, "student") : students.length + " of " + summary.students.length;
     $("#roster-page-status").textContent = `Showing ${visible.length} of ${students.length} students`;
-    $("#more-students").hidden = showAllStudents || students.length <= initialStudentCount;
+    $("#more-students").hidden = students.length <= initialStudentCount;
+    $("#more-students").innerHTML = (showAllStudents ? "Show less" : "More students") + `<svg aria-hidden="true" viewBox="0 0 20 20"><path d="${showAllStudents ? "m5 12 5-5 5 5" : "m5 7 5 5 5-5"}"/></svg>`;
     $("#more-students").setAttribute("aria-expanded", String(showAllStudents));
     $("#analysis-students").innerHTML = visible.length ? visible.map(s=>{
       const signal = TeachingAnalysis.signal(s);
@@ -183,9 +181,9 @@
   $("#close-student-detail").addEventListener("click",()=>$("#student-detail").close());
   $("#student-detail").addEventListener("close",()=>{selectedStudent="";});
   $("#more-students").addEventListener("click",()=>{
-    showAllStudents=true;
+    showAllStudents=!showAllStudents;
     renderStudents();
-    document.querySelectorAll("[data-student]")[initialStudentCount]?.focus({preventScroll:true});
+    if (!showAllStudents) $("#student-roster").scrollIntoView({block:"start"});
   });
   let backdropPointerDown = false;
   const outsideStudentPanel = event => {
@@ -197,15 +195,8 @@
     if(backdropPointerDown && outsideStudentPanel(event)) $("#student-detail").close();
     backdropPointerDown=false;
   });
-  $("#group-search").addEventListener("input",()=>{
-    const search = $("#group-search").value.trim().toLowerCase();
-    document.querySelectorAll("#group-options label").forEach(label=>{label.hidden=!label.dataset.groupLabel.includes(search);});
-  });
   $("#select-all-groups").addEventListener("click",()=>{document.querySelectorAll("#group-options input").forEach(input=>{selectedGroups.add(input.value);input.checked=true;});showAllStudents=false;render();});
   $("#clear-groups").addEventListener("click",()=>{selectedGroups.clear();document.querySelectorAll("#group-options input").forEach(input=>input.checked=false);showAllStudents=false;render();});
-  $("#done-groups").addEventListener("click",()=>{$("#group-picker").open=false;$("#group-picker summary").focus();});
-  document.addEventListener("click",event=>{if (!$("#group-picker").contains(event.target)) $("#group-picker").open=false;});
-  document.addEventListener("keydown",event=>{if(event.key==="Escape" && $("#group-picker").open){$("#group-picker").open=false;$("#group-picker summary").focus();}});
   $("#endpoint-form").addEventListener("submit",event=>{
     event.preventDefault(); const value=$("#endpoint-input").value.trim();
     try {const url=new URL(value);if(url.protocol!=="https:" || url.hostname!=="script.google.com" || !/^\/macros\/s\/[^/]+\/exec$/.test(url.pathname) || url.search || url.hash) throw Error();}
