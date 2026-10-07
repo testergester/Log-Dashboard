@@ -7,8 +7,8 @@
   let token = localStorage.getItem(sessionKey) || "";
   let data = null, summary = null, selectedStudent = "", busy = false;
   const selectedGroups = new Set();
-  let rosterPage = 0, groupsInitialized = false;
-  const pageSize = 12;
+  let showAllStudents = false, groupsInitialized = false;
+  const initialStudentCount = 5;
   const quantity = (number, word) => number + " " + word + (number === 1 ? "" : "s");
   const escape = value => String(value ?? "").replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const percent = value => value === null ? "—" : Math.round(value) + "%";
@@ -83,7 +83,7 @@
       const label = document.createElement("label"), input = document.createElement("input"), span = document.createElement("span");
       input.type = "checkbox"; input.value = id; input.checked = selectedGroups.has(id);
       span.textContent = groupName(id) + (groupName(id) !== id ? " · " + id : "") + (data.classes.find(g=>g.id === id)?.active === false ? " · inactive" : "");
-      input.addEventListener("change", () => {input.checked ? selectedGroups.add(id) : selectedGroups.delete(id); selectedStudent = ""; rosterPage = 0; render();});
+      input.addEventListener("change", () => {input.checked ? selectedGroups.add(id) : selectedGroups.delete(id); selectedStudent = ""; showAllStudents = false; render();});
       label.dataset.groupLabel = span.textContent.toLowerCase();
       label.append(input,span); options.append(label);
     });
@@ -128,7 +128,7 @@
     if (unrecorded.length) insights.push([quantity(unrecorded.length, "student") + " without records", "Attendance and points are unknown for these students."]);
     $("#group-insights").innerHTML = insights.map(([title,body])=>`<div class="analysis-insight"><strong>${escape(title)}</strong><p>${escape(body)}</p></div>`).join("") +
       (attention.length ? '<button class="button button-quiet" id="review-flagged">Review flagged students →</button>' : '');
-    $("#review-flagged")?.addEventListener("click",()=>{$("#analysis-show").value="attention";rosterPage=0;renderStudents();$("#student-roster").scrollIntoView({block:"start"});$("#analysis-show").focus({preventScroll:true});});
+    $("#review-flagged")?.addEventListener("click",()=>{$("#analysis-show").value="attention";showAllStudents=false;renderStudents();$("#student-roster").scrollIntoView({block:"start"});$("#analysis-show").focus({preventScroll:true});});
   }
   function studentGroups(student) {
     return [...new Set([...student.records.map(r=>r.classId), ...(data.enrollments || []).filter(e=>e.studentId===student.id && selectedGroups.has(e.classId)).map(e=>e.classId)])].map(groupName).join(", ");
@@ -138,12 +138,11 @@
     const search = $("#analysis-search").value.trim().toLocaleLowerCase(), show = $("#analysis-show").value, sort = $("#analysis-sort").value;
     const students = summary.students.filter(s=>s.name.toLocaleLowerCase().includes(search) && (show !== "attention" || needsAttention(s)) && (show !== "notes" || s.notes) && (show !== "unrecorded" || !s.count));
     students.sort((a,b) => (sort !== "name" ? Number(!a.count) - Number(!b.count) : 0) || (sort === "absence" ? b.absent-a.absent : sort === "points" ? b.points-a.points : sort === "attendance" ? (a.attendance ?? 101)-(b.attendance ?? 101) : 0) || a.name.localeCompare(b.name));
-    rosterPage = Math.min(rosterPage, Math.max(0, Math.ceil(students.length / pageSize) - 1));
-    const start = rosterPage * pageSize, visible = students.slice(start, start + pageSize);
+    const visible = showAllStudents ? students : students.slice(0, initialStudentCount);
     $("#student-count").textContent = students.length === summary.students.length ? quantity(students.length, "student") : students.length + " of " + summary.students.length;
-    $("#roster-page-status").textContent = students.length ? `${start + 1}–${start + visible.length} of ${students.length} students` : "0 students";
-    $("#roster-previous").disabled = !rosterPage;
-    $("#roster-next").disabled = start + pageSize >= students.length;
+    $("#roster-page-status").textContent = `Showing ${visible.length} of ${students.length} students`;
+    $("#more-students").hidden = showAllStudents || students.length <= initialStudentCount;
+    $("#more-students").setAttribute("aria-expanded", String(showAllStudents));
     $("#analysis-students").innerHTML = visible.length ? visible.map(s=>{
       const signal = TeachingAnalysis.signal(s);
       return `<tr class="${s.id === selectedStudent ? "is-selected" : ""}"><td class="student-cell"><button class="student-analysis-link" data-student="${escape(s.id)}" aria-haspopup="dialog" aria-controls="student-detail">${escape(s.name)} <span aria-hidden="true">→</span></button><small>${escape(studentGroups(s))}${s.archived ? ' · Archived history' : ''}</small></td><td data-label="Attendance">${percent(s.attendance)}<small>${s.count ? s.present + " / " + (s.present+s.absent) + " recorded" : "No saved records"}</small></td><td data-label="Absences">${s.count ? s.absent : '—'}</td><td data-label="Points"><span class="points-number ${s.points < 0 ? 'is-negative' : ''}">${s.count ? signed(s.points) : '—'}</span></td><td data-label="Notes">${s.count ? s.notes : '—'}</td><td class="signal-cell" data-label="Review signal"><span class="analysis-signal ${signal.flagged ? 'needs-attention' : ''}">${signal.label}</span>${s.count && s.count < 3 ? '<small>Limited history</small>' : ''}</td></tr>`;
@@ -177,20 +176,33 @@
     $("#analysis-lesson-notes").innerHTML = summary.logs.length ? summary.logs.map(log=>`<article class="analysis-lesson-note"><div><strong>${escape(groupName(log.classId))}</strong><span>${dateLabel(log.date)} · ${escape(log.lessonType || 'Lesson')} · ${escape(log.lessonStatus || 'Done')}${log.rating ? ' · Lesson rating ' + escape(log.rating) + '/5' : ''}</span></div><p>${escape(noteText(log.notes) || "No lesson notes added.")}</p></article>`).join("") : empty("No saved lesson notes in this selection.");
   }
   $("#refresh-analysis").addEventListener("click",load);
-  ["#analysis-start","#analysis-end"].forEach(s=>$(s).addEventListener("change",()=>{rosterPage=0;render();}));
-  $("#all-dates").addEventListener("click",()=>{$("#analysis-start").value="";$("#analysis-end").value="";rosterPage=0;render();});
-  $("#analysis-search").addEventListener("input",()=>{rosterPage=0;renderStudents();});
-  ["#analysis-show","#analysis-sort"].forEach(s=>$(s).addEventListener("change",()=>{rosterPage=0;renderStudents();}));
+  ["#analysis-start","#analysis-end"].forEach(s=>$(s).addEventListener("change",()=>{showAllStudents=false;render();}));
+  $("#all-dates").addEventListener("click",()=>{$("#analysis-start").value="";$("#analysis-end").value="";showAllStudents=false;render();});
+  $("#analysis-search").addEventListener("input",()=>{showAllStudents=false;renderStudents();});
+  ["#analysis-show","#analysis-sort"].forEach(s=>$(s).addEventListener("change",()=>{showAllStudents=false;renderStudents();}));
   $("#close-student-detail").addEventListener("click",()=>$("#student-detail").close());
   $("#student-detail").addEventListener("close",()=>{selectedStudent="";});
-  $("#roster-previous").addEventListener("click",()=>{rosterPage--;renderStudents();});
-  $("#roster-next").addEventListener("click",()=>{rosterPage++;renderStudents();});
+  $("#more-students").addEventListener("click",()=>{
+    showAllStudents=true;
+    renderStudents();
+    document.querySelectorAll("[data-student]")[initialStudentCount]?.focus({preventScroll:true});
+  });
+  let backdropPointerDown = false;
+  const outsideStudentPanel = event => {
+    const panel = $("#student-detail"), bounds = panel.getBoundingClientRect();
+    return event.target === panel && (event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom);
+  };
+  $("#student-detail").addEventListener("pointerdown",event=>{backdropPointerDown=outsideStudentPanel(event);});
+  $("#student-detail").addEventListener("click",event=>{
+    if(backdropPointerDown && outsideStudentPanel(event)) $("#student-detail").close();
+    backdropPointerDown=false;
+  });
   $("#group-search").addEventListener("input",()=>{
     const search = $("#group-search").value.trim().toLowerCase();
     document.querySelectorAll("#group-options label").forEach(label=>{label.hidden=!label.dataset.groupLabel.includes(search);});
   });
-  $("#select-all-groups").addEventListener("click",()=>{document.querySelectorAll("#group-options input").forEach(input=>{selectedGroups.add(input.value);input.checked=true;});rosterPage=0;render();});
-  $("#clear-groups").addEventListener("click",()=>{selectedGroups.clear();document.querySelectorAll("#group-options input").forEach(input=>input.checked=false);rosterPage=0;render();});
+  $("#select-all-groups").addEventListener("click",()=>{document.querySelectorAll("#group-options input").forEach(input=>{selectedGroups.add(input.value);input.checked=true;});showAllStudents=false;render();});
+  $("#clear-groups").addEventListener("click",()=>{selectedGroups.clear();document.querySelectorAll("#group-options input").forEach(input=>input.checked=false);showAllStudents=false;render();});
   $("#done-groups").addEventListener("click",()=>{$("#group-picker").open=false;$("#group-picker summary").focus();});
   document.addEventListener("click",event=>{if (!$("#group-picker").contains(event.target)) $("#group-picker").open=false;});
   document.addEventListener("keydown",event=>{if(event.key==="Escape" && $("#group-picker").open){$("#group-picker").open=false;$("#group-picker summary").focus();}});
