@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#f3f5f1"><title>Group analysis · Teaching desk</title>
-  <link rel="stylesheet" href="./styles.css?v=ae95ab9fc416"><link rel="stylesheet" href="./analysis.css?v=080001eab6c6">
-  <script src="./analysis-model.js?v=318d1a202434" defer></script><script src="./analysis.js?v=dee2df758702" defer></script>
+  <link rel="stylesheet" href="./styles.css?v=ae95ab9fc416"><link rel="stylesheet" href="./analysis.css?v=9ab0b05cd5ec">
+  <script src="./analysis-model.js?v=318d1a202434" defer></script><script src="./analysis.js?v=53a625ec16a1" defer></script>
 </head>
 <body class="analysis-page">
 <div class="app-shell">
@@ -47,7 +47,7 @@
         <button class="button button-quiet" id="all-dates">All time</button><span id="analysis-scope"></span>
       </section>
       <p id="analysis-date-error" class="access-error" role="alert" hidden></p>
-      <div class="analysis-context"><div id="selected-group-chips" aria-label="Selected groups"></div><nav aria-label="Analysis sections"><a href="#analysis-overview">Overview</a><a href="#student-roster">Students</a><a href="#group-notes">Lesson notes</a></nav></div>
+      <div class="analysis-context"><nav aria-label="Analysis sections"><a href="#analysis-overview">Overview</a><a href="#student-roster">Students</a><a href="#group-notes">Lesson notes</a></nav></div>
       <div id="analysis-content">
         <p id="record-coverage" class="record-coverage" role="status"></p>
         <div id="analysis-metrics" class="analysis-metrics"></div>
@@ -58,7 +58,7 @@
         <section class="analysis-card analysis-roster" id="student-roster"><div class="analysis-card-heading"><div><p class="eyebrow">INDIVIDUAL PROGRESS</p><h2>Students <span id="student-count"></span></h2></div><p>Choose a student to explore their records.</p></div>
           <div class="analysis-table-controls"><label class="analysis-search">Find a student<input type="search" id="analysis-search" placeholder="Search by name…"></label><label>Show<select id="analysis-show"><option value="all">All students</option><option value="attention">Flagged for review</option><option value="unrecorded">No records</option><option value="notes">With notes</option></select></label><label>Sort by<select id="analysis-sort"><option value="name">Name A–Z</option><option value="absence">Most absences</option><option value="points">Highest points</option><option value="attendance">Lowest attendance</option></select></label></div>
           <div class="analysis-table-scroll"><table class="analysis-table"><thead><tr><th scope="col">Student</th><th scope="col">Attendance</th><th scope="col">Absences</th><th scope="col">Points</th><th scope="col">Notes</th><th scope="col">Review signal</th></tr></thead><tbody id="analysis-students"></tbody></table></div>
-          <div class="roster-expansion"><span id="roster-page-status" role="status"></span><button class="button button-quiet" id="more-students" aria-controls="analysis-students" aria-expanded="false">More students</button></div><p class="analysis-footnote">Saved records only. Points: participation +1, neutral 0, noise −1; absence −1. Review signals: attendance below 80% or negative total points. They describe saved records, not an assessment of the student.</p>
+          <div class="roster-expansion"><span id="roster-page-status" role="status"></span><button class="button button-quiet" id="more-students" aria-controls="analysis-students" aria-expanded="false">More students <svg aria-hidden="true" viewBox="0 0 20 20"><path d="m5 7 5 5 5-5"/></svg></button></div><p class="analysis-footnote">Saved records only. Points: participation +1, neutral 0, noise −1; absence −1. Review signals: attendance below 80% or negative total points. They describe saved records, not an assessment of the student.</p>
         </section>
         <section class="analysis-card analysis-notes" id="group-notes"><div class="analysis-card-heading"><div><p class="eyebrow">TEACHING CONTEXT</p><h2>Group lesson notes</h2></div><span id="lesson-notes-count"></span></div><div id="analysis-lesson-notes"></div></section>
       </div>

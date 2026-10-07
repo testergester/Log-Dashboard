@@ -104,8 +104,8 @@
     if (data.studentReady) notice("");
     summary = TeachingAnalysis.build(data, {groups:[...selectedGroups],start,end});
     const names = [...selectedGroups].map(groupName);
-    $("#group-selection-label").textContent = names.length ? names.join(", ") : "Choose groups";
-    $("#selected-group-chips").innerHTML = names.map(name => `<span class="group-chip">${escape(name)}</span>`).join("");
+    $("#group-selection-label").innerHTML = names.length ? names.map(name => `<span class="group-chip">${escape(name)}</span>`).join("") : "Choose groups";
+    $("#group-picker summary").setAttribute("aria-label", names.length ? "Groups: " + names.join(", ") : "Choose groups");
     $("#analysis-scope").textContent = quantity(summary.meetings, "saved checklist") + " · " + quantity(summary.logs.length, "lesson record");
     const recorded = summary.students.filter(s => s.count).length;
     $("#record-coverage").textContent = `${recorded} of ${summary.students.length} students have records in this selection. ` +
