@@ -7,15 +7,19 @@
   let token = localStorage.getItem(sessionKey) || "";
   let data = null, summary = null, selectedStudent = "", busy = false;
   const selectedGroups = new Set();
+  let rosterPage = 0, groupsInitialized = false;
+  const pageSize = 12;
+  const quantity = (number, word) => number + " " + word + (number === 1 ? "" : "s");
   const escape = value => String(value ?? "").replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const percent = value => value === null ? "—" : Math.round(value) + "%";
   const signed = value => value > 0 ? "+" + value : String(value);
   const dateLabel = value => new Intl.DateTimeFormat("en", {timeZone:"UTC", month:"short",day:"numeric",year:"numeric"}).format(new Date(value + "T12:00:00Z"));
-  const needsAttention = s => (s.attendance !== null && s.attendance < 80) || s.points < 0;
+  const needsAttention = s => TeachingAnalysis.signal(s).flagged;
   const groupName = id => data.classes.find(g => g.id === id)?.name || data.logs.find(g => g.classId === id)?.className || id;
   function notice(message, error = false) { $("#global-notice").textContent = message; $("#global-notice").hidden = !message; $("#global-notice").classList.toggle("error", error); }
   function accessError(message) { $("#access-error").textContent = message; $("#access-error").hidden = !message; }
   function access() {
+    if (!token || !data) $("#student-detail").close();
     $("#access-panel").hidden = Boolean(token);
     $("#analysis-workspace").hidden = !token || !data;
     $("#refresh-analysis").hidden = !token;
@@ -50,7 +54,7 @@
   }
   async function load() {
     if (busy) return;
-    busy = true; $("#refresh-analysis").disabled = true; notice("Loading your teaching records…");
+    busy = true; $("#refresh-analysis").disabled = true; $("#refresh-analysis").textContent = "Refreshing…"; $("#analysis-workspace").setAttribute("aria-busy", "true"); notice("Loading your teaching records…");
     const requestedToken = token, requestedEndpoint = endpoint;
     try {
       const next = await request("load", {token: requestedToken});
@@ -64,7 +68,7 @@
       notice(studentReady ? "" : "Student analysis needs the updated Apps Script backend. Group lesson notes are available.", !studentReady);
     } catch(error) { if (token === requestedToken && endpoint === requestedEndpoint) handleError(error); }
     finally {
-      busy = false; $("#refresh-analysis").disabled = false;
+      busy = false; $("#refresh-analysis").disabled = false; $("#refresh-analysis").textContent = "↻ Refresh records"; $("#analysis-workspace").setAttribute("aria-busy", "false");
       if (token && (token !== requestedToken || endpoint !== requestedEndpoint)) load();
     }
   }
@@ -72,13 +76,15 @@
     const ids = [...new Set([...data.classes.map(g=>g.id), ...data.logs.map(g=>g.classId), ...(data.studentRecords || []).map(g=>g.classId), ...(data.enrollments || []).map(g=>g.classId)])];
     ids.sort((a,b) => groupName(a).localeCompare(groupName(b)));
     selectedGroups.forEach(id => {if (!ids.includes(id)) selectedGroups.delete(id);});
-    if (!selectedGroups.size && ids.length) selectedGroups.add(ids[0]);
+    if (!groupsInitialized && ids.length) selectedGroups.add(ids[0]);
+    groupsInitialized = true;
     const options = $("#group-options"); options.replaceChildren();
     ids.forEach(id => {
       const label = document.createElement("label"), input = document.createElement("input"), span = document.createElement("span");
       input.type = "checkbox"; input.value = id; input.checked = selectedGroups.has(id);
-      span.textContent = groupName(id) + " · " + id + (data.classes.find(g=>g.id === id)?.active === false ? " · inactive" : "");
-      input.addEventListener("change", () => {input.checked ? selectedGroups.add(id) : selectedGroups.delete(id); selectedStudent = ""; render();});
+      span.textContent = groupName(id) + (groupName(id) !== id ? " · " + id : "") + (data.classes.find(g=>g.id === id)?.active === false ? " · inactive" : "");
+      input.addEventListener("change", () => {input.checked ? selectedGroups.add(id) : selectedGroups.delete(id); selectedStudent = ""; rosterPage = 0; render();});
+      label.dataset.groupLabel = span.textContent.toLowerCase();
       label.append(input,span); options.append(label);
     });
     if (!ids.length) options.textContent = "No groups yet. Add a class in the teaching week.";
@@ -88,55 +94,74 @@
   function render() {
     if (!data) return;
     const start = $("#analysis-start").value, end = $("#analysis-end").value;
-    if (start && end && start > end) { $("#analysis-content").hidden = true; notice("The From date must be on or before the To date.", true); return; }
-    $("#analysis-content").hidden = false;
+    const invalid = Boolean(start && end && start > end);
+    $("#analysis-date-error").hidden = !invalid;
+    $("#analysis-date-error").textContent = invalid ? "Choose a To date on or after the From date. Results still use the last valid date range." : "";
+    $("#analysis-start").setAttribute("aria-invalid", String(invalid));
+    $("#analysis-end").setAttribute("aria-invalid", String(invalid));
+    if (invalid) return; // Keep the last valid results visible while correcting dates.
+    $("#analysis-content").hidden = !selectedGroups.size;
     if (data.studentReady) notice("");
     summary = TeachingAnalysis.build(data, {groups:[...selectedGroups],start,end});
-    $("#group-selection-label").textContent = selectedGroups.size === 1 ? groupName([...selectedGroups][0]) : selectedGroups.size + " selected";
-    $("#analysis-scope").textContent = summary.meetings + " saved checklists · " + summary.logs.length + " lesson records";
-    $("#analysis-metrics").innerHTML = metric("Students in scope", summary.students.length, selectedGroups.size + " selected groups") + metric("Attendance rate", percent(summary.attendance), summary.present + " present / " + (summary.present + summary.absent) + " recorded") + metric("Total points", signed(summary.points), summary.absent + " absences · " + summary.positive + " positive marks") + metric("Student notes", summary.notes, "Notes across saved meetings");
+    const names = [...selectedGroups].map(groupName);
+    $("#group-selection-label").textContent = names.length ? names.join(", ") : "Choose groups";
+    $("#selected-group-chips").innerHTML = names.map(name => `<span class="group-chip">${escape(name)}</span>`).join("");
+    $("#analysis-scope").textContent = quantity(summary.meetings, "saved checklist") + " · " + quantity(summary.logs.length, "lesson record");
+    const recorded = summary.students.filter(s => s.count).length;
+    $("#record-coverage").textContent = `${recorded} of ${summary.students.length} students have records in this selection. ` +
+      (summary.meetings < 3 ? "Limited history — these results describe saved meetings, not a trend." : "Missing checklists are excluded from attendance.");
+    $("#analysis-metrics").innerHTML = metric("Students", summary.students.length, recorded + " with saved records") + metric("Attendance rate", percent(summary.attendance), summary.present + " present / " + (summary.present + summary.absent) + " recorded") + metric("Participation points", summary.count ? signed(summary.points) : "—", quantity(summary.absent, "absence") + " · " + quantity(summary.positive, "positive mark")) + metric("Student notes", summary.notes, "Teacher observations in saved meetings");
     renderTrend(); renderInsights(); renderStudents(); renderDetail(false); renderNotes();
     if (!selectedGroups.size) notice("Choose at least one group to see its analysis.");
   }
   function renderTrend() {
-    $("#attendance-trend").innerHTML = summary.days.length ? `<div class="trend-list">${summary.days.map(d => `<div class="trend-row"><span>${dateLabel(d.date)}</span><div class="trend-bar" role="img" aria-label="${d.present} present, ${d.absent} absent"><span style="width:${d.attendance || 0}%"></span></div><strong>${percent(d.attendance)}</strong><small>${d.present} / ${d.present + d.absent}</small></div>`).join("")}</div><p class="analysis-footnote">Present / recorded students per date. Missing checklists are excluded.</p>` : empty("No saved attendance in this selection.");
+    $("#attendance-trend").innerHTML = summary.days.length ? `<div class="trend-list">${summary.days.map(d => `<div class="trend-row"><span>${dateLabel(d.date)}</span><div class="trend-bar" role="img" aria-label="${d.present} present, ${d.absent} absent"><span style="width:${d.attendance || 0}%"></span></div><strong>${percent(d.attendance)}</strong><small>${d.present} / ${d.present + d.absent}</small></div>`).join("")}</div><p class="analysis-footnote">Present / recorded attendances per date, combined across selected groups.</p>` : empty("No saved attendance in this selection.");
   }
   function renderInsights() {
     const attention = summary.students.filter(needsAttention), unrecorded = summary.students.filter(s=>!s.count);
     const insights = [];
     if (!summary.count) insights.push(["No attendance records yet", "Save a checklist in the teaching week to see attendance and points here."]);
     else {
-      insights.push([attention.length ? attention.length + " students need attention" : "No attention flags in this period", "Attendance below 80% or negative points. Use the student filter to review the records."]);
-      const highest = [...summary.students].sort((a,b)=>b.absent-a.absent)[0];
-      if (highest?.absent) insights.push([highest.name + " · " + highest.absent + " absences", "Most recorded absences in this selection. Review their history before planning a follow-up."]);
-      insights.push([summary.positive + " positive participation marks", summary.negative + " noise marks and " + summary.absent + " absence deductions recorded."]);
+      insights.push([attention.length ? quantity(attention.length, "student") + " flagged for review" : "No review flags in saved records", "Attendance below 80% or negative points. These are prompts to review the history."]);
+      insights.push([quantity(summary.absent, "recorded absence"), quantity(summary.positive, "positive participation mark") + " and " + quantity(summary.negative, "noise mark") + " in the selected period."]);
     }
-    if (unrecorded.length) insights.push([unrecorded.length + " students have no saved records", "They are included through enrollment. Attendance and marks are unknown for this period."]);
-    $("#group-insights").innerHTML = insights.map(([title,body])=>`<div class="analysis-insight"><strong>${escape(title)}</strong><p>${escape(body)}</p></div>`).join("");
+    if (unrecorded.length) insights.push([quantity(unrecorded.length, "student") + " without records", "Attendance and points are unknown for these students."]);
+    $("#group-insights").innerHTML = insights.map(([title,body])=>`<div class="analysis-insight"><strong>${escape(title)}</strong><p>${escape(body)}</p></div>`).join("") +
+      (attention.length ? '<button class="button button-quiet" id="review-flagged">Review flagged students →</button>' : '');
+    $("#review-flagged")?.addEventListener("click",()=>{$("#analysis-show").value="attention";rosterPage=0;renderStudents();$("#student-roster").scrollIntoView({block:"start"});$("#analysis-show").focus({preventScroll:true});});
+  }
+  function studentGroups(student) {
+    return [...new Set([...student.records.map(r=>r.classId), ...(data.enrollments || []).filter(e=>e.studentId===student.id && selectedGroups.has(e.classId)).map(e=>e.classId)])].map(groupName).join(", ");
   }
   function renderStudents() {
     if (!summary) return;
     const search = $("#analysis-search").value.trim().toLocaleLowerCase(), show = $("#analysis-show").value, sort = $("#analysis-sort").value;
-    const students = summary.students.filter(s=>s.name.toLocaleLowerCase().includes(search) && (show !== "attention" || needsAttention(s)) && (show !== "notes" || s.notes));
-    students.sort((a,b) => (sort === "absence" ? b.absent-a.absent : sort === "points" ? b.points-a.points : sort === "attendance" ? (a.attendance ?? 101)-(b.attendance ?? 101) : 0) || a.name.localeCompare(b.name));
-    $("#student-count").textContent = students.length + " / " + summary.students.length;
-    $("#analysis-students").innerHTML = students.length ? students.map(s=>`<tr class="${s.id === selectedStudent ? "is-selected" : ""}"><td><button class="student-analysis-link" data-student="${escape(s.id)}" aria-expanded="${s.id === selectedStudent}" aria-controls="student-detail">${escape(s.name)} <span aria-hidden="true">↗</span></button>${s.archived ? '<small class="archived-label">Archived history</small>' : ''}</td><td>${percent(s.attendance)}<small>${s.present} / ${s.present+s.absent} recorded</small></td><td>${s.absent}</td><td><span class="points-number ${s.points < 0 ? 'is-negative' : ''}">${s.count ? signed(s.points) : '—'}</span></td><td>${s.notes}</td><td><span class="analysis-signal ${needsAttention(s) ? 'needs-attention' : ''}">${!s.count ? "No records" : needsAttention(s) ? "Needs attention" : "On track"}</span></td></tr>`).join("") : '<tr><td colspan="6">' + empty("No students match this selection.") + '</td></tr>';
-    document.querySelectorAll("[data-student]").forEach(button=>button.addEventListener("click",()=>{selectedStudent=button.dataset.student;renderStudents();renderDetail(true);}));
+    const students = summary.students.filter(s=>s.name.toLocaleLowerCase().includes(search) && (show !== "attention" || needsAttention(s)) && (show !== "notes" || s.notes) && (show !== "unrecorded" || !s.count));
+    students.sort((a,b) => (sort !== "name" ? Number(!a.count) - Number(!b.count) : 0) || (sort === "absence" ? b.absent-a.absent : sort === "points" ? b.points-a.points : sort === "attendance" ? (a.attendance ?? 101)-(b.attendance ?? 101) : 0) || a.name.localeCompare(b.name));
+    rosterPage = Math.min(rosterPage, Math.max(0, Math.ceil(students.length / pageSize) - 1));
+    const start = rosterPage * pageSize, visible = students.slice(start, start + pageSize);
+    $("#student-count").textContent = students.length === summary.students.length ? quantity(students.length, "student") : students.length + " of " + summary.students.length;
+    $("#roster-page-status").textContent = students.length ? `${start + 1}–${start + visible.length} of ${students.length} students` : "0 students";
+    $("#roster-previous").disabled = !rosterPage;
+    $("#roster-next").disabled = start + pageSize >= students.length;
+    $("#analysis-students").innerHTML = visible.length ? visible.map(s=>{
+      const signal = TeachingAnalysis.signal(s);
+      return `<tr class="${s.id === selectedStudent ? "is-selected" : ""}"><td class="student-cell"><button class="student-analysis-link" data-student="${escape(s.id)}" aria-haspopup="dialog" aria-controls="student-detail">${escape(s.name)} <span aria-hidden="true">→</span></button><small>${escape(studentGroups(s))}${s.archived ? ' · Archived history' : ''}</small></td><td data-label="Attendance">${percent(s.attendance)}<small>${s.count ? s.present + " / " + (s.present+s.absent) + " recorded" : "No saved records"}</small></td><td data-label="Absences">${s.count ? s.absent : '—'}</td><td data-label="Points"><span class="points-number ${s.points < 0 ? 'is-negative' : ''}">${s.count ? signed(s.points) : '—'}</span></td><td data-label="Notes">${s.count ? s.notes : '—'}</td><td class="signal-cell" data-label="Review signal"><span class="analysis-signal ${signal.flagged ? 'needs-attention' : ''}">${signal.label}</span>${s.count && s.count < 3 ? '<small>Limited history</small>' : ''}</td></tr>`;
+    }).join("") : '<tr class="empty-row"><td colspan="6">' + empty(summary.students.length ? "No students match your filters. Try another name or choose All students." : "No students in this group and period.") + '</td></tr>';
+    document.querySelectorAll("[data-student]").forEach(button=>button.addEventListener("click",()=>{selectedStudent=button.dataset.student;renderDetail(true);}));
   }
-  function renderDetail(focus) {
-    const student = summary?.students.find(s=>s.id === selectedStudent);
-    $("#student-detail").hidden = !student;
-    if (!student) return;
+  function renderDetail(open) {
+    const student = summary?.students.find(s=>s.id === selectedStudent), panel = $("#student-detail");
+    if (!student) { panel.close(); return; }
     $("#student-detail-title").textContent = student.name;
-    $("#student-detail-subtitle").textContent = student.archived ? "Archived student · saved history in the selected groups and period" : "Selected groups and period · " + student.count + " saved student records";
-    const difference = student.attendance === null || summary.attendance === null ? null : Math.round(student.attendance - summary.attendance);
-    const insight = !student.count ? "No saved records in this period. Attendance and points cannot be assessed yet."
-      : (needsAttention(student) ? "Needs attention. " : "On track under the current thresholds. ") +
-        student.absent + " absences in " + (student.present + student.absent) + " recorded attendances. " +
-        (difference === null ? "" : difference === 0 ? "Attendance matches the selected group average. " : "Attendance is " + Math.abs(difference) + " percentage points " + (difference < 0 ? "below" : "above") + " the selected group average. ") +
-        student.positive + " positive participation marks and " + student.negative + " noise marks.";
-    $("#student-detail-body").innerHTML = `<div class="individual-insight"><strong>Student insight</strong><p>${escape(insight)}</p></div><div class="student-mini-metrics">${metric("Attendance",percent(student.attendance),student.absent + " absences")}${metric("Points",student.count ? signed(student.points) : '—',student.positive + " positive · " + student.negative + " noise marks")}${metric("Notes",student.notes,"Saved teacher observations")}</div>` + (student.records.length ? `<div class="student-timeline">${student.records.map(r=>`<article><div><strong>${dateLabel(r.date)}</strong><span>${escape(groupName(r.classId))} · ${escape(r.attendance)} · ${signed(TeachingAnalysis.score(r))} points</span></div><p>${escape(r.note || "No student note for this meeting.")}</p></article>`).join("")}</div>` : empty("No saved student records in this period."));
-    if (focus) {$("#student-detail").scrollIntoView({block:"start",behavior:"smooth"});$("#student-detail-title").focus({preventScroll:true});}
+    $("#student-detail-subtitle").textContent = studentGroups(student) + " · " + quantity(student.count, "saved record") + (student.archived ? " · Archived history" : "");
+    const signal = TeachingAnalysis.signal(student);
+    const insight = !student.count ? "No saved records in this period. Attendance and points are unknown."
+      : signal.label + ". " + quantity(student.absent, "absence") + " in " + quantity(student.present + student.absent, "recorded meeting") + ". " +
+        quantity(student.positive, "positive participation mark") + " and " + quantity(student.negative, "noise mark") + ". " +
+        (student.count < 3 ? "Limited history: a pattern cannot be established from these records." : "Review the dated notes for context.");
+    $("#student-detail-body").innerHTML = `<div class="individual-insight"><strong>From saved records</strong><p>${escape(insight)}</p></div><div class="student-mini-metrics">${metric("Attendance",percent(student.attendance),quantity(student.absent,"absence"))}${metric("Points",student.count ? signed(student.points) : '—',student.positive + " positive · " + student.negative + " noise marks")}${metric("Notes",student.count ? student.notes : '—',"Teacher observations")}</div><h3 class="timeline-title">Meeting history</h3>` + (student.records.length ? `<div class="student-timeline">${student.records.map(r=>`<article><div><strong>${dateLabel(r.date)}</strong><span>${escape(groupName(r.classId))} · ${escape(r.attendance)} · ${signed(TeachingAnalysis.score(r))} points</span></div><p>${escape(r.note || "No student note for this meeting.")}</p></article>`).join("")}</div>` : empty("No saved student records in this period."));
+    if (open && !panel.open) {panel.showModal();$("#close-student-detail").focus({preventScroll:true});}
   }
   function noteText(note) {
     if (!String(note || "").startsWith('<div data-lesson-notes-html="1">')) return String(note || "");
@@ -148,15 +173,27 @@
     return parsed.body.textContent.trim();
   }
   function renderNotes() {
-    $("#lesson-notes-count").textContent = summary.logs.length + " records";
+    $("#lesson-notes-count").textContent = quantity(summary.logs.length, "record");
     $("#analysis-lesson-notes").innerHTML = summary.logs.length ? summary.logs.map(log=>`<article class="analysis-lesson-note"><div><strong>${escape(groupName(log.classId))}</strong><span>${dateLabel(log.date)} · ${escape(log.lessonType || 'Lesson')} · ${escape(log.lessonStatus || 'Done')}${log.rating ? ' · Lesson rating ' + escape(log.rating) + '/5' : ''}</span></div><p>${escape(noteText(log.notes) || "No lesson notes added.")}</p></article>`).join("") : empty("No saved lesson notes in this selection.");
   }
   $("#refresh-analysis").addEventListener("click",load);
-  ["#analysis-start","#analysis-end"].forEach(s=>$(s).addEventListener("change",render));
-  $("#all-dates").addEventListener("click",()=>{$("#analysis-start").value="";$("#analysis-end").value="";render();});
-  $("#analysis-search").addEventListener("input",renderStudents);
-  ["#analysis-show","#analysis-sort"].forEach(s=>$(s).addEventListener("change",renderStudents));
-  $("#close-student-detail").addEventListener("click",()=>{const id=selectedStudent;selectedStudent="";renderStudents();renderDetail(false);[...document.querySelectorAll("[data-student]")].find(b=>b.dataset.student===id)?.focus();});
+  ["#analysis-start","#analysis-end"].forEach(s=>$(s).addEventListener("change",()=>{rosterPage=0;render();}));
+  $("#all-dates").addEventListener("click",()=>{$("#analysis-start").value="";$("#analysis-end").value="";rosterPage=0;render();});
+  $("#analysis-search").addEventListener("input",()=>{rosterPage=0;renderStudents();});
+  ["#analysis-show","#analysis-sort"].forEach(s=>$(s).addEventListener("change",()=>{rosterPage=0;renderStudents();}));
+  $("#close-student-detail").addEventListener("click",()=>$("#student-detail").close());
+  $("#student-detail").addEventListener("close",()=>{selectedStudent="";});
+  $("#roster-previous").addEventListener("click",()=>{rosterPage--;renderStudents();});
+  $("#roster-next").addEventListener("click",()=>{rosterPage++;renderStudents();});
+  $("#group-search").addEventListener("input",()=>{
+    const search = $("#group-search").value.trim().toLowerCase();
+    document.querySelectorAll("#group-options label").forEach(label=>{label.hidden=!label.dataset.groupLabel.includes(search);});
+  });
+  $("#select-all-groups").addEventListener("click",()=>{document.querySelectorAll("#group-options input").forEach(input=>{selectedGroups.add(input.value);input.checked=true;});rosterPage=0;render();});
+  $("#clear-groups").addEventListener("click",()=>{selectedGroups.clear();document.querySelectorAll("#group-options input").forEach(input=>input.checked=false);rosterPage=0;render();});
+  $("#done-groups").addEventListener("click",()=>{$("#group-picker").open=false;$("#group-picker summary").focus();});
+  document.addEventListener("click",event=>{if (!$("#group-picker").contains(event.target)) $("#group-picker").open=false;});
+  document.addEventListener("keydown",event=>{if(event.key==="Escape" && $("#group-picker").open){$("#group-picker").open=false;$("#group-picker summary").focus();}});
   $("#endpoint-form").addEventListener("submit",event=>{
     event.preventDefault(); const value=$("#endpoint-input").value.trim();
     try {const url=new URL(value);if(url.protocol!=="https:" || url.hostname!=="script.google.com" || !/^\/macros\/s\/[^/]+\/exec$/.test(url.pathname) || url.search || url.hash) throw Error();}
@@ -176,7 +213,7 @@
     finally {busy=false;$("#login-button").disabled=false;}
   });
   $("#sign-out-button").addEventListener("click",()=>{
-    if(busy)return;const oldToken=token;token="";data=null;summary=null;selectedStudent="";selectedGroups.clear();localStorage.removeItem(sessionKey);access();notice("");request("logout",{token:oldToken}).catch(()=>{});
+    if(busy)return;const oldToken=token;token="";data=null;summary=null;selectedStudent="";selectedGroups.clear();groupsInitialized=false;localStorage.removeItem(sessionKey);access();notice("");request("logout",{token:oldToken}).catch(()=>{});
   });
   window.addEventListener("storage",event=>{
     if(event.key===sessionKey || event.key===endpointKey){token=localStorage.getItem(sessionKey)||"";endpoint=localStorage.getItem(endpointKey)||configuredEndpoint;data=null;summary=null;access();if(token)load();}

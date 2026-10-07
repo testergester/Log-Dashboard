@@ -1,5 +1,5 @@
 const assert = require('node:assert/strict');
-const {build, summarize} = require('../analysis-model.js');
+const {build, summarize, signal} = require('../analysis-model.js');
 const data = {
   students:[{id:'a',name:'Alice'},{id:'b',name:'Bob'},{id:'c',name:'No records'}],
   archivedStudents:[{id:'d',ids:['old-d'],name:'Archived'}],
@@ -27,3 +27,9 @@ assert.equal(build(data,{groups:[]}).count,0);
 assert.equal(build(data,{groups:['G1'],end:'2026-08-31'}).students.some(s=>s.id==='c'),false);
 assert.equal(summarize([]).attendance,null);
 console.log('Analysis aggregation checks passed: filters, deduplication, point rules, empty records and archived identities.');
+
+assert.equal(signal({count:1, attendance:100, points:0}).label,'No flags');
+assert.equal(signal({count:0, attendance:null, points:0}).label,'No records');
+assert.equal(signal({count:1, attendance:0, points:-1}).label,'Review attendance & points');
+assert.equal(signal({count:5, attendance:100, points:-1}).label,'Review points');
+assert.equal(signal({count:5, attendance:60, points:1}).label,'Review attendance');

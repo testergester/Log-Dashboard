@@ -35,6 +35,12 @@ const TeachingAnalysis = (() => {
     const days = [...new Set(records.map(r => r.date))].sort().map(date => ({date, ...summarize(records.filter(r => r.date === date))}));
     return {students, records, logs, days, ...summarize(records), meetings: (data.checklists || []).filter(within).length};
   }
-  return {score, summarize, build};
+  function signal(student) {
+    if (!student.count) return {label: "No records", flagged: false};
+    const attendance = student.attendance !== null && student.attendance < 80;
+    const points = student.points < 0;
+    return {label: attendance && points ? "Review attendance & points" : attendance ? "Review attendance" : points ? "Review points" : "No flags", flagged: attendance || points};
+  }
+  return {score, summarize, build, signal};
 })();
 if (typeof module !== "undefined") module.exports = TeachingAnalysis;
