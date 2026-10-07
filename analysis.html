@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f3f5f1"><title>Group analysis · Teaching desk</title>
+  <link rel="stylesheet" href="./styles.css?v=ae95ab9fc416"><link rel="stylesheet" href="./analysis.css?v=95620770082f">
+  <script src="./analysis-model.js?v=bcd5c224bd7b" defer></script><script src="./analysis.js?v=9f2dba0f0db6" defer></script>
+</head>
+<body class="analysis-page">
+<div class="app-shell">
+  <header class="topbar">
+    <a class="brand" href="./index.html"><span class="brand-mark" aria-hidden="true">T</span><div><div class="brand-name">Teaching desk</div><div class="brand-caption">Group & student analysis</div></div></a>
+    <div class="topbar-actions"><a class="button button-quiet" href="./index.html">← Teaching week</a><span class="connection-state" id="connection-state">Not connected</span><button class="button button-quiet" id="settings-button">Settings</button><button class="button button-quiet" id="sign-out-button" hidden>Sign out</button></div>
+  </header>
+  <main class="analysis-main">
+    <section class="analysis-heading"><div><p class="eyebrow">THE BIGGER PICTURE</p><h1>Group analysis</h1><p class="heading-detail">See the patterns. Know who needs your attention.</p></div><button class="button button-quiet" id="refresh-analysis" hidden>↻ Refresh records</button></section>
+    <div class="notice" id="global-notice" role="status" aria-live="polite" hidden></div>
+      <section class="access-panel" id="access-panel" aria-labelledby="access-title">
+        <div class="access-content">
+          <p class="eyebrow">PRIVATE WORKSPACE</p>
+          <h2 id="access-title">Connect your teaching records</h2>
+          <p id="access-description">Add the web app URL from your Apps Script deployment. It stays on this device.</p>
+          <form id="endpoint-form" class="access-form">
+            <label for="endpoint-input">Apps Script web app URL</label>
+            <div class="input-action">
+              <input id="endpoint-input" type="url" inputmode="url" placeholder="https://script.google.com/macros/s/…/exec" autocomplete="url" required>
+              <button type="submit" class="button button-primary">Connect</button>
+            </div>
+            <p class="field-hint">Use the deployed URL ending in <code>/exec</code>.</p>
+          </form>
+          <form id="login-form" class="access-form" hidden>
+            <label for="username-input">Username</label>
+            <input id="username-input" name="username" type="text" autocomplete="username" required>
+            <label for="password-input">Password</label>
+            <input id="password-input" name="password" type="password" autocomplete="current-password" required>
+            <button type="submit" class="button button-primary button-wide" id="login-button">Sign in</button>
+          </form>
+          <p class="access-error" id="access-error" role="alert" hidden></p>
+        </div>
+      </section>
+
+
+    <div id="analysis-workspace" hidden>
+      <section class="analysis-filters" aria-label="Analysis filters">
+        <details id="group-picker"><summary>Groups <span id="group-selection-label">Choose groups</span></summary><div id="group-options"></div></details>
+        <label>From<input type="date" id="analysis-start"></label><label>To<input type="date" id="analysis-end"></label>
+        <button class="button button-quiet" id="all-dates">All time</button><span id="analysis-scope"></span>
+      </section>
+      <div id="analysis-content" aria-live="polite">
+        <div id="analysis-metrics" class="analysis-metrics"></div>
+        <div class="analysis-overview">
+          <section class="analysis-card"><div class="analysis-card-heading"><div><p class="eyebrow">ATTENDANCE</p><h2>Meeting by meeting</h2></div><span class="analysis-legend"><i></i> Present <i></i> Absent</span></div><div id="attendance-trend"></div></section>
+          <section class="analysis-card"><div class="analysis-card-heading"><div><p class="eyebrow">WHAT TO NOTICE</p><h2>Group insights</h2></div></div><div id="group-insights"></div></section>
+        </div>
+        <section class="analysis-card analysis-roster"><div class="analysis-card-heading"><div><p class="eyebrow">INDIVIDUAL PROGRESS</p><h2>Students <span id="student-count"></span></h2></div><p>Choose a student to explore their records.</p></div>
+          <div class="analysis-table-controls"><label class="analysis-search">Find a student<input type="search" id="analysis-search" placeholder="Search by name…"></label><label>Show<select id="analysis-show"><option value="all">All students</option><option value="attention">Needs attention</option><option value="notes">With notes</option></select></label><label>Sort by<select id="analysis-sort"><option value="name">Name A–Z</option><option value="absence">Most absences</option><option value="points">Highest points</option><option value="attendance">Lowest attendance</option></select></label></div>
+          <div class="analysis-table-scroll"><table class="analysis-table"><thead><tr><th scope="col">Student</th><th scope="col">Attendance</th><th scope="col">Absences</th><th scope="col">Points</th><th scope="col">Notes</th><th scope="col">Signal</th></tr></thead><tbody id="analysis-students"></tbody></table></div>
+          <p class="analysis-footnote">Saved records only. Points: participation +1, neutral 0, noise −1; absence −1. “Needs attention”: attendance below 80% or negative total points.</p>
+        </section>
+        <section class="analysis-card student-detail" id="student-detail" aria-labelledby="student-detail-title" hidden><div class="analysis-card-heading"><div><p class="eyebrow">STUDENT HISTORY</p><h2 id="student-detail-title" tabindex="-1"></h2><p id="student-detail-subtitle"></p></div><button class="button button-quiet" id="close-student-detail">Close</button></div><div id="student-detail-body"></div></section>
+        <section class="analysis-card analysis-notes"><div class="analysis-card-heading"><div><p class="eyebrow">TEACHING CONTEXT</p><h2>Group lesson notes</h2></div><span id="lesson-notes-count"></span></div><div id="analysis-lesson-notes"></div></section>
+      </div>
+    </div>
+  </main>
+</div>
+</body>
+</html>

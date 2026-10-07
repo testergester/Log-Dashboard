@@ -1,0 +1,61 @@
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const {chromium} = require('playwright');
+(async () => {
+  const browser = await chromium.launch({headless:true, ...(process.env.CHROME_PATH ? {executablePath:process.env.CHROME_PATH} : {})});
+  try {
+    const page = await browser.newPage({viewport:{width:1440,height:1000}});
+    const errors=[];page.on('pageerror',e=>errors.push(e.message));
+    const classes=[{id:'10A',name:'Group 10A',active:true},{id:'10B',name:'Group 10B',active:true}];
+    const students=Array.from({length:12},(_,i)=>({id:'s'+i,name:['Amelia Brooks','Ben Carter','Chloe Davis','Daniel Evans','Emma Foster','Felix Green','Grace Hill','Hugo James','Isla King','Jack Lewis','Lily Moore','Noah Price'][i]}));
+    const records=Array.from({length:6},(_,d)=>students.map((s,i)=>({classId:'10A',date:'2026-09-'+String(10+d).padStart(2,'0'),studentId:s.id,attendance:(i+d)%5===0?'absent':'present',participation:i%3-1,note:i===0?'Needs help with speaking confidence.':i===2?'Strong improvement in pair work.':''}))).flat();
+    const payload={classes,students,enrollments:students.map(s=>({classId:'10A',studentId:s.id,active:true})),archivedStudents:[],studentRecords:records,checklists:Array.from({length:6},(_,d)=>({classId:'10A',date:'2026-09-'+String(10+d).padStart(2,'0')})),logs:[{classId:'10A',date:'2026-09-15',lessonType:'Lesson',lessonStatus:'Done',rating:4,notes:'<div data-lesson-notes-html="1"><p>Speaking practice in pairs.</p><ul><li>Review question forms next lesson.</li></ul><img src=x onerror=alert(1)></div>'}]};
+    let expire=false, fail=false;
+    await page.route('https://script.google.com/**',route=>{
+      const body=route.request().postDataJSON();
+      return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({requestId:body.requestId,ok:!expire&&!fail,error:expire?'Session expired':fail?'Temporary read failure':undefined,data:payload})});
+    });
+    await page.route('http://localhost/**',route=>{
+      const file=path.basename(new URL(route.request().url()).pathname)||'index.html';
+      return route.fulfill({contentType:file.endsWith('.html')?'text/html':file.endsWith('.css')?'text/css':'application/javascript',body:fs.readFileSync(path.join(__dirname,'..',file))});
+    });
+    await page.addInitScript(()=>localStorage.setItem('teaching-dashboard-session','fixture-session'));
+    await page.goto('http://localhost/analysis.html');
+    await page.locator('#analysis-students tr').first().waitFor();
+    assert.equal(await page.locator('#analysis-students tr').count(),12);
+    assert.equal(await page.locator('#analysis-metrics strong').first().textContent(),'12');
+    assert.equal(await page.locator('#analysis-lesson-notes img').count(),0,'stored markup is not inserted');
+    await page.screenshot({path:path.join(__dirname,'..','analysis-preview.png'),fullPage:true});
+    await page.getByRole('button',{name:'Amelia Brooks'}).click();
+    assert.equal(await page.locator('.student-timeline article').count(),6);
+    assert.ok((await page.locator('.individual-insight').textContent()).includes('Needs attention'));
+    await page.screenshot({path:path.join(__dirname,'..','analysis-student-preview.png'),fullPage:true});
+    await page.locator('#close-student-detail').click();
+    await page.locator('#analysis-search').fill('Chloe');assert.equal(await page.locator('#analysis-students tr').count(),1);
+    await page.locator('#analysis-search').fill('');
+    await page.locator('#analysis-sort').selectOption('absence');
+    await page.locator('#analysis-start').fill('2026-09-14');await page.locator('#analysis-start').dispatchEvent('change');
+    assert.equal(await page.locator('.trend-row').count(),2);
+    await page.locator('#analysis-end').fill('2026-09-01');await page.locator('#analysis-end').dispatchEvent('change');
+    assert.equal(await page.locator('#analysis-content').isVisible(),false);
+    await page.locator('#all-dates').click();
+    await page.locator('#group-picker summary').click();
+    await page.locator('#group-options input[value="10B"]').check();
+    await page.locator('#group-options input[value="10A"]').uncheck();
+    assert.equal(await page.locator('#analysis-metrics strong').first().textContent(),'0');
+    await page.locator('#group-options input[value="10A"]').check();
+    await page.locator('#group-picker summary').click();
+    fail=true;await page.locator('#refresh-analysis').click();await page.getByText('Temporary read failure').waitFor();
+    assert.equal(await page.locator('#analysis-workspace').isVisible(),true);fail=false;await page.locator('#refresh-analysis').click();await page.locator('#global-notice').waitFor({state:'hidden'});
+    await page.setViewportSize({width:390,height:844});
+    await page.screenshot({path:path.join(__dirname,'..','analysis-mobile-preview.png'),fullPage:true});
+    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth <= window.innerWidth),true,'mobile page should not overflow');
+    expire=true;await page.locator('#refresh-analysis').click();await page.getByText('Your session expired. Please sign in again.').waitFor();
+    assert.equal(await page.locator('#analysis-workspace').isVisible(),false);
+    assert.deepEqual(errors,[]);
+    await page.goto('http://localhost/index.html');
+    assert.equal(await page.locator('#add-class-button + a[href="./analysis.html"]').count(),1);
+    console.log('Analysis browser checks passed: navigation, filters, student history, safe notes, refresh failure, expiry and mobile layout.');
+  } finally {await browser.close();}
+})().catch(error=>{console.error(error);process.exitCode=1;});
