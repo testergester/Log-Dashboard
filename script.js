@@ -354,33 +354,48 @@ function filteredLessons(date) {
   return lessonsOn(date).filter(item => !state.groupFilter || item.id === state.groupFilter);
 }
 
+// Keep the school periods even when no lesson is assigned to a slot.
+function schoolPeriods(dates) {
+  const clock = value => String(Math.floor(value / 60)).padStart(2, "0") + ":" + String(value % 60).padStart(2, "0");
+  const periods = new Map(Array.from({length: 6}, (_, index) => {
+    const start = clock(480 + index * 50), end = clock(525 + index * 50);
+    return [start + "|" + end, {start, end, number: index + 1}];
+  }));
+  // Preserve exceptional or historical meeting times instead of hiding them.
+  dates.forEach(date => lessonsOn(date).forEach(item => {
+    const key = item.start + "|" + item.end;
+    if (!periods.has(key)) periods.set(key, {start: item.start, end: item.end, number: null});
+  }));
+  return [...periods.values()].sort((a, b) => minutes(a.start) - minutes(b.start) || minutes(a.end) - minutes(b.end));
+}
+
+function periodLabel(period) {
+  return period.number ? "Period " + period.number : "Other time";
+}
+
 function renderSchedule() {
   const list = $("#schedule-list");
   list.replaceChildren();
-  list.classList.remove("week-grid-wrap");
-  const dayView = state.view === "day";
-  $("#schedule-kicker").textContent = dayView ? "DAILY TIMETABLE" : "WEEKLY TIMETABLE";
-  $("#schedule-title").textContent = dayView ? "Classes" : "Week";
-  const dates = dayView ? [state.selectedDate] : Array.from({length: 7}, (_, index) => addDays(mondayOf(state.selectedDate), index));
-  const total = dates.reduce((sum, date) => sum + filteredLessons(date).length, 0);
-  $("#class-count").textContent = total + (total === 1 ? " class" : " classes");
-  if (!total) {
-    const empty = document.createElement("div");
-    empty.className = "empty-state";
-    empty.textContent = "No classes scheduled for this " + (dayView ? "day." : "week.");
-    list.append(empty);
-    return;
-  }
-  dates.forEach(date => {
-    const lessons = filteredLessons(date);
-    if (!lessons.length) return;
-    if (!dayView) {
-      const heading = document.createElement("h3");
-      heading.className = "schedule-day-heading";
-      heading.textContent = formatDate(date, {weekday: "short", month: "short", day: "numeric"});
-      list.append(heading);
+  const date = state.selectedDate;
+  const lessons = filteredLessons(date);
+  $("#schedule-kicker").textContent = "DAILY TIMETABLE";
+  $("#schedule-title").textContent = "Day plan";
+  $("#class-count").textContent = lessons.length + (lessons.length === 1 ? " class" : " classes");
+  schoolPeriods([date]).forEach(period => {
+    const slot = document.createElement("section");
+    slot.className = "day-period";
+    const heading = document.createElement("h3");
+    heading.textContent = periodLabel(period) + " · " + period.start + "–" + period.end;
+    slot.append(heading);
+    const items = lessons.filter(item => item.start === period.start && item.end === period.end);
+    items.forEach(item => slot.append(classCard(item, date)));
+    if (!items.length) {
+      const empty = document.createElement("p");
+      empty.className = "period-empty";
+      empty.textContent = state.groupFilter ? "No lesson for this group" : "No lesson";
+      slot.append(empty);
     }
-    lessons.forEach(item => list.append(classCard(item, date)));
+    list.append(slot);
   });
 }
 
@@ -388,7 +403,7 @@ function renderClassFilters() {
   const container = $("#class-filters");
   if (!container) return;
   container.replaceChildren();
-  const groups = state.classes.filter(item => item.active);
+  const groups = [...new Map(state.classes.filter(item => item.active).map(item => [item.id, item])).values()];
   if (!groups.some(item => item.id === state.groupFilter)) state.groupFilter = "";
   [{id: "", name: "All groups"}, ...groups].forEach(item => {
     const button = document.createElement("button");
@@ -420,25 +435,17 @@ function groupHuesFor(classes) {
 
 function renderWeekGrid(container, dates) {
   const groupHues = groupHuesFor(state.classes);
-  const periods = new Map();
-  state.classes.filter(item => item.active).forEach(item => {
-    item.meetings.filter(meeting => Number(meeting.weekday) >= 1 && Number(meeting.weekday) <= 5).forEach(meeting => {
-      periods.set(meeting.start + "|" + meeting.end, {start: meeting.start, end: meeting.end});
-    });
-  });
-  const orderedPeriods = [...periods.values()].sort((left, right) =>
-    minutes(left.start) - minutes(right.start) || minutes(left.end) - minutes(right.end));
+  const orderedPeriods = schoolPeriods(dates);
   const grid = document.createElement("div");
   grid.className = "week-grid";
-  grid.setAttribute("role", "grid");
-  grid.setAttribute("aria-label", "Monday to Friday timetable");
+  grid.setAttribute("role", "table");
+  grid.setAttribute("aria-label", "Weekly lesson periods");
 
   const headerRow = document.createElement("div");
   headerRow.className = "week-grid-row";
   headerRow.setAttribute("role", "row");
-  const startHeading = weekGridHeading("Beginning", "time-heading start-heading");
-  const endHeading = weekGridHeading("End", "time-heading end-heading");
-  headerRow.append(startHeading, endHeading);
+  const startHeading = weekGridHeading("Period / time", "time-heading start-heading");
+  headerRow.append(startHeading);
   const today = todayInTashkent();
   dates.forEach(date => {
     const heading = weekGridHeading(formatDate(date, {weekday: "long", month: "short", day: "numeric"}), "day-heading");
@@ -454,31 +461,25 @@ function renderWeekGrid(container, dates) {
     const start = document.createElement("div");
     start.className = "week-time start-time";
     start.setAttribute("role", "rowheader");
-    start.textContent = period.start;
-    const end = document.createElement("div");
-    end.className = "week-time end-time";
-    end.setAttribute("role", "rowheader");
-    end.textContent = period.end;
-    row.append(start, end);
+    start.textContent = periodLabel(period);
+    const time = document.createElement("span");
+    time.textContent = period.start + "–" + period.end;
+    start.append(time);
+    row.append(start);
     dates.forEach((date, dayIndex) => {
-      const items = activeClassesOn(date).filter(item => item.start === period.start && item.end === period.end)
+      const items = filteredLessons(date).filter(item => item.start === period.start && item.end === period.end)
         .sort((left, right) => String(left.name).localeCompare(String(right.name)));
       const cell = document.createElement("div");
       cell.className = "week-grid-cell";
-      cell.setAttribute("role", "gridcell");
+      cell.setAttribute("role", "cell");
       cell.classList.toggle("is-today", date === today);
       if (items.length) {
         cell.classList.add("is-occupied");
         items.forEach(item => cell.append(weekClassButton(item, date, groupHues.get(String(item.id)))));
       } else {
-        const free = document.createElement("button");
-        free.type = "button";
-        free.className = "week-free-button";
-        free.textContent = "Free";
-        free.setAttribute("aria-label", "Free on " + WEEKDAYS[dayIndex] + " from " + period.start + " to " + period.end + ". Add class.");
-        free.addEventListener("click", () => openClassDialog(null, {
-          weekday: dayIndex + 1, start: period.start, end: period.end
-        }));
+        const free = document.createElement("span");
+        free.className = "week-empty";
+        free.textContent = state.groupFilter ? "No lesson for this group" : "No lesson";
         cell.append(free);
       }
       row.append(cell);
@@ -500,12 +501,16 @@ function weekClassButton(item, date, hue) {
   const button = document.createElement("button");
   button.type = "button";
   button.className = "week-class-button";
-  button.style.setProperty("--group-hue", hue);
+  button.style.setProperty("--group-hue", hue || "210");
+  button.classList.toggle("is-selected", state.selectedClassId === item.id && state.selectedDate === date);
+  button.setAttribute("aria-label", item.name + ", " + formatDate(date, {weekday: "long"}) + ", " + item.start + "–" + item.end);
   const name = document.createElement("strong");
   name.textContent = item.name;
   const detail = document.createElement("span");
   detail.textContent = [item.subject, item.room && "Room " + item.room].filter(Boolean).join(" · ");
-  button.append(name, detail);
+  const time = document.createElement("span");
+  time.textContent = item.start + "–" + item.end;
+  button.append(name, detail, time);
   button.addEventListener("click", () => {
     if (state.pending || state.savingAll) return;
     saveDraft();
@@ -513,6 +518,7 @@ function weekClassButton(item, date, hue) {
     state.selectedDate = date;
     state.selectedClassId = item.id;
     $("#student-search").value = "";
+    closeWeekPreview();
     render();
     if (typeof matchMedia !== "undefined" && matchMedia("(max-width: 700px)").matches) $("#group-view").scrollIntoView({block: "start"});
   });
@@ -1144,6 +1150,7 @@ function render() {
   renderClassFilters();
   renderWeekStrip();
   renderSchedule();
+  if (state.view === "week") renderWeekPreview();
   renderLesson();
   renderPreviousNotes();
   renderStudents();
@@ -1425,8 +1432,82 @@ $("#bulk-attendance-button").addEventListener("click", event => {
   saveChecklistDraft();
   updateChecklistStats();
 });
-$("#day-view-button").addEventListener("click", () => { saveDraft(); saveChecklistDraft(); state.view = "day"; render(); });
-$("#week-view-button").addEventListener("click", () => { saveDraft(); saveChecklistDraft(); state.view = "week"; render(); });
+let weekCloseTimer;
+function syncWeekControls() {
+  const open = state.view === "week";
+  $("#week-preview").hidden = !open;
+  $("#week-view-button").setAttribute("aria-expanded", String(open));
+  $("#week-view-button").setAttribute("aria-pressed", String(open));
+  $("#day-view-button").setAttribute("aria-pressed", String(!open));
+  $("#previous-date").setAttribute("aria-label", open ? "Previous week" : "Previous day");
+  $("#next-date").setAttribute("aria-label", open ? "Next week" : "Next day");
+}
+function renderWeekPreview() {
+  const monday = mondayOf(state.selectedDate);
+  const dates = Array.from({length: 7}, (_, index) => addDays(monday, index));
+  // Always show Monday–Friday; include weekends if there are lessons.
+  const visibleDates = dates.filter((date, index) => index < 5 || lessonsOn(date).length);
+  $("#week-preview-title").textContent = "Week plan · " + formatDate(monday, {month: "short", day: "numeric"}) + "–" + formatDate(visibleDates.at(-1), {month: "short", day: "numeric"});
+  $("#week-preview-grid").replaceChildren();
+  renderWeekGrid($("#week-preview-grid"), visibleDates);
+}
+function openWeekPreview() {
+  clearTimeout(weekCloseTimer);
+  state.view = "week";
+  syncWeekControls();
+  positionWeekPreview();
+  renderWeekPreview();
+}
+function positionWeekPreview() {
+  const button = $("#week-view-button").getBoundingClientRect();
+  const panel = $("#week-preview");
+  const beside = window.innerWidth - button.right - 28 >= 720;
+  const top = beside ? 70 : Math.min(button.bottom + 8, window.innerHeight - 180);
+  panel.style.top = Math.max(12, top) + "px";
+  panel.style.maxHeight = (window.innerHeight - Math.max(12, top) - 12) + "px";
+  panel.style.left = beside ? (button.right + 12) + "px" : "12px";
+  panel.style.width = beside ? Math.min(1120, window.innerWidth - button.right - 24) + "px" : "calc(100vw - 24px)";
+  panel.style.transform = "none";
+}
+function closeWeekPreview(restoreFocus = false) {
+  clearTimeout(weekCloseTimer);
+  state.view = "day";
+  syncWeekControls();
+  if (restoreFocus) $("#week-view-button").focus();
+}
+function leaveWeekPreview(event) {
+  if (event.pointerType === "touch") return;
+  weekCloseTimer = setTimeout(() => closeWeekPreview(), 220);
+}
+$("#day-view-button").addEventListener("click", () => closeWeekPreview());
+$("#week-view-button").addEventListener("click", event => {
+  openWeekPreview();
+  if (event.detail === 0) $("#close-week-preview").focus();
+});
+$("#week-view-button").addEventListener("pointerenter", event => {
+  if (event.pointerType === "mouse") openWeekPreview();
+});
+$("#week-view-button").addEventListener("pointerleave", leaveWeekPreview);
+$("#week-preview").addEventListener("pointerenter", () => clearTimeout(weekCloseTimer));
+$("#week-preview").addEventListener("pointerleave", leaveWeekPreview);
+$("#close-week-preview").addEventListener("click", () => closeWeekPreview(true));
+$("#week-view-button").addEventListener("keydown", event => {
+  if (event.key === "ArrowDown") {
+    event.preventDefault(); openWeekPreview(); $("#close-week-preview").focus();
+  }
+});
+document.addEventListener?.("pointerdown", event => {
+  if (state.view === "week" && !$("#week-preview").contains(event.target) && !$("#week-view-button").contains(event.target)) closeWeekPreview();
+});
+document.addEventListener?.("keydown", event => {
+  if (event.key === "Escape" && state.view === "week") { event.preventDefault(); closeWeekPreview(true); }
+});
+document.addEventListener?.("focusin", event => {
+  if (state.view === "week" && !$("#week-preview").contains(event.target) && !$("#week-view-button").contains(event.target)) closeWeekPreview();
+});
+if (typeof window !== "undefined") window.addEventListener("resize", () => {
+  if (state.view === "week") positionWeekPreview();
+});
 $("#add-class-button").addEventListener("click", () => openClassDialog(null));
 $("#edit-class-button").addEventListener("click", () => {
   const item = state.classes.find(value => value.id === state.selectedClassId && value.active);

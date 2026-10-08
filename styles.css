@@ -472,3 +472,51 @@ dialog::backdrop { background: #13284a8c; }
 .previous-notes-surface{display:block;height:auto;max-height:none;contain:none;overflow:visible}
 .week-day{min-height:36px}
 @media(max-width:700px){.week-day{min-height:32px}}
+
+/* School timetable: stable period positions in both views. */
+.school-day-note { margin: 0; padding: 7px 10px 0; color: var(--muted); font-size: 10px; }
+.day-period { min-width: 0; padding: 0 0 7px; }
+.day-period h3 { margin: 3px 0 5px; font-size: 10px; font-weight: 650; color: var(--muted); }
+.day-period .schedule-card { min-height: 68px; }
+.day-period .schedule-time { display: none; }
+.day-period .schedule-card > .status-pill { margin-left: 0; }
+.period-empty { display: flex; align-items: center; min-height: 45px; margin: 0; padding: 8px; border: 1px dashed var(--line); border-radius: 5px; color: var(--muted); background: #fafbf9; font-size: 11px; }
+.week-preview { position: fixed; z-index: 20; top: 70px; left: 50%; transform: translateX(-50%); width: min(1120px, calc(100vw - 32px)); max-height: calc(100dvh - 90px); display: flex; flex-direction: column; border: 1px solid #adbea8; border-radius: 10px; background: #fff; box-shadow: 0 16px 64px #20362740; overflow: hidden; }
+.week-preview[hidden] { display: none; }
+.week-preview-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 12px 16px; background: #f5f8f1; border-bottom: 1px solid var(--line); }
+.week-preview-heading h2 { font-size: 16px; margin: 0 0 3px; }
+.week-preview-heading p { font-size: 11px; color: var(--muted); margin: 0; }
+.week-preview-grid { overflow: auto; min-height: 0; }
+.week-preview .week-grid { min-width: 700px; }
+.week-preview .week-grid-heading { min-height: 44px; padding: 8px; font-size: 12px; }
+.week-preview .week-grid-heading.time-heading, .week-preview .week-time { flex: 0 0 112px; }
+.week-preview .week-time { flex-direction: column; gap: 5px; padding: 8px; font-size: 11px; }
+.week-preview .week-time span { font-size: 10px; font-weight: 500; white-space: nowrap; }
+.week-preview .week-time, .week-preview .week-grid-cell { min-height: 75px; }
+.week-preview .week-grid-cell { display: flex; padding: 5px; background: #fafbf9; }
+.week-preview .week-grid-cell.is-occupied { background: #fff; }
+.week-preview .week-class-button { min-height: 0; flex: 1; padding: 8px; border-radius: 5px; }
+.week-preview .week-class-button strong { font-size: 14px; }
+.week-preview .week-class-button span { font-size: 10px; }
+.week-preview .week-class-button.is-selected { outline: 2px solid #315e44; outline-offset: -2px; }
+.week-preview .week-empty { align-self: center; width: 100%; text-align: center; color: #849080; font-size: 11px; }
+@media (max-width: 700px) {
+  .schedule-list { display: block; max-height: 310px; }
+  .day-period .schedule-card { min-width: 0; min-height: 55px; }
+  .day-period .schedule-main { flex: 1; }
+  .day-period .schedule-card > .status-pill { margin-left: auto; }
+  .week-preview { top: 12px; width: calc(100vw - 16px); max-height: calc(100dvh - 24px); }
+  .week-preview-heading { padding: 10px; }
+  .week-preview .week-grid-heading.time-heading, .week-preview .week-time { flex-basis: 95px; }
+}
+@media (min-width: 701px) and (max-height: 760px) {
+  .week-preview-heading { padding: 8px 14px; }
+  .week-preview-heading h2 { font-size: 14px; }
+  .week-preview .week-grid-heading { min-height: 34px; padding: 5px; font-size: 11px; }
+  .week-preview .week-time, .week-preview .week-grid-cell { min-height: 47px; padding: 3px; }
+  .week-preview .week-time { gap: 2px; }
+  .week-preview .week-class-button { padding: 5px; }
+  .week-preview .week-class-button strong { font-size: 12px; line-height: 1.2; }
+  .week-preview .week-class-button span { display: none; }
+  .week-preview .week-class-button span:last-child { display: block; font-size: 9px; margin-top: 2px; }
+}

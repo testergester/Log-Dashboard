@@ -7,10 +7,17 @@
   <meta name="description" content="A private teaching timetable and lesson log.">
   <title>Teaching Dashboard</title>
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=&#x27;http://www.w3.org/2000/svg&#x27; viewBox=&#x27;0 0 64 64&#x27;%3E%3Crect width=&#x27;64&#x27; height=&#x27;64&#x27; rx=&#x27;16&#x27; fill=&#x27;%23315e44&#x27;/%3E%3Cpath d=&#x27;M16 18h32v30H16z&#x27; fill=&#x27;none&#x27; stroke=&#x27;white&#x27; stroke-width=&#x27;4&#x27;/%3E%3Cpath d=&#x27;M22 12v12m20-12v12M16 29h32M24 37h7&#x27; stroke=&#x27;white&#x27; stroke-width=&#x27;4&#x27; stroke-linecap=&#x27;round&#x27;/%3E%3C/svg%3E">
-  <link rel="stylesheet" href="./styles.css?v=ae95ab9fc416">
-  <script src="./script.js?v=de2627912f16" defer></script>
+  <link rel="stylesheet" href="./styles.css?v=ec7e4ace33d5">
+  <script src="./script.js?v=2fd50c677cb3" defer></script>
 </head>
 <body>
+  <section id="week-preview" class="week-preview" role="region" aria-labelledby="week-preview-title" hidden>
+    <div class="week-preview-heading">
+      <div><h2 id="week-preview-title">Week plan</h2><p>08:00 start · 45 min lessons · 5 min breaks</p></div>
+      <button type="button" id="close-week-preview" class="icon-button" aria-label="Close week plan">×</button>
+    </div>
+    <div id="week-preview-grid" class="week-preview-grid" tabindex="0" aria-label="Scroll weekly timetable"></div>
+  </section>
   <div class="app-shell">
     <header class="topbar">
       <div class="brand">
@@ -75,7 +82,7 @@
           </div>
           <div class="view-switch" role="group" aria-label="Timetable view">
             <button type="button" id="day-view-button" aria-pressed="true">Day</button>
-            <button type="button" id="week-view-button" aria-pressed="false">Week</button>
+            <button type="button" id="week-view-button" aria-pressed="false" aria-expanded="false" aria-controls="week-preview">Week</button>
           </div>
         </section><section class="week-strip" id="week-strip" aria-label="Choose a day"></section><div class="dashboard-grid" id="schedule-view">
           <section class="surface schedule-surface" aria-labelledby="schedule-title">
@@ -86,6 +93,7 @@
               </div>
               <span class="count-chip" id="class-count">0 classes</span>
             </div>
+            <p class="school-day-note">45 min lessons · 5 min breaks</p>
             <div id="schedule-list" class="schedule-list"></div>
           </section>
         </div></aside><div class="teaching-workspace"><div id="group-view" class="group-view" hidden><div class="group-view-heading">
