@@ -402,11 +402,13 @@ function renderClassFilters() {
   if (!container) return;
   container.replaceChildren();
   const groups = [...new Map(state.classes.filter(item => item.active).map(item => [item.id, item])).values()];
+  const groupHues = groupHuesFor(state.classes);
   if (!groups.some(item => item.id === state.groupFilter)) state.groupFilter = "";
   [{id: "", name: "All groups"}, ...groups].forEach(item => {
     const button = document.createElement("button");
     button.type = "button";
-    button.className = "class-filter";
+    button.className = "class-filter" + (item.id ? " group-filter" : "");
+    if (item.id) button.style.setProperty("--group-hue", groupHues.get(String(item.id)) || "210");
     button.textContent = item.name;
     button.setAttribute("aria-pressed", String(state.groupFilter === item.id));
     button.disabled = state.pending || state.savingAll;
@@ -1141,7 +1143,7 @@ function render() {
     $("#group-detail").textContent = [formatDate(state.selectedDate, {weekday: "long", month: "long", day: "numeric", year: "numeric"}),
       group.subject, group.start + "–" + group.end, group.room && "Room " + group.room].filter(Boolean).join(" · ");
   }
-  $("#chosen-date").textContent = formatDate(todayInTashkent(), {weekday: "long", month: "long", day: "numeric", year: "numeric"});
+  $("#chosen-date").textContent = formatDate(state.selectedDate, {weekday: "long", month: "long", day: "numeric", year: "numeric"});
   $("#today-button").title = "Return to today";
   $("#page-title").textContent = group ? "Group record" : state.view === "day"
     ? state.selectedDate === todayInTashkent() ? "Today’s classes" : "Daily timetable"
