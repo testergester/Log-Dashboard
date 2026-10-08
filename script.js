@@ -535,7 +535,9 @@ function sanitizeLessonNotes(source) {
     if (node.nodeType === 3) {
       parent.append(document.createTextNode(node.textContent));
     } else if (node.nodeType === 1 && !discard.has(node.tagName)) {
-      const target = allowed.has(node.tagName) ? document.createElement(node.tagName.toLowerCase()) : parent;
+      // Browsers emit B/I for editor commands; store semantic STRONG/EM tags.
+      const tag = ({B: "STRONG", I: "EM"})[node.tagName] || node.tagName;
+      const target = allowed.has(tag) ? document.createElement(tag.toLowerCase()) : parent;
       [...node.childNodes].forEach(child => copy(child, target));
       if (target !== parent) parent.append(target);
     }
@@ -1455,8 +1457,13 @@ function openWeekPreview() {
   renderWeekPreview();
 }
 function positionWeekPreview() {
-  const button = $("#week-view-button").getBoundingClientRect();
   const panel = $("#week-preview");
+  if (window.innerWidth <= 700) {
+    // Small screens use the viewport's inset edges, not the trigger's position.
+    ["top", "left", "width", "height", "max-height", "transform"].forEach(property => panel.style.removeProperty(property));
+    return;
+  }
+  const button = $("#week-view-button").getBoundingClientRect();
   const beside = window.innerWidth - button.right - 28 >= 720;
   const top = beside ? 70 : Math.min(button.bottom + 8, window.innerHeight - 180);
   panel.style.top = Math.max(12, top) + "px";
@@ -1481,7 +1488,7 @@ $("#week-view-button").addEventListener("click", event => {
   if (event.detail === 0) $("#close-week-preview").focus();
 });
 $("#week-view-button").addEventListener("pointerenter", event => {
-  if (event.pointerType === "mouse") openWeekPreview();
+  if (event.pointerType === "mouse" && window.innerWidth > 700) openWeekPreview();
 });
 $("#week-view-button").addEventListener("pointerleave", leaveWeekPreview);
 $("#week-preview").addEventListener("pointerenter", () => clearTimeout(weekCloseTimer));
@@ -1800,12 +1807,24 @@ document.querySelectorAll("[data-notes-command]").forEach(button => {
       ? document.queryCommandState("insertOrderedList") ? "insertOrderedList"
         : document.queryCommandState("insertUnorderedList") ? "insertUnorderedList" : null
       : button.dataset.notesCommand;
-    if (command) document.execCommand(command, false);
+    if (command) {
+      document.execCommand("styleWithCSS", false, false);
+      document.execCommand(command, false);
+    }
+    updateNotesFormatting();
     saveDraft();
     $("#lesson-status").textContent = "Unsaved changes";
     $("#lesson-status").classList.remove("error");
   });
 });
+function updateNotesFormatting() {
+  const selection = window.getSelection();
+  if (!selection?.anchorNode || !$("#lesson-notes").contains(selection.anchorNode)) return;
+  document.querySelectorAll('[data-notes-command="bold"], [data-notes-command="italic"]').forEach(button => {
+    button.setAttribute("aria-pressed", String(document.queryCommandState(button.dataset.notesCommand)));
+  });
+}
+document.addEventListener?.("selectionchange", updateNotesFormatting);
 document.querySelectorAll('input[name="rating"]').forEach(input => input.addEventListener("change", () => {
   saveDraft();
   $("#lesson-status").textContent = "Unsaved changes";
