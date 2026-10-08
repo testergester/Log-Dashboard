@@ -7,8 +7,8 @@
   <meta name="description" content="A private teaching timetable and lesson log.">
   <title>Teaching Dashboard</title>
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=&#x27;http://www.w3.org/2000/svg&#x27; viewBox=&#x27;0 0 64 64&#x27;%3E%3Crect width=&#x27;64&#x27; height=&#x27;64&#x27; rx=&#x27;16&#x27; fill=&#x27;%23315e44&#x27;/%3E%3Cpath d=&#x27;M16 18h32v30H16z&#x27; fill=&#x27;none&#x27; stroke=&#x27;white&#x27; stroke-width=&#x27;4&#x27;/%3E%3Cpath d=&#x27;M22 12v12m20-12v12M16 29h32M24 37h7&#x27; stroke=&#x27;white&#x27; stroke-width=&#x27;4&#x27; stroke-linecap=&#x27;round&#x27;/%3E%3C/svg%3E">
-  <link rel="stylesheet" href="./styles.css?v=0e7a990613c9">
-  <script src="./script.js?v=ea38cc950bd4" defer></script>
+  <link rel="stylesheet" href="./styles.css?v=a5cd6aa3e4c9">
+  <script src="./script.js?v=e92d70bef82b" defer></script>
 </head>
 <body>
   <section id="week-preview" class="week-preview" role="region" aria-labelledby="week-preview-title" hidden>
@@ -76,9 +76,8 @@
       <div id="workspace" hidden><div class="workspace-toolbar"><div id="class-filters" class="class-filters" role="group" aria-label="Filter classes"></div><span id="workspace-summary" class="workspace-summary"></span></div><nav class="mobile-jump" aria-label="Teaching tools"><button type="button" class="button button-quiet" data-teaching-jump="student-panel">Attendance & points</button><button type="button" class="button button-quiet" data-teaching-jump="lesson-form">Lesson notes</button><button type="button" class="button button-quiet" data-teaching-jump="previous-records">Previous lesson</button></nav><div class="teaching-layout"><aside class="schedule-rail" aria-label="Class navigation"><section class="schedule-controls" aria-label="Timetable controls">
           <div class="date-controls">
             <button type="button" class="icon-button" id="previous-date" aria-label="Previous week">‹</button>
-            <button type="button" class="button button-quiet today-button" id="today-button">Today</button>
+            <button type="button" class="button button-quiet today-button" id="today-button">Today: <span id="chosen-date"></span></button>
             <button type="button" class="icon-button" id="next-date" aria-label="Next week">›</button>
-            <span class="chosen-date" id="chosen-date"></span>
           </div>
           <div class="view-switch" role="group" aria-label="Timetable view">
             <button type="button" id="day-view-button" aria-pressed="true">Day</button>
@@ -99,7 +98,14 @@
         </div></aside><div class="teaching-workspace"><div id="group-view" class="group-view" hidden><div class="group-view-heading">
             <button type="button" class="button button-quiet" id="back-to-schedule">Clear selection</button>
             <div><p class="eyebrow">GROUP VIEW</p><h2 id="group-name"></h2><p id="group-detail"></p></div>
-          </div><div class="live-grid"><section id="student-panel" class="surface student-panel" aria-labelledby="student-panel-title" hidden>
+          </div><div class="live-grid"><details class="previous-records" id="previous-records">
+            <summary>
+              <span class="previous-records-heading"><span class="previous-records-title">Previous lesson notes</span><span id="previous-records-hint" class="previous-records-hint">Review earlier lessons for this group</span></span>
+              <span class="previous-records-toggle" aria-hidden="true"><span class="previous-records-toggle-label"></span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></span>
+            </summary><section class="previous-notes-surface" aria-labelledby="previous-notes-title">
+              <div class="surface-heading"><div><p class="eyebrow">CLASS HISTORY</p><h2 id="previous-notes-title">Previous records</h2></div></div>
+              <div id="previous-notes-list" class="previous-notes-list"></div>
+            </section></details><section id="student-panel" class="surface student-panel" aria-labelledby="student-panel-title" hidden>
           <div class="student-panel-heading">
             <div>
               <p class="eyebrow">STUDENT RECORD</p>
@@ -206,10 +212,7 @@
                 <button type="submit" class="button button-primary" id="save-lesson-button">Save lesson</button>
               </div>
             </form>
-          </aside><details class="previous-records" id="previous-records" open><summary>Previous lesson notes</summary><section class="previous-notes-surface" aria-labelledby="previous-notes-title">
-              <div class="surface-heading"><div><p class="eyebrow">CLASS HISTORY</p><h2 id="previous-notes-title">Previous records</h2></div></div>
-              <div id="previous-notes-list" class="previous-notes-list"></div>
-            </section></details></div><div class="live-savebar"><span id="save-all-status" role="status" aria-live="polite">Select a class to begin.</span><div class="live-save-actions"><button type="button" class="button button-quiet" id="next-class-button">Next class →</button><button type="button" class="button button-primary" id="save-all-button">Save all <small>⌘ / Ctrl S</small></button></div></div></div><section id="teaching-empty" class="surface teaching-empty"><h2>Choose a class</h2><p>Select a lesson from the timetable to take attendance and write notes.</p></section></div></div></div>
+          </aside></div><div class="live-savebar"><span id="save-all-status" role="status" aria-live="polite">Select a class to begin.</span><div class="live-save-actions"><button type="button" class="button button-quiet" id="next-class-button">Next class →</button><button type="button" class="button button-primary" id="save-all-button">Save all <small>⌘ / Ctrl S</small></button></div></div></div><section id="teaching-empty" class="surface teaching-empty"><h2>Choose a class</h2><p>Select a lesson from the timetable to take attendance and write notes.</p></section></div></div></div>
     </main>
   </div>
 

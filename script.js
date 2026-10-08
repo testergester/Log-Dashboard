@@ -282,10 +282,11 @@ function statusFor(item, date) {
   return [item.archived ? "Archived" : now >= minutes(item.end) ? "Finished" : "Scheduled", ""];
 }
 
-function classCard(item, date) {
+function classCard(item, date, hue) {
   const button = document.createElement("button");
   button.type = "button";
   button.className = "schedule-card";
+  button.style.setProperty("--group-hue", hue || "210");
   const selected = state.selectedClassId === item.id && state.selectedDate === date;
   button.classList.toggle("is-selected", selected);
   button.setAttribute("aria-pressed", String(selected));
@@ -374,6 +375,7 @@ function renderSchedule() {
   list.replaceChildren();
   const date = state.selectedDate;
   const lessons = filteredLessons(date);
+  const groupHues = groupHuesFor(state.classes);
   $("#schedule-kicker").textContent = "DAILY TIMETABLE";
   $("#schedule-title").textContent = "Day plan";
   $("#class-count").textContent = lessons.length + (lessons.length === 1 ? " class" : " classes");
@@ -384,7 +386,7 @@ function renderSchedule() {
     heading.textContent = periodLabel(period) + " · " + period.start + "–" + period.end;
     slot.append(heading);
     const items = lessons.filter(item => item.start === period.start && item.end === period.end);
-    items.forEach(item => slot.append(classCard(item, date)));
+    items.forEach(item => slot.append(classCard(item, date, groupHues.get(String(item.id)))));
     if (!items.length) {
       const empty = document.createElement("p");
       empty.className = "period-empty";
@@ -1032,6 +1034,10 @@ function renderPreviousNotes() {
   if (!state.selectedClassId) return;
   const previous = state.logs.filter(item => item.classId === state.selectedClassId && item.date < state.selectedDate)
     .sort((a, b) => b.date.localeCompare(a.date));
+  $("#previous-records-hint").textContent = previous.length
+    ? previous.length + (previous.length === 1 ? " saved lesson" : " saved lessons") + " · Latest: " +
+      formatDate(previous[0].date, {weekday: "short", month: "short", day: "numeric"})
+    : "No saved lessons yet";
   if (!previous.length) {
     const empty = document.createElement("p");
     empty.className = "previous-notes-empty";
@@ -1135,7 +1141,8 @@ function render() {
     $("#group-detail").textContent = [formatDate(state.selectedDate, {weekday: "long", month: "long", day: "numeric", year: "numeric"}),
       group.subject, group.start + "–" + group.end, group.room && "Room " + group.room].filter(Boolean).join(" · ");
   }
-  $("#chosen-date").textContent = formatDate(state.selectedDate, {weekday: "long", month: "long", day: "numeric", year: "numeric"});
+  $("#chosen-date").textContent = formatDate(todayInTashkent(), {weekday: "long", month: "long", day: "numeric", year: "numeric"});
+  $("#today-button").title = "Return to today";
   $("#page-title").textContent = group ? "Group record" : state.view === "day"
     ? state.selectedDate === todayInTashkent() ? "Today’s classes" : "Daily timetable"
     : "Your teaching week";
