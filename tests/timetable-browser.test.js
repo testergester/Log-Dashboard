@@ -16,6 +16,10 @@ const times = [['08:00','08:45'],['08:50','09:35'],['09:40','10:25'],['10:30','1
 const classes = matrix.flatMap((row, period) => row.flatMap((id, day) => id ? [{
   id, name:id, subject:'English', weekday:day+1, start:times[period][0], end:times[period][1], room:"Umar's room", active:true
 }] : []));
+// Reproduce the live bug: an old saved 11A record carries Wednesday's time
+// into Thursday. The school timetable must still put it in Thursday's period 3.
+const logs = [{classId:'11A',date:'2026-10-08',className:'11A',subject:'English',
+  start:'08:50',end:'09:35',room:"Umar's room",lessonStatus:'Done',notes:'Retained lesson note'}];
 (async () => {
   const browser = await chromium.launch({headless:true, ...(process.env.CHROME_PATH ? {executablePath:process.env.CHROME_PATH} : {})});
   try {
@@ -25,7 +29,7 @@ const classes = matrix.flatMap((row, period) => row.flatMap((id, day) => id ? [{
     await page.route('https://script.google.com/**', route => {
       const request = route.request().postDataJSON();
       assert.equal(request.action, 'load', 'timetable browsing must not write to Sheets');
-      return route.fulfill({contentType:'application/json', body:JSON.stringify({requestId:request.requestId, ok:true, data:{classes,logs:[]}})});
+      return route.fulfill({contentType:'application/json', body:JSON.stringify({requestId:request.requestId, ok:true, data:{classes,logs}})});
     });
     await page.route('http://localhost/**', route => {
       const name = path.basename(new URL(route.request().url()).pathname) || 'index.html';
@@ -61,6 +65,14 @@ const classes = matrix.flatMap((row, period) => row.flatMap((id, day) => id ? [{
         assert.equal(await cells.nth(day).locator('strong').allTextContents().then(names=>names[0]||null),matrix[period][day]);
       }
     }
+    await page.getByRole('button',{name:'11A, Thursday, 09:40–10:25',exact:true}).click();
+    assert.match(await page.locator('#group-detail').textContent(),/09:40–10:25/);
+    assert.equal(await page.locator('#lesson-notes').innerText(),'Retained lesson note');
+    assert.match(await page.locator('.day-period').nth(1).innerText(),/10B/);
+    assert.doesNotMatch(await page.locator('.day-period').nth(1).innerText(),/11A/);
+    assert.match(await page.locator('.day-period').nth(2).innerText(),/11A/);
+    await week.click();
+    await preview.hover();
     await page.screenshot({path:path.join(__dirname,'..','timetable-week-preview.png'),fullPage:true});
     await page.mouse.move(2,2);
     await preview.waitFor({state:'hidden'});

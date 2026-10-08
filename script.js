@@ -240,14 +240,10 @@ function activeClassesOn(date) {
 }
 
 function lessonsOn(date) {
-  const active = activeClassesOn(date).map(item => {
-    const log = logFor(item.id, date);
-    return log
-      ? {...item, name: log.className || item.name, subject: log.subject || item.subject,
-          start: log.start || item.start, end: log.end || item.end,
-          room: log.room || "", date, archived: false}
-      : {...item, date, archived: false};
-  });
+  // The Timetable assigns active lessons to periods. A saved record may have
+  // an older (or incorrect) time; it must not move a lesson into another slot.
+  // Recorded snapshots remain available in lesson history and for archives.
+  const active = activeClassesOn(date).map(item => ({...item, date, archived: false}));
   const activeIds = new Set(active.map(item => item.id));
   const historicalIds = new Set([
     ...state.logs.filter(log => log.date === date).map(log => log.classId),

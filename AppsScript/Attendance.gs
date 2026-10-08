@@ -26,7 +26,11 @@ function saveChecklist_(request) {
   try {
     const spreadsheet = spreadsheet_();
     const classSheet = spreadsheet.getSheetByName(DASHBOARD.timetable);
-    const classRowNumber = findRow_(classSheet, function(row) { return row[0] === classId; });
+    const lessonDay = (new Date(date + 'T00:00:00Z').getUTCDay() + 6) % 7 + 1;
+    const classRowNumber = findRow_(classSheet, function(row) {
+      return row[0] === classId && String(row[7]).toLowerCase() !== 'false' &&
+        classMeetingsFromRow_(row).some(function(meeting) { return meeting.weekday === lessonDay; });
+    }) || findRow_(classSheet, function(row) { return row[0] === classId; });
     if (!classRowNumber) throw new Error('Class no longer exists. Reload the dashboard.');
     const classRow = classSheet.getRange(classRowNumber, 1, 1, DASHBOARD.timetableHeaders.length).getDisplayValues()[0];
     const checklistSheet = spreadsheet.getSheetByName(DASHBOARD.checklists);
@@ -70,7 +74,6 @@ function saveChecklist_(request) {
     }
     const revision = Utilities.getUuid();
     const updatedAt = timestamp_();
-    const lessonDay = (new Date(date + 'T00:00:00Z').getUTCDay() + 6) % 7 + 1;
     const meeting = classMeetingsFromRow_(classRow).find(function(item) { return item.weekday === lessonDay; });
     const classInfo = previousPayload ? previousPayload.classInfo : {
       id: classId, name: classRow[1], subject: classRow[2],

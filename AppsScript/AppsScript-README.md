@@ -28,6 +28,14 @@ After updating the website and backend together, saves update the dashboard from
 
 Run the local regression checks with the bundled Node.js runtime: `node tests/regression.test.js`.
 
+## Timetable periods and saved records
+
+The dashboard uses the Timetable's current weekday, start and end times for active lesson slots. Saved LessonLogs still supply notes and completion status, but their recorded time cannot move an active lesson into a different period. Archived lessons and the lesson history retain recorded snapshots.
+
+When Timetable contains several rows with the same class ID on different weekdays, lesson and attendance saves select the row for the meeting's actual weekday. Update `ClassesAndLogs.gs` and `Attendance.gs` in the existing Apps Script project, then deploy a new web app version to apply that save correction. The website display correction takes effect separately through GitHub Pages. No timetable or historical record rewrite is needed.
+
+Run `node tests/timetable-records.test.js` and `node tests/timetable-browser.test.js` to check weekday-specific saves and a saved record with an incorrect time.
+
 ## Archived students
 
 The trash icon archives a student after confirmation. `setupDashboard()` creates the `ArchivedStudents` sheet; the archive action also creates it if it is missing. Each row keeps the student's full name, their known student IDs as a JSON array, previous group IDs and their roles as JSON, the removal date, and their former official group ID. Students with the same full name remain separate rows. The action removes the student from `Students` and all `ClassStudents` memberships, while saved JSON and legacy attendance records remain unchanged. Archived names remain available when viewing or correcting those saved checklists.

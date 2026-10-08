@@ -94,7 +94,13 @@ function saveLog_(request) {
   try {
     const spreadsheet = spreadsheet_();
     const classSheet = spreadsheet.getSheetByName(DASHBOARD.timetable);
-    const classRowNumber = findRow_(classSheet, function(row) { return row[0] === classId; });
+    const lessonDay = (new Date(date + 'T00:00:00Z').getUTCDay() + 6) % 7 + 1;
+    // A Sheets timetable may repeat a class ID for different weekdays.
+    // Prefer the actual day's row over the first row carrying that ID.
+    const classRowNumber = findRow_(classSheet, function(row) {
+      return row[0] === classId && String(row[7]).toLowerCase() !== 'false' &&
+        classMeetingsFromRow_(row).some(function(meeting) { return meeting.weekday === lessonDay; });
+    }) || findRow_(classSheet, function(row) { return row[0] === classId; });
     if (!classRowNumber) throw new Error('Class no longer exists. Reload the dashboard.');
     const classRow = classSheet.getRange(classRowNumber, 1, 1, DASHBOARD.timetableHeaders.length).getDisplayValues()[0];
     const logSheet = spreadsheet.getSheetByName(DASHBOARD.logs);
@@ -103,7 +109,6 @@ function saveLog_(request) {
     // The dashboard opens a concrete class meeting. Do not reject that meeting
     // because the weekly timetable was edited after the selected date.
     const previous = rowNumber ? logSheet.getRange(rowNumber, 1, 1, DASHBOARD.logHeaders.length).getDisplayValues()[0] : null;
-    const lessonDay = (new Date(date + 'T00:00:00Z').getUTCDay() + 6) % 7 + 1;
     const meeting = classMeetingsFromRow_(classRow).find(function(item) { return item.weekday === lessonDay; });
     const row = [classId, date, previous ? previous[2] : classRow[1], previous ? previous[3] : classRow[2], previous ? previous[4] : meeting ? meeting.start : classRow[4], previous ? previous[5] : meeting ? meeting.end : classRow[5], previous ? previous[6] : meeting ? meeting.room : classRow[6], notes, rating, timestamp_(), lessonType, lessonStatus];
     if (rowNumber) logSheet.getRange(rowNumber, 1, 1, row.length).setValues([row]);
