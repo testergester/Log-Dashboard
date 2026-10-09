@@ -7,8 +7,11 @@
   <meta name="description" content="A private teaching timetable and lesson log.">
   <title>Teaching Dashboard</title>
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=&#x27;http://www.w3.org/2000/svg&#x27; viewBox=&#x27;0 0 64 64&#x27;%3E%3Crect width=&#x27;64&#x27; height=&#x27;64&#x27; rx=&#x27;16&#x27; fill=&#x27;%23315e44&#x27;/%3E%3Cpath d=&#x27;M16 18h32v30H16z&#x27; fill=&#x27;none&#x27; stroke=&#x27;white&#x27; stroke-width=&#x27;4&#x27;/%3E%3Cpath d=&#x27;M22 12v12m20-12v12M16 29h32M24 37h7&#x27; stroke=&#x27;white&#x27; stroke-width=&#x27;4&#x27; stroke-linecap=&#x27;round&#x27;/%3E%3C/svg%3E">
-  <link rel="stylesheet" href="./styles.css?v=5bbfead450ca">
-  <script src="./script.js?v=41611940dd6d" defer></script>
+  <link rel="stylesheet" href="./styles.css?v=afe8e55bebe5">
+  <script src="./crash-log-messages.js?v=1c47c7e645f8" defer></script>
+  <script src="./crash-log.js?v=6bd59d855907" defer></script>
+  <script src="./script.js?v=682ce596cf9a" defer></script>
+  <meta name="dashboard-version" content="358d38590fa0">
 </head>
 <body>
   <section id="week-preview" class="week-preview" role="region" aria-labelledby="week-preview-title" hidden>
@@ -336,6 +339,20 @@
       <p id="record-error" role="alert" class="dialog-error"></p>
       <div class="dialog-actions"><button type="button" id="record-cancel" class="button button-quiet">Cancel</button><button type="submit" id="record-confirm" class="button button-primary">Save changes</button></div>
     </form>
+  </dialog>
+  <dialog id="diagnostics-dialog" aria-labelledby="diagnostics-title">
+    <div class="dialog-heading"><h2 id="diagnostics-title">Settings &amp; activity log</h2><button type="button" class="button button-quiet" id="diagnostics-close">Close</button></div>
+    <p class="diagnostics-description">Recent actions and errors stay on this device for up to 7 days. Typed text, passwords, student identities and teaching records are excluded. Each error includes the steps that preceded it.</p>
+    <div class="diagnostics-toolbar">
+      <label for="diagnostics-filter">Show <select id="diagnostics-filter"><option value="all">Actions &amp; errors</option><option value="errors">Errors only</option></select></label>
+      <button type="button" class="button button-quiet" id="diagnostics-refresh">Refresh log</button>
+      <button type="button" class="button button-quiet" id="diagnostics-download">Download log</button>
+      <button type="button" class="button button-quiet" id="diagnostics-clear">Clear log</button>
+    </div>
+    <p id="diagnostics-status" role="status"></p>
+    <div id="diagnostics-list" class="diagnostics-list" aria-label="Recorded activity and errors"></div>
+    <div class="dialog-actions"><button type="button" class="button button-quiet" id="change-connection-button">Change connection</button></div>
+    <p class="diagnostics-description">Sign out before changing the connection. The log keeps up to 500 steps and 100 errors per page visit, across the 8 most recent visits. Showing the latest 100 entries; downloads include the full retained log.</p>
   </dialog>
 </body>
 </html>

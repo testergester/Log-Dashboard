@@ -104,6 +104,7 @@ function validEndpoint(value) {
 }
 
 function setNotice(message, error = false) {
+  if (message && typeof window !== "undefined") window.CrashLog?.step("notice", {level: error ? "error" : "info"});
   const notice = $("#global-notice");
   notice.textContent = message;
   notice.classList.toggle("error", error);
@@ -111,6 +112,7 @@ function setNotice(message, error = false) {
 }
 
 function setAccessError(message) {
+  if (message && typeof window !== "undefined") window.CrashLog?.step("access-notice", {level: "error"});
   const error = $("#access-error");
   error.textContent = message;
   error.hidden = !message;
@@ -119,6 +121,7 @@ function setAccessError(message) {
 function updateAccess() {
   const connected = Boolean(state.endpoint);
   const signedIn = Boolean(state.token);
+  $("#change-connection-button").disabled = signedIn;
   $("#access-panel").hidden = signedIn;
   $("#workspace").hidden = !signedIn;
   $("#endpoint-form").hidden = connected;
@@ -133,8 +136,22 @@ function updateAccess() {
 }
 
 async function request(action, fields = {}) {
-  if (!state.endpoint) throw new Error("Add your Apps Script URL first.");
   const requestId = crypto.randomUUID();
+  const started = Date.now();
+  const logger = typeof window !== "undefined" ? window.CrashLog : null;
+  logger?.step("request-start", {action, requestId});
+  try {
+    const data = await sendRequest(action, fields, requestId);
+    logger?.step("request-success", {action, requestId, durationMs: Date.now() - started});
+    return data;
+  } catch (error) {
+    logger?.record(error, {kind: "request", action, requestId, durationMs: Date.now() - started});
+    throw error;
+  }
+}
+
+async function sendRequest(action, fields, requestId) {
+  if (!state.endpoint) throw new Error("Add your Apps Script URL first.");
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 30000);
   let response;
@@ -150,7 +167,7 @@ async function request(action, fields = {}) {
   } catch (error) {
     throw new Error(error.name === "AbortError"
       ? "The request timed out. Try again."
-      : "Could not reach Apps Script. Check the web app URL and deployment access.");
+      : "Could not reach Apps Script. Check the web app URL and deployment access.", {cause: error});
   } finally {
     clearTimeout(timeout);
   }
@@ -160,8 +177,8 @@ async function request(action, fields = {}) {
   let result;
   try {
     result = await response.json();
-  } catch {
-    throw new Error("Apps Script did not return JSON. Check the web app URL and deployment.");
+  } catch (error) {
+    throw new Error("Apps Script did not return JSON. Check the web app URL and deployment.", {cause: error});
   }
   if (result.requestId !== requestId) throw new Error("Apps Script returned a mismatched response.");
   if (!result.ok) throw new Error(result.error || "The request failed.");
@@ -740,7 +757,7 @@ async function checkRosterIds() {
     state.rosterAudit = {classId, groupName: state.classes.find(item => item.id === classId)?.name || classId,
       rows: compareStudentSheetIds(state.students, state.enrollments, classId),
       checkedAt: new Date().toLocaleTimeString([], {hour: "2-digit", minute: "2-digit"})};
-  } catch (error) {
+  } catch (error) { if (typeof window !== "undefined") window.CrashLog?.record(error);
     handleError(error);
   } finally {
     state.rosterAuditBusy = false;
@@ -1303,7 +1320,7 @@ async function archiveStudent(studentId) {
     if ($('#history-dialog').open) $('#history-dialog').close();
     applyDashboardData(data);
     setNotice(student.name + ' moved to ArchivedStudents. Saved attendance was kept.');
-  } catch (error) {
+  } catch (error) { if (typeof window !== "undefined") window.CrashLog?.record(error);
     if (isSessionError(error) && $('#history-dialog').open) $('#history-dialog').close();
     handleError(error);
   } finally {
@@ -1333,18 +1350,26 @@ $("#endpoint-form").addEventListener("submit", event => {
 });
 
 $("#settings-button").addEventListener("click", () => {
+  if (typeof window !== "undefined" && window.CrashLog) { window.CrashLog.open(); return; }
+  changeConnection();
+});
+
+$("#change-connection-button").addEventListener("click", changeConnection);
+
+function changeConnection() {
   if (state.pending || state.savingAll) return;
   if (state.token) {
     setNotice("Sign out before changing the Apps Script connection.");
     return;
   }
   state.endpoint = "";
+  if (typeof window !== "undefined") window.CrashLog?.close();
   localStorage.removeItem(ENDPOINT_STORAGE_KEY);
   $("#endpoint-input").value = "";
   setAccessError("");
   updateAccess();
   $("#endpoint-input").focus();
-});
+}
 
 $("#login-form").addEventListener("submit", async event => {
   event.preventDefault();
@@ -1370,7 +1395,7 @@ $("#login-form").addEventListener("submit", async event => {
     $("#password-input").value = "";
     await loadData();
     setNotice("");
-  } catch (error) {
+  } catch (error) { if (typeof window !== "undefined") window.CrashLog?.record(error);
     if (!authenticated || isSessionError(error)) {
       clearSession();
       handleError(error, "access");
@@ -1592,7 +1617,7 @@ $("#class-form").addEventListener("submit", async event => {
     }
     upsert(state.classes, existing => existing.id === saved.id, saved);
     finishWrite("Class saved.");
-  } catch (error) {
+  } catch (error) { if (typeof window !== "undefined") window.CrashLog?.record(error);
     if (isSessionError(error)) {
       $("#class-dialog").close();
       handleError(error);
@@ -1620,7 +1645,7 @@ $("#archive-class-button").addEventListener("click", async () => {
     const archived = state.classes.find(item => item.id === saved.id);
     if (archived) Object.assign(archived, {active: false, updatedAt: saved.updatedAt});
     finishWrite("Class archived.");
-  } catch (error) {
+  } catch (error) { if (typeof window !== "undefined") window.CrashLog?.record(error);
     if (isSessionError(error)) {
       $("#class-dialog").close();
       handleError(error);
@@ -1715,7 +1740,7 @@ $("#student-form").addEventListener("submit", async event => {
     }
     $("#student-dialog").close();
     finishWrite(newStudent ? "Student added to official group." : "Student added to this meeting. Save the checklist to record attendance.");
-  } catch (error) {
+  } catch (error) { if (typeof window !== "undefined") window.CrashLog?.record(error);
     if (isSessionError(error)) {
       $("#student-dialog").close();
       handleError(error);
@@ -1741,7 +1766,7 @@ $("#rename-student-form").addEventListener("submit", async event => {
     upsert(state.students, item => item.id === saved.student.id, saved.student);
     finishWrite("Student renamed.");
     $("#history-title").textContent = studentName(state.selectedStudentId) + " · history";
-  } catch (error) {
+  } catch (error) { if (typeof window !== "undefined") window.CrashLog?.record(error);
     if (isSessionError(error)) {
       $("#history-dialog").close();
       handleError(error);
@@ -1779,7 +1804,7 @@ async function saveCurrentChecklist() {
     state.savingChecklistKey = "";
     finishWrite(state.checklistDrafts.has(key) ? "Checklist saved; newer changes are still unsaved." : "Checklist saved.");
     return true;
-  } catch (error) {
+  } catch (error) { if (typeof window !== "undefined") window.CrashLog?.record(error);
     if (!state.checklistDrafts.has(key)) state.checklistDrafts.set(key, records);
     if (isSessionError(error)) handleError(error);
     else {
@@ -1901,7 +1926,7 @@ async function saveCurrentLesson() {
     state.savingLessonKey = "";
     finishWrite(state.drafts.has(key) ? "Lesson saved; newer changes are still unsaved." : "Lesson saved.");
     return true;
-  } catch (error) {
+  } catch (error) { if (typeof window !== "undefined") window.CrashLog?.record(error);
     if (!state.drafts.has(key)) state.drafts.set(key, submittedDraft);
     if (isSessionError(error)) {
       handleError(error);
@@ -1930,7 +1955,7 @@ async function restoreSession() {
   try {
     await loadData();
     setNotice("");
-  } catch (error) {
+  } catch (error) { if (typeof window !== "undefined") window.CrashLog?.record(error);
     if (isSessionError(error)) handleError(error);
     else {
       updateAccess();
@@ -1987,7 +2012,7 @@ $("#record-form").addEventListener("submit", async event => {
     }
     $("#record-dialog").close();
     finishWrite(archivingRecord ? "Lesson moved to ArchivedLessonLogs." : "Lesson record updated.");
-  } catch (error) { $("#record-error").textContent = error.message; }
+  } catch (error) { if (typeof window !== "undefined") window.CrashLog?.record(error); $("#record-error").textContent = error.message; }
   finally { state.pending = false; $("#record-confirm").disabled = false; }
 });
 

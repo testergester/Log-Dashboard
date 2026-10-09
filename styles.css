@@ -21,6 +21,17 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
   outline: 3px solid #78a6ec; outline-offset: 2px;
 }
 [hidden] { display: none !important; }
+#diagnostics-dialog { width: min(960px, calc(100% - 2rem)); padding: 1.4rem; }
+.diagnostics-description, #diagnostics-status { color: var(--muted); font-size: .88rem; }
+.diagnostics-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: .6rem; margin: 1rem 0; }
+.diagnostics-toolbar label { display: flex; align-items: center; gap: .5rem; }
+.diagnostics-list { max-height: 50vh; overflow: auto; border: 1px solid var(--line); border-radius: 10px; }
+.diagnostics-entry { padding: .7rem .85rem; border-bottom: 1px solid var(--line); font-size: .84rem; }
+.diagnostics-entry:last-child { border-bottom: 0; }
+.diagnostics-entry.is-error { border-left: 3px solid var(--danger); }
+.diagnostics-entry summary { cursor: pointer; overflow-wrap: anywhere; }
+.diagnostics-entry pre { white-space: pre-wrap; overflow-wrap: anywhere; font-size: .75rem; }
+.diagnostics-list > p { padding: .8rem; margin: 0; }
 .app-shell { min-height: 100vh; }
 .topbar {
   display: flex; align-items: center; justify-content: space-between; gap: 1rem;

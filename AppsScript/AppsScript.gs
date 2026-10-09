@@ -78,6 +78,7 @@ function setupDashboard() {
 
 function doPost(e) {
   let request = {};
+  const started = Date.now();
   try {
     const contents = e && e.postData && e.postData.contents;
     if (!contents) throw new Error('Missing request body.');
@@ -86,6 +87,7 @@ function doPost(e) {
     if (request.replyOrigin && !isAllowedOrigin_(request.replyOrigin)) {
       throw new Error('Set ALLOWED_ORIGIN to the dashboard website origin in Script properties.');
     }
+    if (typeof logDashboardRequest_ === "function") logDashboardRequest_("request-start", request, started);
     const action = request && request.action;
     let data;
     switch (action) {
@@ -103,8 +105,10 @@ function doPost(e) {
       case 'saveChecklist': requireSession_(request); data = saveChecklist_(request); break;
       default: throw new Error('Unknown action.');
     }
+    if (typeof logDashboardRequest_ === "function") logDashboardRequest_("request-success", request, started);
     return response_({ok: true, data: data, requestId: request.requestId}, request);
   } catch (error) {
+    if (typeof logDashboardRequest_ === "function") logDashboardRequest_("request-failure", request, started, error);
     return response_({ok: false, error: String(error.message || error), requestId: request.requestId}, request);
   }
 }

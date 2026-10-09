@@ -15,6 +15,7 @@ The backend is split across these `.gs` files. Put **all of them in the same Goo
 | `Sheets.gs` | Sheet setup and row helpers |
 | `Validation.gs` | Input, date, and time validation |
 | `SecurityAndResponses.gs` | Password hashing and web responses |
+| `CrashLogging.gs` | Safe request activity and backend error diagnostics |
 
 Apps Script shares top-level functions across script files in one project, so no imports or build step are needed. After updating the project, run `setupDashboard()` and deploy a new web app version.
 
@@ -27,6 +28,20 @@ Sessions now expire 24 hours after sign-in. Existing sessions from older deploym
 After updating the website and backend together, saves update the dashboard from the confirmed response instead of loading every record again. If a checklist was changed in another browser or device, its save is rejected and the user's unsaved edits remain visible until they reload and reconcile them.
 
 Run the local regression checks with the bundled Node.js runtime: `node tests/regression.test.js`.
+
+## Activity and error logging
+
+Both website pages load `crash-log-messages.js` and `crash-log.js` before application code. Settings now opens the activity log: filter errors, expand an entry, refresh, download JSON, or clear the device's logs. Change connection remains available after signing out.
+
+The logger records control interactions, editing activity (without text), validation notices, dialogs and disclosures, confirmation results, keyboard shortcuts, page lifecycle, connectivity, and API starts/successes/failures. Each error retains the preceding 30 steps. Typing is grouped into editing steps instead of recording individual keys. API entries contain action, request ID and duration; browser stacks retain only application filenames and line/column numbers. Unknown error messages are omitted because they may contain personal data. Only exact developer-authored messages in `crash-log-messages.js` are permitted. Typed values, DOM text, record identifiers, request/response bodies, passwords, tokens and full URLs are never passed to the logger.
+
+Logs remain in local browser storage: up to 500 steps and 100 errors per page visit, across the 8 most recent visits, with a 7-day retention window. Cleanup runs on page start and later writes; expired entries are excluded from viewing/export. Each page visit uses its own storage key so simultaneous or duplicated tabs do not overwrite one another. A tab identifier connects steps across navigation. The viewer shows the latest 100 entries; a download contains the full retained log. Clear log also notifies other open tabs to discard their in-memory histories. If storage is blocked/full, the current page retains an in-memory log and the viewer explains this limitation.
+
+Browser activity is not uploaded to Apps Script. Install the updated `AppsScript.gs` and new `CrashLogging.gs` in the bound project and deploy a new web app version to enable backend request logs. This logging-only update needs no spreadsheet migration or `setupDashboard()` rerun. Backend logs use the same request ID as browser API entries, contain safe action/timing metadata, and omit request bodies and dynamic error messages. Backend failures use a sanitized Error object. View logs in Apps Script; full Cloud Logging/Error Reporting access requires a standard Google Cloud project. A diagnostics failure cannot change the normal API result.
+
+No JavaScript logger can reliably capture a browser process crash, abrupt shutdown, or an error before the logger loads. This logger is diagnostic history, not a durable audit trail.
+
+Run `node tests/crash-log.test.js` for privacy, history, duplicate handling, storage failure and backend checks, and `node tests/crash-log-browser.test.js` for the full browser flows (Playwright required). Keep asset query versions and the `dashboard-version` meta tag fresh when publishing changed files.
 
 ## Timetable periods and saved records
 

@@ -16,9 +16,10 @@
   const dateLabel = value => new Intl.DateTimeFormat("en", {timeZone:"UTC", month:"short",day:"numeric",year:"numeric"}).format(new Date(value + "T12:00:00Z"));
   const needsAttention = s => TeachingAnalysis.signal(s).flagged;
   const groupName = id => data.classes.find(g => g.id === id)?.name || data.logs.find(g => g.classId === id)?.className || id;
-  function notice(message, error = false) { $("#global-notice").textContent = message; $("#global-notice").hidden = !message; $("#global-notice").classList.toggle("error", error); }
-  function accessError(message) { $("#access-error").textContent = message; $("#access-error").hidden = !message; }
+  function notice(message, error = false) { if(message)window.CrashLog?.step("notice",{level:error?"error":"info"}); $("#global-notice").textContent = message; $("#global-notice").hidden = !message; $("#global-notice").classList.toggle("error", error); }
+  function accessError(message) { if(message)window.CrashLog?.step("access-notice",{level:"error"}); $("#access-error").textContent = message; $("#access-error").hidden = !message; }
   function access() {
+    $("#change-connection-button").disabled = Boolean(token);
     if (!token || !data) $("#student-detail").close();
     $("#access-panel").hidden = Boolean(token);
     $("#analysis-workspace").hidden = !token || !data;
@@ -31,7 +32,19 @@
     $("#access-description").textContent = endpoint ? "Sign in to explore your groups and student records." : "Add the web app URL from your Apps Script deployment. It stays on this device.";
   }
   async function request(action, fields = {}) {
-    const requestId = crypto.randomUUID(), controller = new AbortController();
+    const requestId = crypto.randomUUID(), started = Date.now();
+    window.CrashLog?.step("request-start", {action, requestId});
+    try {
+      const data = await sendRequest(action, fields, requestId);
+      window.CrashLog?.step("request-success", {action, requestId, durationMs: Date.now() - started});
+      return data;
+    } catch(error) {
+      window.CrashLog?.record(error, {kind:"request", action, requestId, durationMs:Date.now()-started});
+      throw error;
+    }
+  }
+  async function sendRequest(action, fields, requestId) {
+    const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 30000);
     try {
       const response = await fetch(endpoint, {method:"POST", headers:{"Content-Type":"text/plain;charset=utf-8"}, body:JSON.stringify({action, ...fields, requestId}), redirect:"follow",cache:"no-store",signal:controller.signal});
@@ -41,8 +54,8 @@
       if (!result.ok) throw Error(result.error || "The request failed.");
       return result.data;
     } catch(error) {
-      if (error.name === "AbortError") throw Error("The request timed out. Try refreshing records.");
-      if (error instanceof TypeError) throw Error("Could not reach Apps Script. Check your connection and try again.");
+      if (error.name === "AbortError") throw Error("The request timed out. Try refreshing records.", {cause:error});
+      if (error instanceof TypeError) throw Error("Could not reach Apps Script. Check your connection and try again.", {cause:error});
       throw error;
     } finally { clearTimeout(timeout); }
   }
@@ -66,7 +79,7 @@
       data = {...next, studentReady};
       renderGroups(); access(); render();
       notice(studentReady ? "" : "Student analysis needs the updated Apps Script backend. Group lesson notes are available.", !studentReady);
-    } catch(error) { if (token === requestedToken && endpoint === requestedEndpoint) handleError(error); }
+    } catch(error) { window.CrashLog?.record(error); if (token === requestedToken && endpoint === requestedEndpoint) handleError(error); }
     finally {
       busy = false; $("#refresh-analysis").disabled = false; $("#refresh-analysis").textContent = "↻ Refresh records"; $("#analysis-workspace").setAttribute("aria-busy", "false");
       if (token && (token !== requestedToken || endpoint !== requestedEndpoint)) load();
@@ -204,15 +217,20 @@
     endpoint=value;localStorage.setItem(endpointKey,endpoint);accessError("");access();$("#username-input").focus();
   });
   $("#settings-button").addEventListener("click",()=>{
-    if(busy)return;if(token){notice("Sign out before changing the Apps Script connection.");return;}
-    endpoint="";localStorage.removeItem(endpointKey);accessError("");access();$("#endpoint-input").focus();
+    if(window.CrashLog){window.CrashLog.open();return;}
+    changeConnection();
   });
+  $("#change-connection-button").addEventListener("click",changeConnection);
+  function changeConnection(){
+    if(busy)return;if(token){notice("Sign out before changing the Apps Script connection.");return;}
+    window.CrashLog?.close();endpoint="";localStorage.removeItem(endpointKey);accessError("");access();$("#endpoint-input").focus();
+  }
   $("#login-form").addEventListener("submit",async event=>{
     event.preventDefault();if(busy)return;busy=true;$("#login-button").disabled=true;accessError("");
     try {const result=await request("login",{username:$("#username-input").value.trim(),password:$("#password-input").value});
       if(!result.token)throw Error("The login response did not include a session.");
       token=result.token;localStorage.setItem(sessionKey,token);$("#password-input").value="";access();busy=false;await load();
-    } catch(error){accessError(error.message);}
+    } catch(error){ window.CrashLog?.record(error);accessError(error.message);}
     finally {busy=false;$("#login-button").disabled=false;}
   });
   $("#sign-out-button").addEventListener("click",()=>{

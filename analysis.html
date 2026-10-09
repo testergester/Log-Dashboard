@@ -3,8 +3,11 @@
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#f3f5f1"><title>Group analysis · Teaching desk</title>
-  <link rel="stylesheet" href="./styles.css?v=ae95ab9fc416"><link rel="stylesheet" href="./analysis.css?v=ef16b39dab12">
-  <script src="./analysis-model.js?v=318d1a202434" defer></script><script src="./analysis.js?v=ce47af67411b" defer></script>
+  <link rel="stylesheet" href="./styles.css?v=afe8e55bebe5"><link rel="stylesheet" href="./analysis.css?v=11ffc3281a28">
+  <script src="./crash-log-messages.js?v=1c47c7e645f8" defer></script>
+  <script src="./crash-log.js?v=6bd59d855907" defer></script>
+  <script src="./analysis-model.js?v=318d1a202434" defer></script><script src="./analysis.js?v=4fb2d16d940b" defer></script>
+  <meta name="dashboard-version" content="358d38590fa0">
 </head>
 <body class="analysis-page">
 <div class="app-shell">
@@ -66,5 +69,19 @@
   </main>
 </div>
         <dialog class="student-detail" id="student-detail" aria-labelledby="student-detail-title"><div class="analysis-card-heading"><div><p class="eyebrow">STUDENT HISTORY</p><h2 id="student-detail-title" tabindex="-1"></h2><p id="student-detail-subtitle"></p></div><button class="button button-quiet" id="close-student-detail">Close</button></div><div id="student-detail-body"></div></dialog>
+  <dialog id="diagnostics-dialog" aria-labelledby="diagnostics-title">
+    <div class="dialog-heading"><h2 id="diagnostics-title">Settings &amp; activity log</h2><button type="button" class="button button-quiet" id="diagnostics-close">Close</button></div>
+    <p class="diagnostics-description">Recent actions and errors stay on this device for up to 7 days. Typed text, passwords, student identities and teaching records are excluded. Each error includes the steps that preceded it.</p>
+    <div class="diagnostics-toolbar">
+      <label for="diagnostics-filter">Show <select id="diagnostics-filter"><option value="all">Actions &amp; errors</option><option value="errors">Errors only</option></select></label>
+      <button type="button" class="button button-quiet" id="diagnostics-refresh">Refresh log</button>
+      <button type="button" class="button button-quiet" id="diagnostics-download">Download log</button>
+      <button type="button" class="button button-quiet" id="diagnostics-clear">Clear log</button>
+    </div>
+    <p id="diagnostics-status" role="status"></p>
+    <div id="diagnostics-list" class="diagnostics-list" aria-label="Recorded activity and errors"></div>
+    <div class="dialog-actions"><button type="button" class="button button-quiet" id="change-connection-button">Change connection</button></div>
+    <p class="diagnostics-description">Sign out before changing the connection. The log keeps up to 500 steps and 100 errors per page visit, across the 8 most recent visits. Showing the latest 100 entries; downloads include the full retained log.</p>
+  </dialog>
 </body>
 </html>
