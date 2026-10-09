@@ -1,0 +1,6 @@
+{
+	"dependencies": {
+		"@santi020k/lumen-elements": "4.0.0",
+		"esbuild": "^0.28.2"
+	}
+}

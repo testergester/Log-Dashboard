@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="An isolated Lumen UI teaching dashboard experiment using sample records.">
+  <title>Teaching desk · Lumen experiment</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' rx='12' fill='%233e5d50'/%3E%3Ctext x='12' y='29' fill='white' font-family='serif' font-size='29'%3Et%3C/text%3E%3C/svg%3E">
+  <link rel="stylesheet" href="./dist/app.css"><script type="module" src="./dist/app.js"></script>
+</head>
+<body>
+  <a class="skip" href="#workspace">Skip to class workspace</a>
+  <aside class="sidebar">
+    <a class="brand" href="./"><span class="brand-mark">t.</span><span>teaching desk<span class="brand-sub">A little more headspace.</span></span></a>
+    <div class="workspace-label">YOUR WORKSPACE</div>
+    <nav aria-label="Workspace navigation">
+      <lumen-button variant="ghost" class="nav-item active" data-view="day" aria-pressed="true"><lumen-icon name="panels-top-left"></lumen-icon>Teaching day<span class="nav-key">1</span></lumen-button>
+      <lumen-button variant="ghost" class="nav-item" data-view="week" aria-pressed="false"><lumen-icon name="calendar-days"></lumen-icon>Week planner<span class="nav-key">2</span></lumen-button>
+      <lumen-button variant="ghost" class="nav-item" data-view="records" aria-pressed="false"><lumen-icon name="notebook-pen"></lumen-icon>Saved lessons<span class="nav-key">3</span></lumen-button>
+    </nav>
+    <div class="sidebar-note"><span class="little-line"></span><p>Less switching.<br>More teaching.</p><span>Everything you need for the class in front of you.</span></div>
+    <div class="sidebar-bottom"><div class="experiment-label"><span></span> DESIGN EXPERIMENT</div><p>Sample classes. Your space to try things.</p><a href="../../index.html">Open current dashboard <lumen-icon name="arrow-up-right" size="sm"></lumen-icon></a><div class="profile"><span class="avatar">T</span><span>Teacher workspace<small>Personal · Lumen UI</small></span></div></div>
+  </aside>
+  <div class="app">
+    <header class="topbar"><div class="breadcrumb">Workspace <span>/</span> <strong id="breadcrumb">Teaching day</strong></div><div class="topbar-right"><a class="return-dashboard" href="../../index.html">Current dashboard <lumen-icon name="arrow-up-right" size="sm"></lumen-icon></a><span class="sample-label">Sample data</span><span class="topbar-dot">·</span><span>Friday, 9 October</span><span class="avatar small-avatar">T</span></div></header>
+    <main id="workspace" tabindex="-1">
+      <section class="page-heading"><div><div class="eyebrow">MAKE ROOM FOR GOOD TEACHING</div><h1 id="page-title">Your day, in focus<span>.</span></h1><p id="page-description">A clear plan. A ready classroom. One thing at a time.</p></div><div class="heading-actions"><lumen-button variant="outline" id="focus-button" aria-pressed="false"><lumen-icon name="scan"></lumen-icon>Focus mode</lumen-button><lumen-button id="save-button"><lumen-icon name="check"></lumen-icon>Save lesson <kbd>⌘ S</kbd></lumen-button></div></section>
+      <div id="day-view">
+        <section class="day-overview" aria-label="Day overview"><div><span class="overview-icon"><lumen-icon name="sun"></lumen-icon></span><span><strong>A manageable Friday</strong><small>Four lessons, with time to prepare in between.</small></span></div><div class="overview-metrics"><span><b id="done-count">1</b> of 4 complete</span><span><b>3h</b> teaching time</span><span><b>10:30</b> next break</span></div></section>
+        <div class="desk-layout">
+          <aside class="agenda" aria-label="Daily lesson agenda"><div class="section-heading"><h2>Today's rhythm</h2><span>09 OCT</span></div><div class="date-strip" aria-label="Week dates"><span>Mon<b>05</b></span><span>Tue<b>06</b></span><span>Wed<b>07</b></span><span>Thu<b>08</b></span><span class="selected">Fri<b>09</b></span></div><div id="agenda-list"></div><div class="end-day"><lumen-icon name="flag" size="sm"></lumen-icon>All wrapped up by 12:10</div><div class="daily-intention"><lumen-icon name="sparkles"></lumen-icon><strong>A small intention</strong><p>Give every student a chance to speak today.</p></div></aside>
+          <section class="class-workspace" aria-label="Selected class"><div class="class-heading"><div class="class-heading-main"><span class="class-monogram" id="class-monogram">10</span><div><div class="class-title-line"><h2 id="class-name">10B · English</h2><lumen-badge variant="secondary" id="class-badge">In focus</lumen-badge></div><p id="class-meta">09:45–10:30 <span>·</span> Room 204 <span>·</span> 8 students</p></div></div><span class="lesson-number" id="lesson-number">LESSON 02 / 04</span></div>
+          <div class="lesson-topic"><lumen-icon name="book-open" size="sm"></lumen-icon><span id="lesson-topic">Finding your voice: persuasive speaking</span></div>
+          <div class="work-columns"><section class="roster-panel"><div class="roster-heading"><h3>Attendance & participation</h3><span class="live-pill">LIVE CHECKLIST</span></div><div class="attendance-summary" id="attendance-summary" aria-live="polite"></div><div class="roster-tools"><div class="search-wrap"><lumen-icon name="search" size="sm"></lumen-icon><lumen-input id="student-search" type="search" aria-label="Find a student" placeholder="Find a student…"></lumen-input></div><lumen-button variant="ghost" size="sm" id="mark-all"><lumen-icon name="check-check" size="sm"></lumen-icon>All present</lumen-button></div><div class="roster-table"><div class="table-heading"><span>STUDENT</span><span>ATTENDANCE</span><span>POINTS</span></div><div id="student-list"></div></div><div class="roster-footer"><span><lumen-icon name="info" size="sm"></lumen-icon>Click an attendance label to cycle its status.</span><span id="roster-count">8 students</span></div></section>
+          <aside class="notes-panel"><div class="section-heading"><h3>Lesson notebook</h3><lumen-icon name="notebook-pen" size="sm"></lumen-icon></div><div class="previous-note"><div><span class="eyebrow">WHERE WE LEFT OFF</span><span>07 OCT</span></div><p id="previous-note">Built arguments using “because” and “however”. More practice needed with supporting examples.</p><span class="previous-tag"><lumen-icon name="corner-down-right" size="sm"></lumen-icon>Pick up from here</span></div><label for="lesson-notes-control" id="notes-label">Today's notes</label><lumen-textarea id="lesson-notes" aria-labelledby="notes-label" rows="6" placeholder="What worked? What needs another look?"></lumen-textarea><label for="homework-control" id="homework-label">For next time</label><lumen-textarea id="homework" aria-labelledby="homework-label" rows="3" placeholder="Homework or a reminder for the next lesson…"></lumen-textarea><div class="complete-row"><lumen-button variant="outline" id="complete-lesson" aria-pressed="false"><lumen-icon name="circle-check" size="sm"></lumen-icon>Mark lesson complete</lumen-button></div><div class="draft-state" role="status" id="draft-state"><span></span>Draft saved on this device</div></aside></div></section>
+        </div>
+      </div>
+      <section id="week-view" hidden aria-labelledby="week-title"><div class="secondary-heading"><div><h2 id="week-title">Your week at a glance</h2><p>5–9 October · Sample timetable</p></div></div><div id="week-grid"></div></section>
+      <section id="records-view" hidden aria-labelledby="records-title"><div class="secondary-heading"><div><h2 id="records-title">A little record of progress</h2><p>Lessons you have saved in this experiment.</p></div></div><div id="records-list"></div></section>
+      <footer class="page-footer"><span><span class="status-dot"></span> A separate space to experiment. All changes stay on this device.</span><span>Built with Lumen UI <span class="footer-divider">/</span> CONCEPT 01</span></footer>
+    </main>
+  </div><div id="toast" role="status" aria-live="polite" hidden></div>
+</body></html>
