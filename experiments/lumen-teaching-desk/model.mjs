@@ -75,3 +75,25 @@ export function createClient({storage,fetchImpl=fetch,uuid=()=>crypto.randomUUID
     }catch(error){if(error.name==='AbortError')throw new Error('The request timed out. Retry when the connection is available.');throw error;}finally{clearTimeout(timeout);}
   };
 }
+
+// The main app stores one notes field; follow-up content stays in that record.
+export function splitFollowUp(notes='') {
+  const rich=String(notes).startsWith('<div data-lesson-notes-html="1">');
+  const marker=rich?'<p><strong>For next time:</strong></p>':'\n\nFor next time:\n';
+  const i=String(notes).lastIndexOf(marker);
+  if(i<0)return {notes,followUp:'',richFollowUp:false};
+  return rich?{notes:notes.slice(0,i)+'</div>',followUp:notes.slice(i+marker.length,-6),richFollowUp:true}:{notes:notes.slice(0,i),followUp:notes.slice(i+marker.length),richFollowUp:false};
+}
+export function joinFollowUp(notes,followUp='') {
+  if(!followUp.trim())return notes;
+  if(!String(notes).startsWith('<div data-lesson-notes-html="1">'))return notes+'\n\nFor next time:\n'+followUp;
+  const safe=followUp.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])).replace(/\n/g,'<br>');
+  return notes.slice(0,-6)+'<p><strong>For next time:</strong></p><p>'+safe+'</p></div>';
+}
+export const arrivalStatus = r => r.attendance==='absent'?'absent':String(r.note||'').startsWith('[Late arrival] ')?'late':'present';
+export function cycleArrival(r) {
+  const status=arrivalStatus(r),clean=String(r.note||'').replace(/^\[Late arrival\] /,'');
+  if(status==='present'){r.attendance='absent';r.participation=0;}
+  else if(status==='absent'){if(clean.length+15>300)throw new Error('Shorten this student note before marking a late arrival.');r.attendance='present';r.note='[Late arrival] '+clean;}
+  else{r.attendance='present';r.note=clean;}
+}
