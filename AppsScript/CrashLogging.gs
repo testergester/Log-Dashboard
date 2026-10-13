@@ -8,6 +8,8 @@ const DASHBOARD_LOG_MESSAGES_ = Object.freeze([
   "A student no longer exists. Reload the dashboard.",
   "A student’s official group cannot be changed.",
   "Absent students cannot receive a participation mark.",
+  "Excused students cannot receive a participation mark.",
+  "ArchivedLessonLogs has different column headers. No archive data was changed.",
   "Add a student before saving a new checklist.",
   "Add your Apps Script URL first.",
   "Apps Script did not return JSON. Check the web app URL and deployment.",

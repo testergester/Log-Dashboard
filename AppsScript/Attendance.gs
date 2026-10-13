@@ -14,9 +14,10 @@ function saveChecklist_(request) {
     const attendance = String(item.attendance || '');
     const participation = Number(item.participation);
     const note = jsonText_(item.note, 'Student note', 300, false);
-    if (!studentId || (attendance !== 'present' && attendance !== 'absent')) throw new Error('Invalid attendance entry.');
+    if (!studentId || ['present', 'absent', 'late', 'excused'].indexOf(attendance) === -1) throw new Error('Invalid attendance entry.');
     if (!Number.isInteger(participation) || participation < -1 || participation > 1) throw new Error('Invalid participation mark.');
     if (attendance === 'absent' && participation !== 0) throw new Error('Absent students cannot receive a participation mark.');
+    if (attendance === 'excused' && participation !== 0) throw new Error('Excused students cannot receive a participation mark.');
     return {studentId: studentId, attendance: attendance, participation: participation, note: note};
   });
   const ids = records.map(function(item) { return item.studentId; });
@@ -137,9 +138,9 @@ function parseChecklistJson_(value, classId, date, revision) {
     const studentName = String(record && record.studentName || '');
     const note = String(record && record.note || '');
     if (!studentId || !studentName || studentName.length > 120 || note.length > 300 || seen[studentId] ||
-        (attendance !== 'present' && attendance !== 'absent') ||
+        ['present', 'absent', 'late', 'excused'].indexOf(attendance) === -1 ||
         !Number.isInteger(participation) || participation < -1 || participation > 1 ||
-        (attendance === 'absent' && participation !== 0)) {
+        ((attendance === 'absent' || attendance === 'excused') && participation !== 0)) {
       throw new Error('Attendance JSON contains an invalid student record for ' + classId + ' on ' + date + '.');
     }
     seen[studentId] = true;

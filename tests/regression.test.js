@@ -242,7 +242,7 @@ function testChecklistConflict() {
 }
 
 function testReadDoesNotWrite() {
-  const sheet = {getLastRow: () => 1};
+  const sheet = {getLastRow: () => 1, getLastColumn: () => 12};
   const context = vm.createContext({
     Number, Object, String,
     DASHBOARD: {timetable: 'Timetable', logs: 'LessonLogs', students: 'Students',

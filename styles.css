@@ -484,6 +484,29 @@ dialog::backdrop { background: #13284a8c; }
 @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important}}
 /* Reset legacy height containment so earlier records remain visible. */
 .previous-notes-surface{display:block;height:auto;max-height:none;contain:none;overflow:visible}
+
+/* Four attendance states share their colors in the roster and saved history. */
+.attendance-group { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 3px; }
+.attendance-group .choice-button { min-height: 28px; }
+.student-row[data-attendance="present"], .attendance-history-row.is-present { --attendance-bg: #e7f6ee; --attendance-ink: #176044; --attendance-edge: #72b890; }
+.student-row[data-attendance="absent"], .attendance-history-row.is-absent { --attendance-bg: #fff0df; --attendance-ink: #914800; --attendance-edge: #e58a24; }
+.student-row[data-attendance="late"], .attendance-history-row.is-late { --attendance-bg: #f1eaff; --attendance-ink: #653b99; --attendance-edge: #a486ce; }
+.student-row[data-attendance="excused"], .attendance-history-row.is-excused { --attendance-bg: #e9f3ff; --attendance-ink: #255c91; --attendance-edge: #80abd2; }
+.student-row[data-attendance], .student-row[data-attendance]:hover,
+.student-row[data-attendance] .student-identity, .attendance-history-row { background: var(--attendance-bg, #fff); }
+.student-row[data-attendance] { box-shadow: inset 3px 0 var(--attendance-edge); }
+.attendance-history-row { box-shadow: inset 4px 0 var(--attendance-edge); }
+.attendance-history-row strong, .attendance-history-row > span:nth-child(2) { color: var(--attendance-ink, var(--navy)); font-weight: 800; }
+.attendance-group .choice-button[aria-pressed="true"] { background: var(--attendance-bg); color: var(--attendance-ink); border-color: var(--attendance-edge); }
+.checklist-stat.absent { background: #fff0df; color: #914800; }
+.checklist-stat.late { background: #f1eaff; color: #653b99; }
+.checklist-stat.excused { background: #e9f3ff; color: #255c91; }
+.feature-update-hint { font-size: 11px; padding: 8px; color: #914800; background: #fff0df; border-radius: 5px; }
+#lesson-form > label { display: block; margin: 10px 0 4px; font-weight: 650; font-size: 12px; }
+#lesson-form > input, #lesson-nextClassNotes { width: 100%; min-width: 0; padding: 7px; border: 1px solid var(--line); border-radius: 5px; font: inherit; }
+#lesson-nextClassNotes { min-height: 72px; height: 76px; resize: vertical; }
+.lesson-record-detail { margin: 5px 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+@media(max-width:700px) { .attendance-group::before { display: none; } }
 .week-day{min-height:36px}
 @media(max-width:700px){.week-day{min-height:32px}}
 

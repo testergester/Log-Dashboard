@@ -79,6 +79,20 @@ function archiveClass_(request) {
   }
 }
 
+function lessonDetails_(input, previous) {
+  const result = {};
+  [['unit', 'Unit', 120, 12], ['lessonTitle', 'Lesson title', 200, 13], ['nextClassNotes', 'Notes for next class', 2000, 14]].forEach(function(field) {
+    const value = Object.prototype.hasOwnProperty.call(input, field[0]) ? input[field[0]] : previous ? previous[field[3]] : '';
+    result[field[0]] = jsonText_(value, field[1], field[2], false);
+  });
+  return result;
+}
+
+function lessonDetailCells_(details) {
+  return [text_(details.unit, 'Unit', 120, false), text_(details.lessonTitle, 'Lesson title', 200, false),
+    text_(details.nextClassNotes, 'Notes for next class', 2000, false)];
+}
+
 function saveLog_(request) {
   const input = request.log || {};
   const classId = String(input.classId || '').trim();
@@ -109,14 +123,16 @@ function saveLog_(request) {
     // The dashboard opens a concrete class meeting. Do not reject that meeting
     // because the weekly timetable was edited after the selected date.
     const previous = rowNumber ? logSheet.getRange(rowNumber, 1, 1, DASHBOARD.logHeaders.length).getDisplayValues()[0] : null;
+    const details = lessonDetails_(input, previous);
     const meeting = classMeetingsFromRow_(classRow).find(function(item) { return item.weekday === lessonDay; });
-    const row = [classId, date, previous ? previous[2] : classRow[1], previous ? previous[3] : classRow[2], previous ? previous[4] : meeting ? meeting.start : classRow[4], previous ? previous[5] : meeting ? meeting.end : classRow[5], previous ? previous[6] : meeting ? meeting.room : classRow[6], notes, rating, timestamp_(), lessonType, lessonStatus];
+    const row = [classId, date, previous ? previous[2] : classRow[1], previous ? previous[3] : classRow[2], previous ? previous[4] : meeting ? meeting.start : classRow[4], previous ? previous[5] : meeting ? meeting.end : classRow[5], previous ? previous[6] : meeting ? meeting.room : classRow[6], notes, rating, timestamp_(), lessonType, lessonStatus].concat(lessonDetailCells_(details));
     if (rowNumber) logSheet.getRange(rowNumber, 1, 1, row.length).setValues([row]);
     else logSheet.appendRow(row);
     return {classId: classId, date: date, className: row[2], subject: row[3],
       start: storedTime_(row[4]), end: storedTime_(row[5]), room: row[6],
       notes: String(input.notes == null ? '' : input.notes).trim(), rating: rating || null,
-      updatedAt: row[9], lessonType: lessonType, lessonStatus: lessonStatus};
+      updatedAt: row[9], lessonType: lessonType, lessonStatus: lessonStatus,
+      unit: details.unit, lessonTitle: details.lessonTitle, nextClassNotes: details.nextClassNotes};
   } finally {
     lock.releaseLock();
   }
@@ -135,6 +151,21 @@ function classMeetingsFromRow_(row) {
 function ensureArchivedLessonLogs_(spreadsheet) {
   const source = spreadsheet.getSheetByName(DASHBOARD.logs);
   const headers = source.getRange(1, 1, 1, source.getLastColumn()).getDisplayValues()[0];
+  const archive = spreadsheet.getSheetByName(DASHBOARD.archivedLogs);
+  if (archive) {
+    const existing = archive.getRange(1, 1, 1, archive.getLastColumn()).getDisplayValues()[0];
+    const oldWidth = existing.indexOf('Archive reason');
+    if (oldWidth >= 0 && oldWidth < headers.length) {
+      // Insert new data columns before archive metadata, preserving recovery checkboxes.
+      if (existing.slice(0, oldWidth).some(function(header, index) { return header !== headers[index]; }) ||
+          existing[oldWidth + 1] !== 'Archived at' || existing[oldWidth + 2] !== 'Recover') {
+        throw new Error('ArchivedLessonLogs has different column headers. No archive data was changed.');
+      }
+      archive.insertColumnsBefore(oldWidth + 1, headers.length - oldWidth);
+      archive.getRange(1, oldWidth + 1, 1, headers.length - oldWidth).setValues([headers.slice(oldWidth)]);
+      archive.getRange(1, oldWidth + 1, archive.getMaxRows(), headers.length - oldWidth).setNumberFormat('@');
+    }
+  }
   ensureTab_(spreadsheet, DASHBOARD.archivedLogs, headers.concat(['Archive reason', 'Archived at', 'Recover']));
   return spreadsheet.getSheetByName(DASHBOARD.archivedLogs);
 }
@@ -208,7 +239,10 @@ function editLog_(request) {
     const current = sheet.getRange(matches[0], 10).getDisplayValues()[0][0];
     if (String(current) !== String(input.updatedAt || '')) throw new Error('This lesson changed elsewhere. Reload before editing.');
     const updated = timestamp_();
-    sheet.getRange(matches[0], 3, 1, 10).setValues([[name, subject, start, end, room, notes, rating, updated, type, status]]);
-    return {classId: input.classId, date: date, className: name, subject: subject, start: start, end: end, room: room, notes: input.notes || '', rating: rating || null, updatedAt: updated, lessonType: type, lessonStatus: status};
+    const previous = sheet.getRange(matches[0], 1, 1, sheet.getLastColumn()).getDisplayValues()[0];
+    const details = lessonDetails_(input, previous);
+    sheet.getRange(matches[0], 3, 1, 13).setValues([[name, subject, start, end, room, notes, rating, updated, type, status].concat(lessonDetailCells_(details))]);
+    return {classId: input.classId, date: date, className: name, subject: subject, start: start, end: end, room: room, notes: input.notes || '', rating: rating || null, updatedAt: updated, lessonType: type, lessonStatus: status,
+      unit: details.unit, lessonTitle: details.lessonTitle, nextClassNotes: details.nextClassNotes};
   } finally { lock.releaseLock(); }
 }

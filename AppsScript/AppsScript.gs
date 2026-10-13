@@ -32,7 +32,7 @@ const DASHBOARD = Object.freeze({
   checklists: 'AttendanceChecklists',
   studentRecords: 'StudentMeetingRecords',
   timetableHeaders: ['Class ID', 'Class name', 'Subject', 'Weekday', 'Start time', 'End time', 'Room', 'Active', 'Updated at', 'Additional meetings JSON'],
-  logHeaders: ['Class ID', 'Lesson date', 'Class name', 'Subject', 'Start time', 'End time', 'Room', 'Notes', 'Rating', 'Updated at', 'Lesson type', 'Lesson status'],
+  logHeaders: ['Class ID', 'Lesson date', 'Class name', 'Subject', 'Start time', 'End time', 'Room', 'Notes', 'Rating', 'Updated at', 'Lesson type', 'Lesson status', 'Unit', 'Lesson title', 'Notes for next class'],
   studentHeaders: ['Student ID', 'Name', 'Updated at', 'Official Group ID'],
   archivedStudentHeaders: ['Student ID', 'Full name', 'Previous groups JSON', 'Student IDs JSON', 'Removed on', 'Official Group ID', 'Recover'],
   enrollmentHeaders: ['Class ID', 'Student ID', 'Joined on', 'Left on', 'Active', 'Updated at'],

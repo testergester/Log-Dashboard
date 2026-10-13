@@ -23,3 +23,9 @@ html[data-theme="light"]{--canvas:45 20% 97%;--surface:0 0% 100%;--surface-muted
 @media(max-width:1250px){.student-row{grid-template-columns:minmax(96px,1fr) 78px 68px 20px;gap:4px}.table-heading{grid-template-columns:minmax(96px,1fr) 78px 92px}.student-note-field summary{width:20px}}
 @media(max-width:1050px){.student-row{grid-template-columns:minmax(120px,1fr) 85px 75px 23px}.table-heading{grid-template-columns:minmax(120px,1fr) 85px 98px}.notes-panel{border-radius:0 0 10px 10px}}
 @media(max-width:760px){.student-row{grid-template-columns:minmax(95px,1fr) 76px 65px 19px;gap:3px;min-height:62px}.table-heading{grid-template-columns:minmax(95px,1fr) 76px 87px}.student-avatar{display:none}.student-note-field summary{width:20px}.agenda .date-toolbar{display:flex;align-items:center;gap:8px;justify-content:space-between}.agenda .date-navigation{flex-wrap:nowrap;gap:3px}.agenda .date-navigation lumen-input{flex:0 1 120px;margin:0}.agenda .date-navigation input{width:120px}.agenda .date-strip{margin-top:12px}.notes-panel #lesson-notes textarea{min-height:145px}.class-title-line h2{font-size:17px}.points-control{gap:0}.point-button{width:22px!important}.student-note-popover{width:230px}.notes-panel .record-fields{grid-template-columns:1fr 1fr}}
+.attendance-button.absent { color: hsl(var(--warning)) !important; background: hsl(var(--warning) / .12) !important; }
+.attendance-button.late { --accent: 271 45% 42%; color: hsl(var(--accent)) !important; background: hsl(var(--accent) / .1) !important; }
+.attendance-button.excused { --brand: 210 58% 36%; color: hsl(var(--brand)) !important; background: hsl(var(--brand) / .1) !important; }
+.student-row[data-attendance="absent"] { background: hsl(var(--warning) / .07); }
+.student-row[data-attendance="late"] { --accent: 271 45% 42%; background: hsl(var(--accent) / .07); }
+.student-row[data-attendance="excused"] { --brand: 210 58% 36%; background: hsl(var(--brand) / .07); }

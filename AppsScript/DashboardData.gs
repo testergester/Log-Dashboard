@@ -1,12 +1,14 @@
 function loadDashboard_() {
   const spreadsheet = spreadsheet_();
+  const logSheet = spreadsheet.getSheetByName(DASHBOARD.logs);
+  const lessonDetailHeaders = logSheet.getLastColumn() >= 15 ? logSheet.getRange(1, 13, 1, 3).getDisplayValues()[0] : [];
   // Setup and timetable writes maintain the sheets. Reads must not rewrite
   // them; opening the dashboard should only load records.
   const classes = rows_(spreadsheet.getSheetByName(DASHBOARD.timetable)).map(function(row) {
     return {id: row[0], name: row[1], subject: row[2], weekday: Number(row[3]), start: storedTime_(row[4]), end: storedTime_(row[5]), room: row[6], meetings: classMeetingsFromRow_(row), active: String(row[7]).toLowerCase() !== 'false', updatedAt: row[8]};
   }).filter(function(item) { return item.id; });
   const logs = rowsWithDates_(spreadsheet.getSheetByName(DASHBOARD.logs), [1]).map(function(row) {
-    return {classId: row[0], date: row[1], className: row[2], subject: row[3], start: storedTime_(row[4]), end: storedTime_(row[5]), room: row[6], notes: row[7], rating: Number(row[8]) || null, updatedAt: row[9], lessonType: row[10] || 'Lesson', lessonStatus: row[11] || 'Done'};
+    return {classId: row[0], date: row[1], className: row[2], subject: row[3], start: storedTime_(row[4]), end: storedTime_(row[5]), room: row[6], notes: row[7], rating: Number(row[8]) || null, updatedAt: row[9], lessonType: row[10] || 'Lesson', lessonStatus: row[11] || 'Done', unit: row[12] || '', lessonTitle: row[13] || '', nextClassNotes: row[14] || ''};
   }).filter(function(item) { return item.classId && item.date; });
   const students = rows_(spreadsheet.getSheetByName(DASHBOARD.students)).map(function(row) {
     return {id: row[0], name: row[1], updatedAt: row[2], officialGroupId: row[3]};
@@ -58,5 +60,7 @@ function loadDashboard_() {
   });
   return {classes: classes, logs: logs, students: students, archivedStudents: archivedStudents, enrollments: enrollments,
     checklists: checklists, studentRecords: studentRecords, attendanceStorage: 'json-v1',
-    meetingScheduleVersion: 1, studentArchiveVersion: 1, timezone: DASHBOARD.timezone};
+    meetingScheduleVersion: 1, studentArchiveVersion: 1, extendedAttendanceVersion: 1,
+    lessonDetailsVersion: lessonDetailHeaders.join('|') === 'Unit|Lesson title|Notes for next class' ? 1 : 0,
+    timezone: DASHBOARD.timezone};
 }

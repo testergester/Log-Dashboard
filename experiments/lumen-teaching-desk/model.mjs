@@ -43,16 +43,17 @@ export function rosterFor(data,id,date) {
 }
 export function makeDraft(data,id,date) {
   const log=logFor(data,id,date);
-  return {notes:log?.notes||'',rating:log?.rating??null,lessonType:log?.lessonType||'Lesson',lessonStatus:log?.lessonStatus||'Done',records:rosterFor(data,id,date),notesDirty:false,rosterDirty:false};
+  return {notes:log?.notes||'',unit:log?.unit||'',lessonTitle:log?.lessonTitle||'',nextClassNotes:log?.nextClassNotes||'',rating:log?.rating??null,lessonType:log?.lessonType||'Lesson',lessonStatus:log?.lessonStatus||'Done',records:rosterFor(data,id,date),notesDirty:false,rosterDirty:false};
 }
 export function logPayload(id,date,draft) {
   if(String(draft.notes).length>5000)throw new Error('Lesson notes must be 5,000 characters or fewer.');
   if(!String(draft.lessonType).trim())throw new Error('Enter a lesson type.');
-  return {classId:id,date,notes:draft.notes,rating:draft.rating,lessonType:draft.lessonType,lessonStatus:draft.lessonStatus};
+  for(const [key,max] of [['unit',120],['lessonTitle',200],['nextClassNotes',2000]])if(String(draft[key]||'').length>max)throw new Error('Shorten the lesson details before saving.');
+  return {classId:id,date,notes:draft.notes,unit:draft.unit||'',lessonTitle:draft.lessonTitle||'',nextClassNotes:draft.nextClassNotes||'',rating:draft.rating,lessonType:draft.lessonType,lessonStatus:draft.lessonStatus};
 }
 export function checklistPayload(data,id,date,draft) {
   const records=draft.records.map(r=>({studentId:r.studentId,attendance:r.attendance,participation:r.participation,note:r.note||''}));
-  for(const r of records){if(!['present','absent'].includes(r.attendance)||![-1,0,1].includes(r.participation)||(r.attendance==='absent'&&r.participation!==0))throw new Error('Attendance or participation has an invalid value.');if(r.note.length>300)throw new Error('Student notes must be 300 characters or fewer.');}
+  for(const r of records){if(!['present','absent','late','excused'].includes(r.attendance)||![-1,0,1].includes(r.participation)||(['absent','excused'].includes(r.attendance)&&r.participation!==0))throw new Error('Attendance or participation has an invalid value.');if(['late','excused'].includes(r.attendance)&&data.extendedAttendanceVersion!==1)throw new Error('Update Apps Script before saving Late or Excused attendance.');if(r.note.length>300)throw new Error('Student notes must be 300 characters or fewer.');}
   return {schemaVersion:1,classId:id,date,revision:checklistFor(data,id,date)?.revision||'',records};
 }
 export function applyLog(data,saved){const i=data.logs.findIndex(l=>l.classId===saved.classId&&l.date===saved.date);if(i<0)data.logs.push(saved);else data.logs[i]=saved;}
@@ -90,10 +91,9 @@ export function joinFollowUp(notes,followUp='') {
   const safe=followUp.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])).replace(/\n/g,'<br>');
   return notes.slice(0,-6)+'<p><strong>For next time:</strong></p><p>'+safe+'</p></div>';
 }
-export const arrivalStatus = r => r.attendance==='absent'?'absent':String(r.note||'').startsWith('[Late arrival] ')?'late':'present';
-export function cycleArrival(r) {
-  const status=arrivalStatus(r),clean=String(r.note||'').replace(/^\[Late arrival\] /,'');
-  if(status==='present'){r.attendance='absent';r.participation=0;}
-  else if(status==='absent'){if(clean.length+15>300)throw new Error('Shorten this student note before marking a late arrival.');r.attendance='present';r.note='[Late arrival] '+clean;}
-  else{r.attendance='present';r.note=clean;}
+export const arrivalStatus = r => r.attendance==='present'&&String(r.note||'').startsWith('[Late arrival] ')?'late':r.attendance;
+export function cycleArrival(r, extended=true) {
+  const options=extended?['present','absent','late','excused']:['present','absent'];
+  r.attendance=options[(options.indexOf(r.attendance)+1)%options.length];
+  if(['absent','excused'].includes(r.attendance))r.participation=0;
 }

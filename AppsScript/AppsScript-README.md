@@ -19,6 +19,16 @@ The backend is split across these `.gs` files. Put **all of them in the same Goo
 
 Apps Script shares top-level functions across script files in one project, so no imports or build step are needed. After updating the project, run `setupDashboard()` and deploy a new web app version.
 
+## Attendance and lesson tracking update (October 13, 2026)
+
+Update `AppsScript.gs`, `Attendance.gs`, `ClassesAndLogs.gs`, and `DashboardData.gs` together, run `setupDashboard()`, and publish a new version of the existing web app deployment (keep its `/exec` URL). Update the website assets and reload the dashboard afterward. A GitHub push alone does not update the bound Apps Script deployment.
+
+Attendance supports **Present** (green), **Absent** (orange), **Late** (purple), and **Excused** (blue). Present and Late allow participation marks and count as attended. Absent has a −1 point penalty and no participation; Excused has 0 points, no participation, and is excluded from the attendance-rate denominator. Checklist JSON remains schema version 1; existing Present/Absent records need no migration. New options are disabled until the backend advertises support.
+
+Each lesson now has **Unit**, **Lesson title**, **Logs**, and **Notes for next class**. Logs use the existing Notes column and rich-text editor, so old notes remain intact. Setup appends Unit, Lesson title, and Notes for next class in LessonLogs columns M–O. It inserts those columns before the archive metadata in ArchivedLessonLogs, preserving archived records and checked Recover boxes. Setup is safe to repeat. If you have custom columns or mismatched archive headers, align them with the documented schema before setup; header validation stops rather than overwriting them.
+
+The fields are included in drafts, confirmed saves, saved-record edits, previous lesson notes, and analysis. Older API clients that omit the new fields preserve existing values. The website blocks saving nonempty lesson details against an older deployment so they cannot be silently discarded. No student-ID migration is needed for this update.
+
 Classes can meet on several different weekdays, with a separate time and room for each day. The first meeting remains in the existing Timetable columns; additional days are stored in its `Additional meetings JSON` column, which `setupDashboard()` adds. The web dashboard and generated `WeeklyView` expand those meetings while keeping one class ID and one lesson record per class per date.
 
 Lesson notes offer None, Bullet list, and Numbered list controls above the editor. New notes are saved as limited HTML in the existing notes column, and Previous records renders that formatting. Older plain-text notes remain readable without migration.

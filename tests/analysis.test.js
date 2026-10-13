@@ -26,6 +26,11 @@ assert.equal(build(data,{groups:['G1','G2']}).students.filter(s=>s.id==='a').len
 assert.equal(build(data,{groups:[]}).count,0);
 assert.equal(build(data,{groups:['G1'],end:'2026-08-31'}).students.some(s=>s.id==='c'),false);
 assert.equal(summarize([]).attendance,null);
+const extended = summarize([{attendance:'present',participation:0},{attendance:'late',participation:1},{attendance:'absent',participation:0},{attendance:'excused',participation:-1}]);
+assert.equal(extended.attendance,2/3*100);
+assert.equal(extended.late,1);assert.equal(extended.excused,1);assert.equal(extended.absent,1);
+assert.equal(extended.points,0);assert.equal(extended.positive,1);
+assert.equal(summarize([{attendance:'excused',participation:0}]).attendance,null);
 console.log('Analysis aggregation checks passed: filters, deduplication, point rules, empty records and archived identities.');
 
 assert.equal(signal({count:1, attendance:100, points:0}).label,'No flags');

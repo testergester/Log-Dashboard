@@ -19,7 +19,7 @@ const timetable = sheet('Timetable', [Array(10).fill('Header'),
   ['9D','9D','English',1,'11:20','12:05','Archived room',false,'',''],
   ['9D','9D','English',2,'08:50','09:35','Tuesday room',true,'',JSON.stringify([{weekday:3,start:'08:00',end:'08:45',room:'Extra room'}])]
 ]);
-sheet('LessonLogs',[Array(12).fill('Header')]);
+sheet('LessonLogs',[Array(15).fill('Header')]);
 sheet('AttendanceChecklists',[Array(5).fill('Header')]);
 sheet('Students',[Array(4).fill('Header'),['student','Test student','','11A']]);
 sheet('ClassStudents',[Array(6).fill('Header'),['11A','student','2026-01-01','',true,'']]);
@@ -27,7 +27,7 @@ sheet('StudentMeetingRecords',[Array(8).fill('Header')]);
 const context=vm.createContext({
   DASHBOARD:{timetable:'Timetable',logs:'LessonLogs',checklists:'AttendanceChecklists',students:'Students',
     enrollments:'ClassStudents',studentRecords:'StudentMeetingRecords',archivedStudents:'ArchivedStudents',
-    timetableHeaders:Array(10),logHeaders:Array(12),checklistHeaders:Array(5)},
+    timetableHeaders:Array(10),logHeaders:Array(15),checklistHeaders:Array(5)},
   LockService:{getScriptLock:()=>({waitLock(){},releaseLock(){}})},
   Utilities:{getUuid:()=> 'revision'},
   SpreadsheetApp:{flush(){}},
@@ -53,4 +53,15 @@ assert.equal(checklist.checklist.classInfo.room,'Thursday room');
 timetable.data[2][4]='10:30';timetable.data[2][5]='11:15';
 saved=context.saveLog_({log:{classId:'11A',date:'2026-10-08',notes:'Updated note'}});
 assert.equal(saved.start,'09:40');assert.equal(saved.notes,'Updated note');
+saved=context.saveLog_({log:{classId:'11A',date:'2026-10-08',notes:'Updated note',unit:'Unit 3',lessonTitle:'Travel',nextClassNotes:'Bring maps'}});
+assert.equal(saved.unit,'Unit 3');assert.equal(saved.lessonTitle,'Travel');assert.equal(saved.nextClassNotes,'Bring maps');
+saved=context.saveLog_({log:{classId:'11A',date:'2026-10-08',notes:'Legacy client update'}});
+assert.equal(saved.unit,'Unit 3','omitted lesson details are preserved');
+for (const attendance of ['late','excused']) {
+  const result = context.saveChecklist_({checklist:{classId:'11A',date:'2026-10-08',revision:'revision',records:[{studentId:'student',attendance,participation:attendance==='late'?1:0,note:''}]}});
+  assert.equal(result.checklist.records[0].attendance,attendance);
+  assert.equal(context.parseChecklistJson_(JSON.stringify(result.checklist),'11A','2026-10-08','revision').records[0].attendance,attendance);
+}
+assert.throws(() => context.saveChecklist_({checklist:{classId:'11A',date:'2026-10-08',revision:'revision',records:[{studentId:'student',attendance:'excused',participation:1,note:''}]}}),/Excused students/);
+assert.throws(() => context.saveChecklist_({checklist:{classId:'11A',date:'2026-10-08',revision:'revision',records:[{studentId:'student',attendance:'other',participation:0,note:''}]}}),/Invalid attendance/);
 console.log('Timetable record checks passed: repeated class IDs resolve the actual weekday for lesson and attendance saves, grouped extra meetings work, and historical snapshots remain intact.');

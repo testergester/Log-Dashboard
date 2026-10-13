@@ -1,13 +1,17 @@
 "use strict";
 // Pure aggregation shared by the analysis page and its regression checks.
 const TeachingAnalysis = (() => {
-  const score = record => record.attendance === "absent" ? -1 : Number(record.participation) || 0;
+  const attends = record => record.attendance === "present" || record.attendance === "late";
+  const score = record => record.attendance === "absent" ? -1 : record.attendance === "excused" ? 0 : Number(record.participation) || 0;
   function summarize(records) {
     const present = records.filter(r => r.attendance === "present").length;
     const absent = records.filter(r => r.attendance === "absent").length;
-    return {count: records.length, present, absent, attendance: present + absent ? present / (present + absent) * 100 : null,
-      points: records.reduce((sum, r) => sum + score(r), 0), positive: records.filter(r => r.attendance === "present" && Number(r.participation) > 0).length,
-      negative: records.filter(r => r.attendance === "present" && Number(r.participation) < 0).length,
+    const late = records.filter(r => r.attendance === "late").length;
+    const excused = records.filter(r => r.attendance === "excused").length;
+    const attended = present + late, expected = attended + absent;
+    return {count: records.length, present, absent, late, excused, attended, expected, attendance: expected ? attended / expected * 100 : null,
+      points: records.reduce((sum, r) => sum + score(r), 0), positive: records.filter(r => attends(r) && Number(r.participation) > 0).length,
+      negative: records.filter(r => attends(r) && Number(r.participation) < 0).length,
       notes: records.filter(r => String(r.note || "").trim()).length};
   }
   function build(data, filters) {

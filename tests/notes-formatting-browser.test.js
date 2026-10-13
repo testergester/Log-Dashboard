@@ -15,19 +15,21 @@ const {chromium} = require('playwright');
     const students=Array.from({length:18},(_,i)=>({id:'s'+i,name:'Student '+String(i+1).padStart(2,'0')}));
     const payload={classes,students,enrollments:students.map(s=>({classId:'10A',studentId:s.id,active:true})),
       logs:[{classId:'10A',date:'2026-10-06',className:'10A',subject:'English',start:'10:30',end:'11:15',notes:'Previous lesson note',lessonStatus:'Skipped'}],
-      checklists:[],studentRecords:[],archivedStudents:[],meetingScheduleVersion:1,studentArchiveVersion:1};
+      checklists:[],studentRecords:[],archivedStudents:[],meetingScheduleVersion:1,studentArchiveVersion:1,extendedAttendanceVersion:1,lessonDetailsVersion:1};
     let revision=0;
     await page.route('https://script.google.com/**',route=>{
       const request=route.request().postDataJSON();
       let data;
       if(request.action==='load')data=payload;
-      else if(request.action==='saveLog') {
+      else if(request.action==='saveLog'||request.action==='editLog') {
         data={...request.log,className:'10A',subject:'English',start:'11:20',end:'12:05',room:"Umar's room",updatedAt:'now'};
         payload.logs=payload.logs.filter(log=>log.classId!==data.classId||log.date!==data.date).concat(data);
       } else if(request.action==='saveChecklist') {
         const input=request.checklist;
         data={classId:input.classId,date:input.date,revision:'r'+(++revision),updatedAt:'now',
           checklist:{classInfo:{id:input.classId},records:input.records}};
+        payload.checklists=[{...data,records:input.records}];
+        payload.studentRecords=input.records.map(record=>({...record,classId:input.classId,date:input.date}));
       } else throw new Error('Unexpected action '+request.action);
       return route.fulfill({contentType:'application/json',body:JSON.stringify({requestId:request.requestId,ok:true,data})});
     });
@@ -87,6 +89,16 @@ const {chromium} = require('playwright');
     await search.fill('Student 01');
     assert.equal(await page.locator('.student-row:visible').count(),1);
     await search.fill('');
+    const firstRow=page.locator('.student-row').first();
+    const secondRow=page.locator('.student-row').nth(1);
+    await firstRow.getByRole('button',{name:'Late',exact:true}).click();
+    await firstRow.getByRole('button',{name:/Participation \+1/}).click();
+    await secondRow.getByRole('button',{name:'Excused',exact:true}).click();
+    assert.equal(await secondRow.getByRole('button',{name:/Participation \+1/}).isDisabled(),true);
+    assert.match(await page.locator('#checklist-stats').innerText(),/1 late[\s\S]*1 excused/);
+    await page.getByRole('textbox',{name:'Unit',exact:true}).fill('Unit 3');
+    await page.getByRole('textbox',{name:'Lesson title',exact:true}).fill('Travel plans');
+    await page.getByRole('textbox',{name:'Notes for next class',exact:true}).fill('Bring maps');
     const notes=page.locator('#lesson-notes');
     await notes.fill('Bold and italic');
     const selectText=async word=>page.evaluate(word=>{
@@ -111,11 +123,42 @@ const {chromium} = require('playwright');
     const saved=payload.logs.find(log=>log.date==='2026-10-08');
     assert.match(saved.notes,/<strong>Bold<\/strong>/);
     assert.match(saved.notes,/<em>italic<\/em>/);
+    assert.equal(saved.unit,'Unit 3');assert.equal(saved.lessonTitle,'Travel plans');assert.equal(saved.nextClassNotes,'Bring maps');
+    assert.equal(payload.studentRecords[0].attendance,'late');assert.equal(payload.studentRecords[0].participation,1);
+    assert.equal(payload.studentRecords[1].attendance,'excused');assert.equal(payload.studentRecords[1].participation,0);
     await page.reload();
     await page.locator('.class-filter').first().waitFor();
     await page.evaluate(()=>{changeDate('2026-10-08');state.selectedClassId='10A';render();});
     assert.equal(await notes.locator('strong').textContent(),'Bold');
     assert.equal(await notes.locator('em').textContent(),'italic');
+    assert.equal(await page.locator('#lesson-unit').inputValue(),'Unit 3');
+    assert.equal(await page.locator('#lesson-lessonTitle').inputValue(),'Travel plans');
+    assert.equal(await page.locator('#lesson-nextClassNotes').inputValue(),'Bring maps');
+    const legacySave = await page.evaluate(async()=>{
+      state.lessonDetailsReady=false;
+      const saved=await saveCurrentLesson();
+      state.lessonDetailsReady=true;
+      return saved;
+    });
+    assert.equal(legacySave,false,'an old deployment cannot silently discard details');
+    assert.equal(await page.locator('#lesson-unit').inputValue(),'Unit 3','failed saves preserve input');
+    await page.evaluate(()=>openRecordDialog(logFor('10A','2026-10-08'),false));
+    assert.equal(await page.locator('#record-unit').inputValue(),'Unit 3');
+    await page.locator('#record-nextClassNotes').fill('Review the map activity');
+    await page.locator('#record-confirm').click();
+    await page.waitForFunction(()=>!document.querySelector('#record-dialog').open);
+    assert.equal(payload.logs.find(log=>log.date==='2026-10-08').nextClassNotes,'Review the map activity');
+    await page.evaluate(()=>{
+      state.selectedDate='2026-10-09';renderPreviousNotes();state.selectedDate='2026-10-08';
+    });
+    assert.match(await page.locator('#previous-notes-list').textContent(),/Unit: Unit 3/);
+    assert.match(await page.locator('#previous-notes-list').textContent(),/Next class: Review the map activity/);
+    assert.equal(await page.locator('.student-row').first().getAttribute('data-attendance'),'late');
+    await page.evaluate(()=>{state.attendanceHistory=state.checklists;state.attendanceHistoryIndex=0;renderAttendanceHistory();});
+    assert.equal(await page.locator('.attendance-history-row.is-late').count(),1);
+    assert.equal(await page.locator('.attendance-history-row.is-excused').count(),1);
+    assert.equal(await page.locator('.attendance-history-row.is-late').evaluate(el=>getComputedStyle(el).backgroundColor),'rgb(241, 234, 255)');
+    assert.equal(await page.locator('.attendance-history-row.is-excused').evaluate(el=>getComputedStyle(el).backgroundColor),'rgb(233, 243, 255)');
     // Turning formatting off must also survive the sanitizer and save path.
     await selectText('Bold');await page.getByRole('button',{name:'Bold',exact:true}).click();
     assert.doesNotMatch(await page.evaluate(()=>readLessonNotes()),/<strong>/);

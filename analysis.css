@@ -159,3 +159,8 @@
   .analysis-page .topbar-actions .button {font-size:12px;}
   .analysis-page .connection-state {display:none;}
 }
+:root .attendance-status { display: inline-block; padding: 2px 5px; border-radius: 4px; font-weight: 650; text-transform: capitalize; }
+:root .attendance-status.is-present { color: #176044; background: #e7f6ee; }
+:root .attendance-status.is-absent { color: #914800; background: #fff0df; }
+:root .attendance-status.is-late { color: #653b99; background: #f1eaff; }
+:root .attendance-status.is-excused { color: #255c91; background: #e9f3ff; }

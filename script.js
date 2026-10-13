@@ -8,6 +8,10 @@ const SESSION_STORAGE_KEY = "teaching-dashboard-session";
 const TZ = "Asia/Tashkent";
 const WEEKDAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 const STANDARD_LESSON_TYPES = ["Lesson", "Quiz", "Exam"];
+const ATTENDANCE_OPTIONS = [["present", "Present"], ["absent", "Absent"], ["late", "Late"], ["excused", "Excused"]];
+const LESSON_DETAIL_FIELDS = ["unit", "lessonTitle", "nextClassNotes"];
+const attends = status => status === "present" || status === "late";
+const attendanceLabel = status => ATTENDANCE_OPTIONS.find(([value]) => value === status)?.[1] || status;
 const $ = (selector) => document.querySelector(selector);
 const state = {
   endpoint: localStorage.getItem(ENDPOINT_STORAGE_KEY) || CONFIGURED_ENDPOINT || "",
@@ -22,6 +26,8 @@ const state = {
   studentsReady: false,
   meetingScheduleReady: false,
   studentArchiveReady: false,
+  extendedAttendanceReady: false,
+  lessonDetailsReady: false,
   rosterAudit: null,
   rosterAuditBusy: false,
   selectedDate: todayInTashkent(),
@@ -240,6 +246,8 @@ function applyDashboardData(data) {
   state.studentsReady = hasStudentData;
   state.meetingScheduleReady = data.meetingScheduleVersion === 1;
   state.studentArchiveReady = data.studentArchiveVersion === 1;
+  state.extendedAttendanceReady = data.extendedAttendanceVersion === 1;
+  state.lessonDetailsReady = data.lessonDetailsVersion === 1;
   state.rosterAudit = null;
   if (!state.selectedClassId) {
     const lessons = lessonsOn(state.selectedDate);
@@ -593,13 +601,19 @@ function saveDraft() {
   const lessonType = lessonTypeValue();
   const lessonStatus = document.querySelector('input[name="lesson-record-status"]:checked')?.value || "Done";
   const saved = logFor(state.selectedClassId, state.selectedDate);
+  const details = readLessonDetails();
   if (state.savingLessonKey === draftKey() || notes !== (saved?.notes || "") || rating !== String(saved?.rating || "") ||
-      lessonType !== (saved?.lessonType || "Lesson") || lessonStatus !== (saved?.lessonStatus || "Done")) {
-    state.drafts.set(draftKey(), {notes, rating, lessonType, lessonStatus});
+      lessonType !== (saved?.lessonType || "Lesson") || lessonStatus !== (saved?.lessonStatus || "Done") ||
+      LESSON_DETAIL_FIELDS.some(key => details[key] !== (saved?.[key] || ""))) {
+    state.drafts.set(draftKey(), {notes, rating, lessonType, lessonStatus, ...details});
   } else {
     state.drafts.delete(draftKey());
   }
   updateTeachingSaveState();
+}
+
+function readLessonDetails() {
+  return Object.fromEntries(LESSON_DETAIL_FIELDS.map(key => [key, $("#lesson-" + key).value.trim()]));
 }
 
 function lessonTypeValue() {
@@ -626,6 +640,8 @@ function renderLesson() {
   $("#lesson-class-name").textContent = item.name;
   $("#lesson-class-detail").textContent = [item.subject, item.start + "–" + item.end, item.room && "Room " + item.room].filter(Boolean).join(" · ");
   showLessonNotes($("#lesson-notes"), draft ? draft.notes : saved?.notes || "");
+  LESSON_DETAIL_FIELDS.forEach(key => { $("#lesson-" + key).value = (draft || saved)?.[key] || ""; });
+  $("#record-features-hint").hidden = state.lessonDetailsReady && state.extendedAttendanceReady;
   const lessonType = draft ? draft.lessonType : saved?.lessonType || "Lesson";
   const standardType = STANDARD_LESSON_TYPES.includes(lessonType);
   document.querySelectorAll('input[name="lesson-type"]').forEach(input => {
@@ -766,14 +782,15 @@ async function checkRosterIds() {
 }
 
 function markScore(item) {
-  return item.attendance === "absent" ? -1 : Number(item.participation);
+  return item.attendance === "absent" ? -1 : item.attendance === "excused" ? 0 : Number(item.participation) || 0;
 }
 
 function markReason(item) {
   if (item.attendance === "absent") return "Absent −1";
-  if (Number(item.participation) === 1) return "Participation +1";
-  if (Number(item.participation) === -1) return "Noise −1";
-  return "Present 0";
+  if (item.attendance === "excused") return "Excused 0";
+  if (Number(item.participation) === 1) return attendanceLabel(item.attendance) + " · Participation +1";
+  if (Number(item.participation) === -1) return attendanceLabel(item.attendance) + " · Noise −1";
+  return attendanceLabel(item.attendance) + " 0";
 }
 
 function pointLabel(value) {
@@ -823,12 +840,15 @@ function updateChecklistSaveButton() {
 function updateChecklistStats() {
   const records = readChecklistForm();
   const present = records.filter(item => item.attendance === "present").length;
-  const absent = records.length - present;
+  const absent = records.filter(item => item.attendance === "absent").length;
+  const late = records.filter(item => item.attendance === "late").length;
+  const excused = records.filter(item => item.attendance === "excused").length;
   const total = records.reduce((sum, item) => sum + markScore(item), 0);
   const container = $("#checklist-stats");
   container.replaceChildren();
   [[records.length + " students", ""], [present + " present", "present"],
-    [absent + " absent", "absent"], ["Session score " + (total > 0 ? "+" : "") + total, ""]]
+    [absent + " absent", "absent"], [late + " late", "late"], [excused + " excused", "excused"],
+    ["Session score " + (total > 0 ? "+" : "") + total, ""]]
     .forEach(([label, style]) => {
       const chip = document.createElement("span");
       chip.className = "checklist-stat " + style;
@@ -849,13 +869,13 @@ function filterStudentRows() {
 }
 
 function updateStudentRow(row) {
-  const absent = row.dataset.attendance === "absent";
+  const unavailable = !attends(row.dataset.attendance);
   row.querySelectorAll(".attendance-group .choice-button").forEach(button => {
     button.setAttribute("aria-pressed", String(button.dataset.value === row.dataset.attendance));
   });
   row.querySelectorAll(".participation-group .choice-button").forEach(button => {
     button.setAttribute("aria-pressed", String(Number(button.dataset.value) === Number(row.dataset.participation)));
-    button.disabled = absent;
+    button.disabled = unavailable;
   });
   const classTotal = state.studentRecords.filter(item => item.studentId === row.dataset.studentId &&
     item.classId === state.selectedClassId).reduce((sum, item) => sum + markScore(item), 0);
@@ -924,15 +944,17 @@ function renderStudents() {
     attendance.className = "choice-group attendance-group";
     attendance.setAttribute("role", "group");
     attendance.setAttribute("aria-label", "Attendance for " + studentName(item.studentId));
-    [["present", "Present", "is-present"], ["absent", "Absent", "is-absent"]].forEach(([value, label, style]) => {
+    ATTENDANCE_OPTIONS.forEach(([value, label]) => {
       const button = document.createElement("button");
       button.type = "button";
-      button.className = "choice-button " + style;
+      button.className = "choice-button is-" + value;
+      button.disabled = !state.extendedAttendanceReady && (value === "late" || value === "excused");
+      if (button.disabled) button.title = "Update Apps Script to enable Late and Excused";
       button.dataset.value = value;
       button.textContent = label;
       button.addEventListener("click", () => {
         row.dataset.attendance = value;
-        if (value === "absent") row.dataset.participation = "0";
+        if (!attends(value)) row.dataset.participation = "0";
         updateStudentRow(row);
         saveChecklistDraft();
         updateChecklistStats();
@@ -1074,6 +1096,7 @@ function renderPreviousNotes() {
     notes.className = "lesson-notes-content";
     showLessonNotes(notes, item.notes || "No notes added.");
     entry.append(date, notes);
+    appendLessonDetails(entry, item);
     const details = document.createElement("small");
     details.textContent = (item.lessonType || "Lesson") + " · " + (item.lessonStatus || "Done");
     entry.append(details);
@@ -1098,6 +1121,18 @@ function renderPreviousNotes() {
     list.append(entry);
   });
   list.scrollTop = list.scrollHeight;
+}
+
+function appendLessonDetails(entry, item) {
+  [["unit", "Unit"], ["lessonTitle", "Lesson title"], ["nextClassNotes", "Next class"]].forEach(([key, label]) => {
+    if (!item[key]) return;
+    const detail = document.createElement("p");
+    detail.className = "lesson-record-detail";
+    const title = document.createElement("strong");
+    title.textContent = label + ": ";
+    detail.append(title, document.createTextNode(item[key]));
+    entry.append(detail);
+  });
 }
 
 function openAttendanceHistory() {
@@ -1133,14 +1168,14 @@ function renderAttendanceHistory() {
   }
   records.forEach(record => {
     const row = document.createElement("article");
-    row.className = "attendance-history-row" + (record.attendance === "absent" ? " is-absent" : "");
+    row.className = "attendance-history-row is-" + record.attendance;
     const name = document.createElement("strong");
     name.textContent = record.studentName || studentName(record.studentId);
     const attendance = document.createElement("span");
-    attendance.textContent = record.attendance === "absent" ? "Absent" : "Present";
+    attendance.textContent = attendanceLabel(record.attendance);
     const participation = document.createElement("span");
     const points = Number(record.participation);
-    participation.textContent = record.attendance === "absent" ? "—" : points > 0 ? "+1" : points < 0 ? "−1 (Noise)" : "0";
+    participation.textContent = !attends(record.attendance) ? "—" : points > 0 ? "+1" : points < 0 ? "−1 (Noise)" : "0";
     const note = document.createElement("p");
     note.textContent = record.note || "No note";
     row.append(name, attendance, participation, note);
@@ -1793,6 +1828,10 @@ async function saveCurrentChecklist() {
   const key = checklistKey();
   const records = readChecklistForm();
   if (!records.length && !savedChecklist()) return false;
+  if (!state.extendedAttendanceReady && records.some(item => item.attendance === "late" || item.attendance === "excused")) {
+    setNotice("Update Apps Script before saving Late or Excused attendance.", true);
+    return false;
+  }
   const checklist = {schemaVersion: 1, classId: state.selectedClassId, date: state.selectedDate,
     revision: savedChecklist()?.revision || "", records};
   state.pending = true;
@@ -1836,6 +1875,10 @@ $("#lesson-notes").addEventListener("input", () => {
   $("#lesson-status").textContent = "Unsaved changes";
   $("#lesson-status").classList.remove("error");
 });
+LESSON_DETAIL_FIELDS.forEach(key => $("#lesson-" + key).addEventListener("input", () => {
+  saveDraft();
+  $("#lesson-status").textContent = "Unsaved changes";
+}));
 $("#lesson-notes").addEventListener("paste", event => {
   event.preventDefault();
   document.execCommand("insertText", false, event.clipboardData.getData("text/plain"));
@@ -1908,9 +1951,15 @@ async function saveCurrentLesson() {
     notes: readLessonNotes(),
     rating: rating ? Number(rating) : null,
     lessonType,
-    lessonStatus
+    lessonStatus,
+    ...readLessonDetails()
   };
-  const submittedDraft = {notes: record.notes, rating: rating || "", lessonType, lessonStatus};
+  const submittedDraft = {notes: record.notes, rating: rating || "", lessonType, lessonStatus, ...readLessonDetails()};
+  if (!state.lessonDetailsReady && LESSON_DETAIL_FIELDS.some(key => record[key])) {
+    $("#lesson-status").textContent = "Update Apps Script and run setupDashboard before saving lesson details.";
+    $("#lesson-status").classList.add("error");
+    return false;
+  }
   if (record.notes.length > 5000) {
     $("#lesson-status").textContent = "Notes are too long. Shorten them before saving.";
     $("#lesson-status").classList.add("error");
@@ -1988,7 +2037,7 @@ function openRecordDialog(item, archive) {
   $("#record-reason").value = "";
   $("#record-error").textContent = "";
   $("#record-confirm").textContent = archive ? "Confirm deletion" : "Save changes";
-  ["className", "subject", "start", "end", "room", "lessonType", "lessonStatus", "rating"].forEach(key => {
+  ["className", "subject", "start", "end", "room", "lessonType", "lessonStatus", "rating", ...LESSON_DETAIL_FIELDS].forEach(key => {
     $("#record-" + key).value = item[key] || (key === "lessonType" ? "Lesson" : key === "lessonStatus" ? "Done" : "");
   });
   showLessonNotes($("#record-notes"), item.notes || "");
@@ -2003,7 +2052,11 @@ $("#record-form").addEventListener("submit", async event => {
   const reason = $("#record-reason").value.trim();
   if (archivingRecord && !reason) { $("#record-error").textContent = "Explain why before confirming."; return; }
   const record = {...item};
-  ["className", "subject", "start", "end", "room", "lessonType", "lessonStatus", "rating"].forEach(key => { record[key] = $("#record-" + key).value; });
+  ["className", "subject", "start", "end", "room", "lessonType", "lessonStatus", "rating", ...LESSON_DETAIL_FIELDS].forEach(key => { record[key] = $("#record-" + key).value; });
+  if (!archivingRecord && !state.lessonDetailsReady && LESSON_DETAIL_FIELDS.some(key => record[key])) {
+    $("#record-error").textContent = "Update Apps Script and run setupDashboard before saving lesson details.";
+    return;
+  }
   const safe = sanitizeLessonNotes($("#record-notes"));
   record.notes = LESSON_NOTES_HTML_START + safe.innerHTML + "</div>";
   state.pending = true;
