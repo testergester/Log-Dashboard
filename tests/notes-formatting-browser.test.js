@@ -47,6 +47,39 @@ const {chromium} = require('playwright');
     assert.equal(await page.evaluate(()=>!!(document.querySelector('#previous-records').compareDocumentPosition(document.querySelector('.lesson-surface')) & Node.DOCUMENT_POSITION_FOLLOWING)),true,'history precedes the editor in DOM order');
     await summary.click();
     assert.equal(await page.locator('.previous-note').first().isVisible(),true);
+    await page.evaluate(() => {
+      state.logs = Array.from({length: 12}, (_, index) => ({
+        classId: '10A', date: '2026-09-' + String(index + 1).padStart(2, '0'),
+        notes: 'Earlier lesson ' + (index + 1)
+      })).concat(state.logs);
+      renderPreviousNotes();
+    });
+    const noteDates = await page.locator('.previous-note-date').allTextContents();
+    assert.match(noteDates[0],/Sep 1, 2026/);
+    assert.match(noteDates.at(-1),/Oct 6, 2026/);
+    assert.match(await page.locator('#previous-records-hint').innerText(),/Latest:.*Oct 6/);
+    const notesAtBottom = () => page.locator('#previous-notes-list').evaluate(el =>
+      el.scrollHeight > el.clientHeight && Math.abs(el.scrollHeight - el.clientHeight - el.scrollTop) <= 1);
+    assert.equal(await notesAtBottom(),true,'newest note is visible after rendering');
+    await page.locator('#previous-notes-list').evaluate(el => { el.scrollTop = 0; });
+    await summary.click();
+    await summary.click();
+    await page.waitForFunction(() => {
+      const el = document.querySelector('#previous-notes-list');
+      return Math.abs(el.scrollHeight - el.clientHeight - el.scrollTop) <= 1;
+    });
+    await page.evaluate(() => {
+      state.attendanceHistory = [{classId: '10A', date: '2026-10-06'}];
+      state.attendanceHistoryIndex = 0;
+      state.studentRecords = [
+        {classId: '10A', date: '2026-10-06', studentId: 's0', attendance: 'absent'},
+        {classId: '10A', date: '2026-10-06', studentId: 's1', attendance: 'present', participation: 0}
+      ];
+      renderAttendanceHistory();
+    });
+    assert.equal(await page.locator('.attendance-history-row.is-absent').count(),1);
+    assert.equal(await page.locator('.attendance-history-row.is-absent').evaluate(el => getComputedStyle(el).backgroundColor),'rgb(255, 240, 223)');
+    assert.equal(await page.locator('.attendance-history-row:not(.is-absent)').count(),1);
     await summary.press('Space');
     assert.equal(await history.evaluate(el=>el.open),false,'keyboard can collapse the disclosure');
     const search=page.getByRole('searchbox',{name:'Find a student'});

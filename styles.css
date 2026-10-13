@@ -335,6 +335,9 @@ dialog::backdrop { background: #13284a8c; }
 .attendance-history-row { border-bottom: 1px solid var(--line); font-size: .88rem; }
 .attendance-history-row:last-child { border-bottom: 0; }
 .attendance-history-row strong { color: var(--navy); }
+.attendance-history-row.is-absent { background: #fff0df; box-shadow: inset 4px 0 #e58a24; }
+.attendance-history-row.is-absent strong,
+.attendance-history-row.is-absent > span:nth-child(2) { color: #914800; font-weight: 800; }
 .attendance-history-row p { margin: 0; color: var(--muted); white-space: pre-wrap; }
 .class-form { display: flex; flex-direction: column; gap: .45rem; padding: 1.45rem; }
 .dialog-heading { margin-bottom: .7rem; }

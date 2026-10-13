@@ -1052,10 +1052,10 @@ function renderPreviousNotes() {
   list.replaceChildren();
   if (!state.selectedClassId) return;
   const previous = state.logs.filter(item => item.classId === state.selectedClassId && item.date < state.selectedDate)
-    .sort((a, b) => b.date.localeCompare(a.date));
+    .sort((a, b) => a.date.localeCompare(b.date));
   $("#previous-records-hint").textContent = previous.length
     ? previous.length + (previous.length === 1 ? " saved lesson" : " saved lessons") + " · Latest: " +
-      formatDate(previous[0].date, {weekday: "short", month: "short", day: "numeric"})
+      formatDate(previous[previous.length - 1].date, {weekday: "short", month: "short", day: "numeric"})
     : "No saved lessons yet";
   if (!previous.length) {
     const empty = document.createElement("p");
@@ -1097,6 +1097,7 @@ function renderPreviousNotes() {
     entry.append(actions);
     list.append(entry);
   });
+  list.scrollTop = list.scrollHeight;
 }
 
 function openAttendanceHistory() {
@@ -1132,7 +1133,7 @@ function renderAttendanceHistory() {
   }
   records.forEach(record => {
     const row = document.createElement("article");
-    row.className = "attendance-history-row";
+    row.className = "attendance-history-row" + (record.attendance === "absent" ? " is-absent" : "");
     const name = document.createElement("strong");
     name.textContent = record.studentName || studentName(record.studentId);
     const attendance = document.createElement("span");
@@ -1445,6 +1446,12 @@ $("#back-to-schedule").addEventListener("click", () => {
 });
 $("#student-search").addEventListener("input", filterStudentRows);
 $("#previous-attendance-button").addEventListener("click", openAttendanceHistory);
+$("#previous-records").addEventListener("toggle", event => {
+  if (event.currentTarget.open) {
+    const list = $("#previous-notes-list");
+    list.scrollTop = list.scrollHeight;
+  }
+});
 $("#attendance-history-older").addEventListener("click", () => {
   if (state.attendanceHistoryIndex < state.attendanceHistory.length - 1) state.attendanceHistoryIndex++;
   renderAttendanceHistory();
