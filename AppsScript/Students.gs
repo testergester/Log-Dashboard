@@ -38,9 +38,16 @@ function archiveStudent_(request) {
   try {
     const spreadsheet = spreadsheet_();
     const students = spreadsheet.getSheetByName(DASHBOARD.students);
-    const studentRow = findRow_(students, function(row) { return row[0] === studentId; });
+    const matches = [];
+    rows_(students).forEach(function(row, index) {
+      if (String(row[0] || '').trim() === studentId) matches.push(index + 2);
+    });
+    if (matches.length > 1) throw new Error('Students has duplicate IDs. Correct them before archiving. No student was removed.');
+    const studentRow = matches.length ? matches[0] : 0;
     if (!studentRow) throw new Error('Student no longer exists. Reload the dashboard.');
     const student = students.getRange(studentRow, 1, 1, DASHBOARD.studentHeaders.length).getDisplayValues()[0];
+    // Keep exact IDs consistent with attendance and membership joins.
+    if (student[0] !== studentId) throw new Error('Student ID contains extra spaces. Correct it before archiving. No student was removed.');
     const groups = [];
     function addGroup(groupId, role) {
       if (!groupId) return;
@@ -67,10 +74,31 @@ function archiveStudent_(request) {
       if (row[3] === studentId) addGroup(row[0], 'attendance');
     });
     const archived = ensureArchivedStudents_(spreadsheet);
-    const archivedRow = findRow_(archived, function(row) { return row[0] === studentId; });
+    const archiveRows = rows_(archived);
+    let lastRecordRow = 1;
+    archiveRows.forEach(function(row, index) {
+      // Empty Recover checkboxes are not archive records. appendRow would
+      // place new entries below any prefilled FALSE values in that column.
+      if (!row.slice(0, 6).some(function(value) { return String(value).trim(); })) return;
+      lastRecordRow = index + 2;
+      const ids = JSON.parse(row[3] || '[]');
+      if (!Array.isArray(ids)) throw new Error('ArchivedStudents has invalid Student IDs JSON. Correct it before archiving. No student was removed.');
+      if (String(row[0] || '').trim() === studentId || ids.some(function(id) { return String(id).trim() === studentId; })) {
+        throw new Error('Student ID already exists in ArchivedStudents. Review the archive before retrying. No student was removed.');
+      }
+    });
     const archiveEntry = [studentId, student[1], JSON.stringify(groups), JSON.stringify([studentId]), today_(), student[3], false];
-    if (archivedRow) archived.getRange(archivedRow, 1, 1, archiveEntry.length).setValues([archiveEntry]);
-    else archived.appendRow(archiveEntry);
+    const targetRow = lastRecordRow + 1;
+    if (targetRow > archived.getMaxRows()) archived.insertRowsAfter(archived.getMaxRows(), targetRow - archived.getMaxRows());
+    archived.getRange(targetRow, 1, 1, archiveEntry.length).setValues([archiveEntry]);
+    archived.getRange(targetRow, 7).setNumberFormat('General')
+      .setDataValidation(SpreadsheetApp.newDataValidation().requireCheckbox().build());
+    // Confirm the archive is persisted before removing any source rows.
+    SpreadsheetApp.flush();
+    const saved = archived.getRange(targetRow, 1, 1, 6).getDisplayValues()[0];
+    if (archiveEntry.slice(0, 6).some(function(value, index) { return saved[index] !== String(value); })) {
+      throw new Error('Student archive could not be verified. No student was removed. Check ArchivedStudents before retrying.');
+    }
     enrollmentRows.reverse().forEach(function(row) { enrollments.deleteRow(row); });
     students.deleteRow(studentRow);
     return loadDashboard_();
@@ -82,6 +110,7 @@ function archiveStudent_(request) {
 function ensureArchivedStudents_(spreadsheet) {
   ensureTab_(spreadsheet, DASHBOARD.archivedStudents, DASHBOARD.archivedStudentHeaders);
   const sheet = spreadsheet.getSheetByName(DASHBOARD.archivedStudents);
+  if (sheet.getMaxRows() < 2) sheet.insertRowsAfter(1, 1);
   // Setting validation preserves existing selections when setup runs again.
   sheet.getRange(2, 7, sheet.getMaxRows() - 1, 1)
     .setNumberFormat('General')

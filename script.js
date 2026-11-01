@@ -1347,6 +1347,11 @@ async function archiveStudent(studentId) {
   state.pending = true;
   try {
     const data = await request('archiveStudent', {token: state.token, studentId});
+    if (!Array.isArray(data.archivedStudents) || !Array.isArray(data.students) ||
+        !data.archivedStudents.some(item => item.id === studentId && item.name === student.name) ||
+        data.students.some(item => item.id === studentId)) {
+      throw new Error('Student archive was not confirmed. Reload the dashboard and check ArchivedStudents.');
+    }
     state.checklistDrafts.forEach((rows, key) => {
       const [classId, date] = key.split('|');
       const hasSavedChecklist = data.checklists.some(item => item.classId === classId && item.date === date);

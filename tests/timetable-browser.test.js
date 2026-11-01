@@ -1,6 +1,7 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+fs.mkdirSync(path.join(__dirname,'..','screenshots'),{recursive:true});
 const {chromium} = require('playwright');
 
 // The school's timetable, indexed by period and then Monday–Friday.
@@ -73,7 +74,7 @@ const logs = [{classId:'11A',date:'2026-10-08',className:'11A',subject:'English'
     assert.match(await page.locator('.day-period').nth(2).innerText(),/11A/);
     await week.click();
     await preview.hover();
-    await page.screenshot({path:path.join(__dirname,'..','timetable-week-preview.png'),fullPage:true});
+    await page.screenshot({path:path.join(__dirname,'..','screenshots','timetable-week-preview.png'),fullPage:true});
     await page.mouse.move(2,2);
     await preview.waitFor({state:'hidden'});
     await week.click();
@@ -118,16 +119,16 @@ const logs = [{classId:'11A',date:'2026-10-08',className:'11A',subject:'English'
     await page.evaluate(data=>applyDashboardData({classes:data,logs:[]}),classes);
     await page.setViewportSize({width:841,height:639});
     await week.click();
-    await page.screenshot({path:path.join(__dirname,'..','timetable-compact-preview.png'),fullPage:true});
+    await page.screenshot({path:path.join(__dirname,'..','screenshots','timetable-compact-preview.png'),fullPage:true});
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
     await page.keyboard.press('Escape');
     await page.setViewportSize({width:390,height:844});
     await page.evaluate(() => changeDate('2026-10-08'));
-    await page.screenshot({path:path.join(__dirname,'..','timetable-day-mobile.png'),fullPage:true});
+    await page.screenshot({path:path.join(__dirname,'..','screenshots','timetable-day-mobile.png'),fullPage:true});
     // Touch click opens without relying on hover and stays open until outside click.
     await week.dispatchEvent('click',{detail:1});
     await preview.waitFor();
-    await page.screenshot({path:path.join(__dirname,'..','timetable-week-mobile.png'),fullPage:true});
+    await page.screenshot({path:path.join(__dirname,'..','screenshots','timetable-week-mobile.png'),fullPage:true});
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
     await page.locator('.brand-name').click();
     await preview.waitFor({state:'hidden'});

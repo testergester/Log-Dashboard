@@ -1,6 +1,7 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+fs.mkdirSync(path.join(__dirname,'..','screenshots'),{recursive:true});
 const {chromium} = require('playwright');
 (async()=>{
   const browser=await chromium.launch({headless:true,...(process.env.CHROME_PATH?{executablePath:process.env.CHROME_PATH}:{})});
@@ -192,7 +193,7 @@ const {chromium} = require('playwright');
       assert.ok(await page.evaluate(()=>scrollY>0),'the page scrolls to the last student');
       assert.equal(await page.locator('.attendance-table-scroll').evaluate(el=>el.scrollTop),0,'roster does not need an internal vertical scroll');
       await page.evaluate(()=>window.scrollTo(0,0));
-      await page.screenshot({path:path.join(__dirname,'..','dashboard-ui-'+size.width+'.png'),fullPage:true});
+      await page.screenshot({path:path.join(__dirname,'..','screenshots','dashboard-ui-'+size.width+'.png'),fullPage:true});
     }
     await page.setViewportSize({width:507,height:827});
     await page.locator('#week-view-button').click();
@@ -209,7 +210,7 @@ const {chromium} = require('playwright');
     assert.equal(await page.locator('#today-button').innerText(),'Today');
     const filter8E=page.getByRole('button',{name:'8E',exact:true});
     assert.equal(await filter8E.evaluate(el=>getComputedStyle(el).backgroundColor),week8E,'group pills match the week palette');
-    await page.screenshot({path:path.join(__dirname,'..','dashboard-week-mobile-507.png')});
+    await page.screenshot({path:path.join(__dirname,'..','screenshots','dashboard-week-mobile-507.png')});
     await page.setViewportSize({width:1414,height:827});
     await page.waitForFunction(()=>parseFloat(document.querySelector('#week-preview').style.left)>200);
     const desktopBox=await panel.boundingBox();
@@ -222,7 +223,7 @@ const {chromium} = require('playwright');
     const cardStyle=await history.evaluate(el=>({border:getComputedStyle(el).borderTopWidth,radius:getComputedStyle(el).borderRadius}));
     assert.equal(cardStyle.border,'1px');
     assert.equal(cardStyle.radius,'8px');
-    await page.screenshot({path:path.join(__dirname,'..','dashboard-updated-controls.png')});
+    await page.screenshot({path:path.join(__dirname,'..','screenshots','dashboard-updated-controls.png')});
     assert.deepEqual(errors,[]);
     console.log('Notes formatting browser checks passed: accessible student search, bold/italic selection and toggles, saved reload, keyboard shortcut, sanitized markup, and desktop/tablet/mobile layout.');
   } finally {await browser.close();}

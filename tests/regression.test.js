@@ -348,14 +348,18 @@ function testMultipleWeeklyMeetings() {
 function testArchiveStudent() {
   const sheet = rows => ({
     rows,
+    getMaxRows() { return 100; },
     deleteRow(row) { rows.splice(row - 1, 1); },
     appendRow(row) { rows.push(row); },
     getRange(row, column, height = 1, width = 1) { return {
       getDisplayValues() { return Array.from({length: height}, (_, offset) =>
-        rows[row - 1 + offset].slice(column - 1, column - 1 + width)); },
+        rows[row - 1 + offset].slice(column - 1, column - 1 + width).map(String)); },
       setValues(values) { values.forEach((cells, offset) => cells.forEach((value, index) => {
+        rows[row - 1 + offset] ||= [];
         rows[row - 1 + offset][column - 1 + index] = value;
-      })); }
+      })); },
+      setNumberFormat() { return this; },
+      setDataValidation() { return this; }
     }; }
   });
   const payload = (classId, records) => ({schemaVersion: 1, classId, lessonDate: '2026-09-24',
@@ -378,6 +382,7 @@ function testArchiveStudent() {
       archivedStudentHeaders: Array(6), enrollments: 'ClassStudents', studentRecords: 'StudentMeetingRecords',
       checklists: 'AttendanceChecklists'},
     LockService: {getScriptLock: () => ({waitLock() {}, releaseLock() {}})},
+    SpreadsheetApp: {flush() {}, newDataValidation: () => ({requireCheckbox() { return this; }, build() { return {}; }})},
     spreadsheet_: () => ({getSheetByName: name => sheets[name]}),
     rows_: source => source.rows.slice(1).map(row => row.slice()),
     rowsWithDates_: source => source.rows.slice(1).map(row => row.slice()),
@@ -438,6 +443,29 @@ async function testArchiveRequiresDeployedBackend() {
   await context.archiveStudent('student-a');
   assert.equal(requested, false);
   assert.match(notice, /updated Apps Script backend/);
+}
+
+async function testArchiveConfirmation() {
+  for (const outcome of ['missing-archive', 'still-active', 'wrong-name', 'success']) {
+    const {context} = frontend();
+    vm.runInContext("state.students = [{id: 'ST-11B-12345678', name: 'Student A'}]; state.studentArchiveReady = true;", context);
+    let applied = false, notice = '';
+    context.confirm = () => true;
+    context.saveChecklistDraft = () => {};
+    context.updateChecklistSaveButton = () => {};
+    context.setNotice = message => { notice = message; };
+    context.handleError = error => { notice = error.message; };
+    context.applyDashboardData = () => { applied = true; };
+    context.request = async () => ({
+      students: outcome === 'still-active' ? [{id: 'ST-11B-12345678'}] : [],
+      archivedStudents: outcome === 'missing-archive' ? [] : [{id: 'ST-11B-12345678', name: outcome === 'wrong-name' ? 'Other student' : 'Student A'}],
+      checklists: []
+    });
+    await context.archiveStudent('ST-11B-12345678');
+    assert.equal(applied, outcome === 'success');
+    assert.match(notice, outcome === 'success' ? /moved to ArchivedStudents/ : /archive was not confirmed/);
+    assert.equal(vm.runInContext('state.pending', context), false);
+  }
 }
 
 function testStudentIdMigration() {
@@ -727,5 +755,6 @@ async function testCombinedTeachingSave() {
   await testChecklistFrontend();
   await testCombinedTeachingSave();
   await testArchiveRequiresDeployedBackend();
+  await testArchiveConfirmation();
   console.log('Regression checks passed: spreadsheet and dashboard roster ID checks, weekly meetings, attendance conflicts, student archiving, student IDs, sheet edits and pastes, guest meetings, migration, read-only load, and saved edits.');
 })().catch(error => { console.error(error); process.exitCode = 1; });
