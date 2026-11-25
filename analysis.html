@@ -3,17 +3,15 @@
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#f3f5f1"><title>Group analysis · Teaching desk</title>
-  <link rel="stylesheet" href="./styles.css?v=a3eaf2c3522d"><link rel="stylesheet" href="./analysis.css?v=c09866b9265c">
-  <script src="./crash-log-messages.js?v=d32c1323ac93" defer></script>
-  <script src="./crash-log.js?v=6bd59d855907" defer></script>
-  <script src="./analysis-model.js?v=d883491c032b" defer></script><script src="./analysis.js?v=2853970da37d" defer></script>
+  <link rel="stylesheet" href="./src/styles/styles.css"><link rel="stylesheet" href="./src/styles/analysis.css">
+  <script type="module" src="./src/analysis.js"></script>
   <meta name="dashboard-version" content="17f53a1ea6ba">
 </head>
 <body class="analysis-page">
 <div class="app-shell">
   <header class="topbar">
     <a class="brand" href="./index.html"><span class="brand-mark" aria-hidden="true">T</span><div><div class="brand-name">Teaching desk</div><div class="brand-caption">Group & student analysis</div></div></a>
-    <div class="topbar-actions"><a class="button button-quiet" href="./index.html">← Teaching week</a><span class="connection-state" id="connection-state">Not connected</span><button class="button button-quiet" id="settings-button">Settings</button><button class="button button-quiet" id="sign-out-button" hidden>Sign out</button></div>
+    <div class="topbar-actions"><a class="button button-quiet" href="./index.html">← Teaching week</a><a class="button button-quiet" href="./astryx-analysis.html">✦ Astryx version</a><span class="connection-state" id="connection-state">Not connected</span><button class="button button-quiet" id="settings-button">Settings</button><button class="button button-quiet" id="sign-out-button" hidden>Sign out</button></div>
   </header>
   <main class="analysis-main">
     <section class="analysis-heading"><div><p class="eyebrow">THE BIGGER PICTURE</p><h1>Group analysis</h1><p class="heading-detail">Attendance, participation points, and notes for your groups.</p></div><button class="button button-quiet" id="refresh-analysis" aria-label="Refresh records" hidden>↻ Refresh records</button></section>
@@ -21,23 +19,12 @@
       <section class="access-panel" id="access-panel" aria-labelledby="access-title">
         <div class="access-content">
           <p class="eyebrow">PRIVATE WORKSPACE</p>
-          <h2 id="access-title">Connect your teaching records</h2>
-          <p id="access-description">Add the web app URL from your Apps Script deployment. It stays on this device.</p>
-          <form id="endpoint-form" class="access-form">
-            <label for="endpoint-input">Apps Script web app URL</label>
-            <div class="input-action">
-              <input id="endpoint-input" type="url" inputmode="url" placeholder="https://script.google.com/macros/s/…/exec" autocomplete="url" required>
-              <button type="submit" class="button button-primary">Connect</button>
-            </div>
-            <p class="field-hint">Use the deployed URL ending in <code>/exec</code>.</p>
+          <h2 id="access-title">Your teaching workspace</h2>
+          <p id="access-description">Sign in with Google to open your private teaching workspace.</p>
+          <form id="login-form" class="access-form">
+            <button type="submit" class="button button-primary button-wide" id="login-button">Continue with Google</button>
           </form>
-          <form id="login-form" class="access-form" hidden>
-            <label for="username-input">Username</label>
-            <input id="username-input" name="username" type="text" autocomplete="username" required>
-            <label for="password-input">Password</label>
-            <input id="password-input" name="password" type="password" autocomplete="current-password" required>
-            <button type="submit" class="button button-primary button-wide" id="login-button">Sign in</button>
-          </form>
+          <p class="field-hint" id="firebase-setup-hint" hidden>Firebase setup is required. See the project README before connecting this app.</p>
           <p class="access-error" id="access-error" role="alert" hidden></p>
         </div>
       </section>
@@ -69,19 +56,9 @@
   </main>
 </div>
         <dialog class="student-detail" id="student-detail" aria-labelledby="student-detail-title"><div class="analysis-card-heading"><div><p class="eyebrow">STUDENT HISTORY</p><h2 id="student-detail-title" tabindex="-1"></h2><p id="student-detail-subtitle"></p></div><button class="button button-quiet" id="close-student-detail">Close</button></div><div id="student-detail-body"></div></dialog>
-  <dialog id="diagnostics-dialog" aria-labelledby="diagnostics-title">
-    <div class="dialog-heading"><h2 id="diagnostics-title">Settings &amp; activity log</h2><button type="button" class="button button-quiet" id="diagnostics-close">Close</button></div>
-    <p class="diagnostics-description">Recent actions and errors stay on this device for up to 7 days. Typed text, passwords, student identities and teaching records are excluded. Each error includes the steps that preceded it.</p>
-    <div class="diagnostics-toolbar">
-      <label for="diagnostics-filter">Show <select id="diagnostics-filter"><option value="all">Actions &amp; errors</option><option value="errors">Errors only</option></select></label>
-      <button type="button" class="button button-quiet" id="diagnostics-refresh">Refresh log</button>
-      <button type="button" class="button button-quiet" id="diagnostics-download">Download log</button>
-      <button type="button" class="button button-quiet" id="diagnostics-clear">Clear log</button>
-    </div>
-    <p id="diagnostics-status" role="status"></p>
-    <div id="diagnostics-list" class="diagnostics-list" aria-label="Recorded activity and errors"></div>
-    <div class="dialog-actions"><button type="button" class="button button-quiet" id="change-connection-button">Change connection</button></div>
-    <p class="diagnostics-description">Sign out before changing the connection. The log keeps up to 500 steps and 100 errors per page visit, across the 8 most recent visits. Showing the latest 100 entries; downloads include the full retained log.</p>
-  </dialog>
-</body>
+  
+<dialog id="archives-dialog" aria-labelledby="archives-title">
+  <div class="dialog-heading"><h2 id="archives-title">Archives &amp; recovery</h2><button type="button" class="button" id="archives-close">Close</button></div>
+  <p id="archives-status" role="status"></p><div id="archives-list"></div>
+</dialog></body>
 </html>

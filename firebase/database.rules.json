@@ -1,0 +1,398 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+    "teachingDashboard": {
+      "v1": {
+        "users": {
+          "$uid": {
+            ".read": "auth != null && auth.uid === $uid && (auth.token.firebase.sign_in_provider === 'google.com' || (auth.token.firebase.sign_in_provider === 'password' && auth.token.aud === 'demo-dashfirebase'))",
+            "profile": {
+              ".write": "auth != null && auth.uid === $uid && (auth.token.firebase.sign_in_provider === 'google.com' || (auth.token.firebase.sign_in_provider === 'password' && auth.token.aud === 'demo-dashfirebase'))",
+              ".validate": "newData.hasChildren(['displayName'])",
+              "displayName": {
+                ".validate": "newData.isString() && newData.val().length <= 120"
+              },
+              "$other": {
+                ".validate": "false"
+              }
+            },
+            "timetable": {
+              "$record": {
+                ".write": "auth != null && auth.uid === $uid && (auth.token.firebase.sign_in_provider === 'google.com' || (auth.token.firebase.sign_in_provider === 'password' && auth.token.aud === 'demo-dashfirebase')) && newData.exists()",
+                ".validate": "newData.hasChildren([\"id\", \"name\", \"subject\", \"weekday\", \"start\", \"end\", \"room\", \"active\", \"meetings\", \"revision\", \"updatedAt\"]) && newData.child('start').val() < newData.child('end').val() && newData.child('meetings').hasChild('' + newData.child('weekday').val())",
+                "id": {
+                  ".validate": "newData.isString() && newData.val().length <= 200 && newData.val().length > 0 && (!data.exists() || newData.val() === data.val())"
+                },
+                "revision": {
+                  ".validate": "newData.isNumber() && newData.val() % 1 === 0 && ((!data.parent().exists() && newData.val() === 1) || (data.parent().exists() && newData.val() === data.val() + 1))"
+                },
+                "updatedAt": {
+                  ".validate": "newData.isNumber() && newData.val() === now"
+                },
+                "name": {
+                  ".validate": "newData.isString() && newData.val().length <= 120 && newData.val().length > 0"
+                },
+                "subject": {
+                  ".validate": "newData.isString() && newData.val().length <= 120 && newData.val().length > 0"
+                },
+                "weekday": {
+                  ".validate": "newData.isNumber() && newData.val() >= 1 && newData.val() <= 7 && newData.val() % 1 === 0"
+                },
+                "start": {
+                  ".validate": "newData.isString() && newData.val().matches(/^([01][0-9]|2[0-3]):[0-5][0-9]$/)"
+                },
+                "end": {
+                  ".validate": "newData.isString() && newData.val().matches(/^([01][0-9]|2[0-3]):[0-5][0-9]$/)"
+                },
+                "room": {
+                  ".validate": "newData.isString() && newData.val().length <= 120"
+                },
+                "active": {
+                  ".validate": "newData.isBoolean()"
+                },
+                "meetings": {
+                  ".validate": "newData.hasChildren()",
+                  "$day": {
+                    ".validate": "newData.hasChildren(['weekday','start','end','room']) && newData.child('start').val() < newData.child('end').val() && $day === '' + newData.child('weekday').val()",
+                    "weekday": {
+                      ".validate": "newData.isNumber() && newData.val() >= 1 && newData.val() <= 7 && newData.val() % 1 === 0"
+                    },
+                    "start": {
+                      ".validate": "newData.isString() && newData.val().matches(/^([01][0-9]|2[0-3]):[0-5][0-9]$/)"
+                    },
+                    "end": {
+                      ".validate": "newData.isString() && newData.val().matches(/^([01][0-9]|2[0-3]):[0-5][0-9]$/)"
+                    },
+                    "room": {
+                      ".validate": "newData.isString() && newData.val().length <= 120"
+                    },
+                    "$other": {
+                      ".validate": "false"
+                    }
+                  }
+                },
+                "$other": {
+                  ".validate": "false"
+                }
+              }
+            },
+            "students": {
+              "$record": {
+                ".write": "auth != null && auth.uid === $uid && (auth.token.firebase.sign_in_provider === 'google.com' || (auth.token.firebase.sign_in_provider === 'password' && auth.token.aud === 'demo-dashfirebase')) && (newData.exists() || (data.exists() && newData.parent().parent().child('archivedStudents').child($record).exists()))",
+                ".validate": "newData.hasChildren([\"id\", \"name\", \"officialGroupId\", \"classKey\", \"revision\", \"updatedAt\"]) && (!data.exists() || (newData.child('id').val() === data.child('id').val() && newData.child('officialGroupId').val() === data.child('officialGroupId').val() && newData.child('classKey').val() === data.child('classKey').val())) && root.child('teachingDashboard/v1/users').child($uid).child('timetable').child(newData.child('classKey').val()).child('id').val() === newData.child('officialGroupId').val()",
+                "id": {
+                  ".validate": "newData.isString() && newData.val().length <= 200 && newData.val().length > 0 && (!data.exists() || newData.val() === data.val())"
+                },
+                "revision": {
+                  ".validate": "newData.isNumber() && newData.val() % 1 === 0 && (data.parent().exists() ? newData.val() === data.val() + 1 : (data.parent().parent().parent().child('archivedStudents').child($record).exists() ? newData.val() === data.parent().parent().parent().child('archivedStudents').child($record).child('revision').val() + 1 : newData.val() === 1))"
+                },
+                "updatedAt": {
+                  ".validate": "newData.isNumber() && newData.val() === now"
+                },
+                "name": {
+                  ".validate": "newData.isString() && newData.val().length <= 120 && newData.val().length > 0"
+                },
+                "officialGroupId": {
+                  ".validate": "newData.isString() && newData.val().length <= 80 && newData.val().length > 0"
+                },
+                "classKey": {
+                  ".validate": "newData.isString() && newData.val().length <= 400 && newData.val().length > 0"
+                },
+                "$other": {
+                  ".validate": "false"
+                }
+              }
+            },
+            "classStudents": {
+              ".indexOn": [
+                "classId"
+              ],
+              "$record": {
+                ".write": "auth != null && auth.uid === $uid && (auth.token.firebase.sign_in_provider === 'google.com' || (auth.token.firebase.sign_in_provider === 'password' && auth.token.aud === 'demo-dashfirebase')) && newData.exists()",
+                ".validate": "newData.hasChildren([\"id\", \"classId\", \"classKey\", \"studentId\", \"studentKey\", \"joinedOn\", \"leftOn\", \"active\", \"revision\", \"updatedAt\"]) && (!data.exists() || (newData.child('id').val() === data.child('id').val() && newData.child('classId').val() === data.child('classId').val() && newData.child('studentId').val() === data.child('studentId').val() && newData.child('joinedOn').val() === data.child('joinedOn').val())) && (newData.child('active').val() === false || newData.child('leftOn').val() === '')",
+                "id": {
+                  ".validate": "newData.isString() && newData.val().length <= 200 && newData.val().length > 0 && (!data.exists() || newData.val() === data.val())"
+                },
+                "revision": {
+                  ".validate": "newData.isNumber() && newData.val() % 1 === 0 && ((!data.parent().exists() && newData.val() === 1) || (data.parent().exists() && newData.val() === data.val() + 1))"
+                },
+                "updatedAt": {
+                  ".validate": "newData.isNumber() && newData.val() === now"
+                },
+                "classId": {
+                  ".validate": "newData.isString() && newData.val().length <= 80 && newData.val().length > 0"
+                },
+                "classKey": {
+                  ".validate": "newData.isString() && newData.val().length <= 400 && newData.val().length > 0"
+                },
+                "studentId": {
+                  ".validate": "newData.isString() && newData.val().length <= 200 && newData.val().length > 0"
+                },
+                "studentKey": {
+                  ".validate": "newData.isString() && newData.val().length <= 500 && newData.val().length > 0"
+                },
+                "joinedOn": {
+                  ".validate": "newData.isString() && newData.val().matches(/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/)"
+                },
+                "leftOn": {
+                  ".validate": "newData.isString() && (newData.val() === '' || newData.val().matches(/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/))"
+                },
+                "active": {
+                  ".validate": "newData.isBoolean()"
+                },
+                "$other": {
+                  ".validate": "false"
+                }
+              }
+            },
+            "lessonLogs": {
+              ".indexOn": [
+                "date"
+              ],
+              "$record": {
+                ".write": "auth != null && auth.uid === $uid && (auth.token.firebase.sign_in_provider === 'google.com' || (auth.token.firebase.sign_in_provider === 'password' && auth.token.aud === 'demo-dashfirebase')) && (newData.exists() || (data.exists() && newData.parent().parent().child('archivedLessonLogs').child($record).exists()))",
+                ".validate": "newData.hasChildren([\"classId\", \"classKey\", \"date\", \"className\", \"subject\", \"start\", \"end\", \"room\", \"notes\", \"rating\", \"lessonType\", \"lessonStatus\", \"unit\", \"lessonTitle\", \"nextClassNotes\", \"revision\", \"updatedAt\"]) && newData.child('start').val() < newData.child('end').val() && $record === newData.child('classKey').val() + '_' + newData.child('date').val() && (!data.exists() || (newData.child('classId').val() === data.child('classId').val() && newData.child('date').val() === data.child('date').val()))",
+                "classId": {
+                  ".validate": "newData.isString() && newData.val().length <= 80 && newData.val().length > 0"
+                },
+                "classKey": {
+                  ".validate": "newData.isString() && newData.val().length <= 400 && newData.val().length > 0"
+                },
+                "date": {
+                  ".validate": "newData.isString() && newData.val().matches(/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/)"
+                },
+                "className": {
+                  ".validate": "newData.isString() && newData.val().length <= 120 && newData.val().length > 0"
+                },
+                "subject": {
+                  ".validate": "newData.isString() && newData.val().length <= 120 && newData.val().length > 0"
+                },
+                "start": {
+                  ".validate": "newData.isString() && newData.val().matches(/^([01][0-9]|2[0-3]):[0-5][0-9]$/)"
+                },
+                "end": {
+                  ".validate": "newData.isString() && newData.val().matches(/^([01][0-9]|2[0-3]):[0-5][0-9]$/)"
+                },
+                "room": {
+                  ".validate": "newData.isString() && newData.val().length <= 120"
+                },
+                "notes": {
+                  ".validate": "newData.isString() && newData.val().length <= 5000"
+                },
+                "rating": {
+                  ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 5 && newData.val() % 1 === 0"
+                },
+                "lessonType": {
+                  ".validate": "newData.isString() && newData.val().length <= 60 && newData.val().length > 0"
+                },
+                "lessonStatus": {
+                  ".validate": "newData.val() === 'Done' || newData.val() === 'Skipped' || newData.val() === 'Late' || newData.val() === 'Cancelled'"
+                },
+                "unit": {
+                  ".validate": "newData.isString() && newData.val().length <= 120"
+                },
+                "lessonTitle": {
+                  ".validate": "newData.isString() && newData.val().length <= 200"
+                },
+                "nextClassNotes": {
+                  ".validate": "newData.isString() && newData.val().length <= 2000"
+                },
+                "revision": {
+                  ".validate": "newData.isNumber() && newData.val() % 1 === 0 && (data.parent().exists() ? newData.val() === data.val() + 1 : (data.parent().parent().parent().child('archivedLessonLogs').child($record).exists() ? newData.val() === data.parent().parent().parent().child('archivedLessonLogs').child($record).child('revision').val() + 1 : newData.val() === 1))"
+                },
+                "updatedAt": {
+                  ".validate": "newData.isNumber() && newData.val() === now"
+                },
+                "$other": {
+                  ".validate": "false"
+                }
+              }
+            },
+            "attendanceChecklists": {
+              ".indexOn": [
+                "date"
+              ],
+              "$record": {
+                ".write": "auth != null && auth.uid === $uid && (auth.token.firebase.sign_in_provider === 'google.com' || (auth.token.firebase.sign_in_provider === 'password' && auth.token.aud === 'demo-dashfirebase')) && newData.exists()",
+                ".validate": "newData.hasChildren([\"schemaVersion\", \"classId\", \"classKey\", \"lessonDate\", \"date\", \"classInfo\", \"revision\", \"updatedAt\"]) && $record === newData.child('classKey').val() + '_' + newData.child('date').val() && newData.child('lessonDate').val() === newData.child('date').val() && (!data.exists() || (newData.child('classId').val() === data.child('classId').val() && newData.child('date').val() === data.child('date').val()))",
+                "schemaVersion": {
+                  ".validate": "newData.val() === 1"
+                },
+                "classId": {
+                  ".validate": "newData.isString() && newData.val().length <= 80 && newData.val().length > 0"
+                },
+                "classKey": {
+                  ".validate": "newData.isString() && newData.val().length <= 400 && newData.val().length > 0"
+                },
+                "lessonDate": {
+                  ".validate": "newData.isString() && newData.val().matches(/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/)"
+                },
+                "date": {
+                  ".validate": "newData.isString() && newData.val().matches(/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/)"
+                },
+                "classInfo": {
+                  ".validate": "newData.hasChildren(['id','name','subject','start','end','room'])",
+                  "id": {
+                    ".validate": "newData.isString() && newData.val().length <= 80 && newData.val().length > 0"
+                  },
+                  "name": {
+                    ".validate": "newData.isString() && newData.val().length <= 120 && newData.val().length > 0"
+                  },
+                  "subject": {
+                    ".validate": "newData.isString() && newData.val().length <= 120 && newData.val().length > 0"
+                  },
+                  "start": {
+                    ".validate": "newData.isString() && newData.val().matches(/^([01][0-9]|2[0-3]):[0-5][0-9]$/)"
+                  },
+                  "end": {
+                    ".validate": "newData.isString() && newData.val().matches(/^([01][0-9]|2[0-3]):[0-5][0-9]$/)"
+                  },
+                  "room": {
+                    ".validate": "newData.isString() && newData.val().length <= 120"
+                  },
+                  "$other": {
+                    ".validate": "false"
+                  }
+                },
+                "records": {
+                  "$student": {
+                    ".validate": "newData.hasChildren(['studentId','studentName','attendance','participation','note']) && ((newData.child('attendance').val() !== 'absent' && newData.child('attendance').val() !== 'excused') || newData.child('participation').val() === 0) && (root.child('teachingDashboard/v1/users').child($uid).child('students').child($student).child('id').val() === newData.child('studentId').val() || (data.exists() && root.child('teachingDashboard/v1/users').child($uid).child('archivedStudents').child($student).child('id').val() === newData.child('studentId').val()))",
+                    "studentId": {
+                      ".validate": "newData.isString() && newData.val().length <= 200 && newData.val().length > 0"
+                    },
+                    "studentName": {
+                      ".validate": "newData.isString() && newData.val().length <= 120 && newData.val().length > 0"
+                    },
+                    "attendance": {
+                      ".validate": "newData.val() === 'present' || newData.val() === 'absent' || newData.val() === 'late' || newData.val() === 'excused'"
+                    },
+                    "participation": {
+                      ".validate": "newData.isNumber() && newData.val() >= -1 && newData.val() <= 1 && newData.val() % 1 === 0"
+                    },
+                    "note": {
+                      ".validate": "newData.isString() && newData.val().length <= 300"
+                    },
+                    "$other": {
+                      ".validate": "false"
+                    }
+                  }
+                },
+                "revision": {
+                  ".validate": "newData.isNumber() && newData.val() % 1 === 0 && ((!data.parent().exists() && newData.val() === 1) || (data.parent().exists() && newData.val() === data.val() + 1))"
+                },
+                "updatedAt": {
+                  ".validate": "newData.isNumber() && newData.val() === now"
+                },
+                "$other": {
+                  ".validate": "false"
+                }
+              }
+            },
+            "archivedStudents": {
+              "$record": {
+                ".write": "auth != null && auth.uid === $uid && (auth.token.firebase.sign_in_provider === 'google.com' || (auth.token.firebase.sign_in_provider === 'password' && auth.token.aud === 'demo-dashfirebase')) && (newData.exists() || (data.exists() && newData.parent().parent().child('students').child($record).exists()))",
+                ".validate": "newData.hasChildren([\"id\", \"name\", \"officialGroupId\", \"classKey\", \"removedOn\", \"revision\", \"updatedAt\"]) && data.parent().parent().child('students').child($record).exists() && !newData.parent().parent().child('students').child($record).exists()",
+                "id": {
+                  ".validate": "newData.isString() && newData.val().length <= 200 && newData.val().length > 0 && (!data.exists() || newData.val() === data.val())"
+                },
+                "revision": {
+                  ".validate": "newData.isNumber() && newData.val() % 1 === 0 && (data.parent().exists() ? newData.val() === data.val() + 1 : (data.parent().parent().parent().child('students').child($record).exists() ? newData.val() === data.parent().parent().parent().child('students').child($record).child('revision').val() + 1 : newData.val() === 1))"
+                },
+                "updatedAt": {
+                  ".validate": "newData.isNumber() && newData.val() === now"
+                },
+                "name": {
+                  ".validate": "newData.isString() && newData.val().length <= 120 && newData.val().length > 0"
+                },
+                "officialGroupId": {
+                  ".validate": "newData.isString() && newData.val().length <= 80 && newData.val().length > 0"
+                },
+                "classKey": {
+                  ".validate": "newData.isString() && newData.val().length <= 400 && newData.val().length > 0"
+                },
+                "groups": {},
+                "ids": {},
+                "removedOn": {
+                  ".validate": "newData.isString() && newData.val().matches(/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/)"
+                },
+                "$other": {
+                  ".validate": "false"
+                }
+              }
+            },
+            "archivedLessonLogs": {
+              ".indexOn": [
+                "date"
+              ],
+              "$record": {
+                ".write": "auth != null && auth.uid === $uid && (auth.token.firebase.sign_in_provider === 'google.com' || (auth.token.firebase.sign_in_provider === 'password' && auth.token.aud === 'demo-dashfirebase')) && (newData.exists() || (data.exists() && newData.parent().parent().child('lessonLogs').child($record).exists()))",
+                ".validate": "newData.hasChildren([\"classId\", \"classKey\", \"date\", \"className\", \"subject\", \"start\", \"end\", \"room\", \"notes\", \"rating\", \"lessonType\", \"lessonStatus\", \"unit\", \"lessonTitle\", \"nextClassNotes\", \"revision\", \"updatedAt\", \"archiveReason\", \"archivedAt\"]) && data.parent().parent().child('lessonLogs').child($record).exists() && !newData.parent().parent().child('lessonLogs').child($record).exists()",
+                "classId": {
+                  ".validate": "newData.isString() && newData.val().length <= 80 && newData.val().length > 0"
+                },
+                "classKey": {
+                  ".validate": "newData.isString() && newData.val().length <= 400 && newData.val().length > 0"
+                },
+                "date": {
+                  ".validate": "newData.isString() && newData.val().matches(/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/)"
+                },
+                "className": {
+                  ".validate": "newData.isString() && newData.val().length <= 120 && newData.val().length > 0"
+                },
+                "subject": {
+                  ".validate": "newData.isString() && newData.val().length <= 120 && newData.val().length > 0"
+                },
+                "start": {
+                  ".validate": "newData.isString() && newData.val().matches(/^([01][0-9]|2[0-3]):[0-5][0-9]$/)"
+                },
+                "end": {
+                  ".validate": "newData.isString() && newData.val().matches(/^([01][0-9]|2[0-3]):[0-5][0-9]$/)"
+                },
+                "room": {
+                  ".validate": "newData.isString() && newData.val().length <= 120"
+                },
+                "notes": {
+                  ".validate": "newData.isString() && newData.val().length <= 5000"
+                },
+                "rating": {
+                  ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 5 && newData.val() % 1 === 0"
+                },
+                "lessonType": {
+                  ".validate": "newData.isString() && newData.val().length <= 60 && newData.val().length > 0"
+                },
+                "lessonStatus": {
+                  ".validate": "newData.val() === 'Done' || newData.val() === 'Skipped' || newData.val() === 'Late' || newData.val() === 'Cancelled'"
+                },
+                "unit": {
+                  ".validate": "newData.isString() && newData.val().length <= 120"
+                },
+                "lessonTitle": {
+                  ".validate": "newData.isString() && newData.val().length <= 200"
+                },
+                "nextClassNotes": {
+                  ".validate": "newData.isString() && newData.val().length <= 2000"
+                },
+                "revision": {
+                  ".validate": "newData.isNumber() && newData.val() % 1 === 0 && (data.parent().exists() ? newData.val() === data.val() + 1 : (data.parent().parent().parent().child('lessonLogs').child($record).exists() ? newData.val() === data.parent().parent().parent().child('lessonLogs').child($record).child('revision').val() + 1 : newData.val() === 1))"
+                },
+                "updatedAt": {
+                  ".validate": "newData.isNumber() && newData.val() === now"
+                },
+                "archiveReason": {
+                  ".validate": "newData.isString() && newData.val().length <= 1000 && newData.val().length > 0"
+                },
+                "archivedAt": {
+                  ".validate": "newData.isNumber() && newData.val() === now"
+                },
+                "$other": {
+                  ".validate": "false"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

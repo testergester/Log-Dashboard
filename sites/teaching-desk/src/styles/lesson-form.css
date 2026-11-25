@@ -1,0 +1,85 @@
+/* Keep labels, controls and editors together at every workspace width. */
+#lesson-form {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 16px 12px;
+  container-type: inline-size;
+}
+#lesson-form[hidden] { display: none; }
+#lesson-form > * { min-width: 0; }
+#lesson-form .lesson-context { margin: 0; }
+.lesson-properties, .lesson-details {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  align-items: start;
+  gap: 16px;
+}
+#lesson-form .record-fieldset { grid-column: auto; min-width: 0; margin: 0; }
+#lesson-form .record-fieldset legend,
+#lesson-form .lesson-field > label,
+#lesson-form .field-label,
+#lesson-form .rating-fieldset legend {
+  display: block;
+  margin: 0 0 7px;
+  padding: 0;
+  color: var(--navy);
+  font-size: 12px;
+  font-weight: 650;
+  line-height: 1.4;
+}
+#lesson-form .record-options { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; }
+#lesson-form .record-options label { min-width: 0; }
+#lesson-form .record-options span { min-height: 34px; padding: 6px 3px; font-size: 11px; font-weight: 550; background: #fff; }
+#lesson-form .record-options input:checked + span { background: #e7efdf; border-color: #8ba77d; color: #315e44; font-weight: 700; }
+.lesson-field { min-width: 0; }
+#lesson-form .lesson-field > input,
+#lesson-form .lesson-field > textarea {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 9px 10px;
+  color: var(--navy);
+  background: #fff;
+  font: inherit;
+  font-size: 12px;
+  line-height: 1.5;
+}
+#lesson-form .lesson-field > input { min-height: 38px; }
+#lesson-form #lesson-nextClassNotes { min-height: 76px; height: 76px; resize: vertical; }
+.lesson-editor-shell { overflow: hidden; border: 1px solid var(--line); border-radius: 7px; background: #fff; }
+.lesson-editor-shell:focus-within { border-color: #78996b; box-shadow: 0 0 0 2px #78996b22; }
+#lesson-form .lesson-notes-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin: 0;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--line);
+  background: #f5f7f3;
+}
+#lesson-form .lesson-notes-toolbar button { width: 32px; height: 30px; min-height: 30px; background: transparent; border-color: transparent; }
+#lesson-form .lesson-notes-toolbar button:hover { background: #e7efdf; }
+#lesson-form .lesson-notes-toolbar button[aria-pressed="true"] { background: #e7efdf; border-color: #9ab58c; }
+#lesson-form #lesson-notes {
+  min-height: 150px;
+  padding: 11px 12px;
+  border: 0;
+  border-radius: 0;
+  font-size: 13px;
+  line-height: 1.6;
+}
+#lesson-form #lesson-notes:focus { outline: none; box-shadow: none; }
+#lesson-form .lesson-footer { padding-top: 14px; border-top: 1px solid var(--line); }
+#lesson-form .rating-fieldset { margin: 0; min-width: 0; max-width: 340px; }
+.lesson-optional { margin-left: 5px; font-size: 11px; font-weight: 400; color: var(--muted); }
+#lesson-form .rating-options span { min-height: 44px; background: #fff; }
+#lesson-form .rating-options input:checked + span { background: #e7efdf; }
+#lesson-form .lesson-actions { padding: 0; margin: -8px 0 0; border: 0; }
+#lesson-form #lesson-status { font-size: 11px; }
+@container (max-width: 480px) {
+  .lesson-properties, .lesson-details { grid-template-columns: minmax(0, 1fr); gap: 14px; }
+}

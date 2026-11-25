@@ -7,11 +7,9 @@
   <meta name="description" content="A private teaching timetable and lesson log.">
   <title>Teaching Dashboard</title>
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=&#x27;http://www.w3.org/2000/svg&#x27; viewBox=&#x27;0 0 64 64&#x27;%3E%3Crect width=&#x27;64&#x27; height=&#x27;64&#x27; rx=&#x27;16&#x27; fill=&#x27;%23315e44&#x27;/%3E%3Cpath d=&#x27;M16 18h32v30H16z&#x27; fill=&#x27;none&#x27; stroke=&#x27;white&#x27; stroke-width=&#x27;4&#x27;/%3E%3Cpath d=&#x27;M22 12v12m20-12v12M16 29h32M24 37h7&#x27; stroke=&#x27;white&#x27; stroke-width=&#x27;4&#x27; stroke-linecap=&#x27;round&#x27;/%3E%3C/svg%3E">
-  <link rel="stylesheet" href="./styles.css?v=a3eaf2c3522d">
-  <script src="./crash-log-messages.js?v=d32c1323ac93" defer></script>
-  <script src="./crash-log.js?v=6bd59d855907" defer></script>
-  <script src="./script.js?v=226fce9e96b4" defer></script>
-  <meta name="dashboard-version" content="17f53a1ea6ba">
+  <link rel="stylesheet" href="./src/styles/styles.css">
+  <script type="module" src="./src/script.js"></script>
+  <meta name="dashboard-version" content="c7f90b6781ca">
 </head>
 <body>
   <section id="week-preview" class="week-preview" role="region" aria-labelledby="week-preview-title" hidden>
@@ -33,12 +31,15 @@
       <div class="topbar-actions"><button type="button" class="button button-primary" id="add-class-button" disabled>
           <span aria-hidden="true">＋</span> Add class
         </button>
+        <button type="button" class="button button-quiet" id="import-timetable-button" disabled>Import timetable image</button>
+        <button type="button" class="button button-quiet" id="bulk-students-button" disabled>Add students in bulk</button>
         <a class="button button-quiet" href="./analysis.html">↗ Analysis</a>
-        <a class="button button-quiet" id="new-ui-beta-link" href="./experiments/lumen-teaching-desk/">new UI BETTA</a>
+        <a class="button button-quiet" href="./astryx.html">✦ Astryx version</a>
+        
         <span class="connection-state" id="connection-state">Not connected</span>
-        <button type="button" class="button button-quiet" id="settings-button" aria-label="Connection settings">Settings</button>
+        <button type="button" class="button button-quiet" id="settings-button" aria-label="Archives and recovery">Settings</button>
         <button type="button" class="button button-quiet" id="sign-out-button" hidden>Sign out</button>
-      <a class="button button-quiet backup-link" href="./backups/dashboard-before-teaching-desk-2026-10-06/index.html">Previous design ↗</a></div>
+      </div>
     </header>
 
     <main class="main-content">
@@ -56,28 +57,17 @@
       <section class="access-panel" id="access-panel" aria-labelledby="access-title">
         <div class="access-content">
           <p class="eyebrow">PRIVATE WORKSPACE</p>
-          <h2 id="access-title">Connect your teaching records</h2>
-          <p id="access-description">Add the web app URL from your Apps Script deployment. It stays on this device.</p>
-          <form id="endpoint-form" class="access-form">
-            <label for="endpoint-input">Apps Script web app URL</label>
-            <div class="input-action">
-              <input id="endpoint-input" type="url" inputmode="url" placeholder="https://script.google.com/macros/s/…/exec" autocomplete="url" required>
-              <button type="submit" class="button button-primary">Connect</button>
-            </div>
-            <p class="field-hint">Use the deployed URL ending in <code>/exec</code>.</p>
+          <h2 id="access-title">Your teaching workspace</h2>
+          <p id="access-description">Sign in with Google to open your private teaching workspace.</p>
+          <form id="login-form" class="access-form">
+            <button type="submit" class="button button-primary button-wide" id="login-button">Continue with Google</button>
           </form>
-          <form id="login-form" class="access-form" hidden>
-            <label for="username-input">Username</label>
-            <input id="username-input" name="username" type="text" autocomplete="username" required>
-            <label for="password-input">Password</label>
-            <input id="password-input" name="password" type="password" autocomplete="current-password" required>
-            <button type="submit" class="button button-primary button-wide" id="login-button">Sign in</button>
-          </form>
+          <p class="field-hint" id="firebase-setup-hint" hidden>Firebase setup is required. See the project README before connecting this app.</p>
           <p class="access-error" id="access-error" role="alert" hidden></p>
         </div>
       </section>
 
-      <div id="workspace" hidden><div class="workspace-toolbar"><div id="class-filters" class="class-filters" role="group" aria-label="Filter classes"></div><span id="workspace-summary" class="workspace-summary"></span></div><nav class="mobile-jump" aria-label="Teaching tools"><button type="button" class="button button-quiet" data-teaching-jump="student-panel">Attendance & points</button><button type="button" class="button button-quiet" data-teaching-jump="lesson-form">Lesson notes</button><button type="button" class="button button-quiet" data-teaching-jump="previous-records">Previous lesson</button></nav><div class="teaching-layout"><aside class="schedule-rail" aria-label="Class navigation"><section class="schedule-controls" aria-label="Timetable controls">
+      <div id="workspace" hidden><div class="workspace-toolbar"><div id="class-filters" class="class-filters" role="group" aria-label="Filter classes"></div><button type="button" class="button button-quiet" id="load-history-button">Load all history</button><span id="workspace-summary" class="workspace-summary"></span></div><nav class="mobile-jump" aria-label="Teaching tools"><button type="button" class="button button-quiet" data-teaching-jump="student-panel">Attendance & points</button><button type="button" class="button button-quiet" data-teaching-jump="lesson-form">Lesson notes</button><button type="button" class="button button-quiet" data-teaching-jump="previous-records">Previous lesson</button></nav><div class="teaching-layout"><aside class="schedule-rail" aria-label="Class navigation"><section class="schedule-controls" aria-label="Timetable controls">
           <div class="date-controls">
             <button type="button" class="icon-button" id="previous-date" aria-label="Previous week">‹</button>
             <button type="button" class="button button-quiet today-button" id="today-button">Today</button>
@@ -109,11 +99,12 @@
               <p class="eyebrow">STUDENT RECORD</p>
               <h2 id="student-panel-title">Attendance & participation</h2>
               <p id="checklist-summary">Choose a class to take attendance.</p>
-              <p class="field-hint" id="student-archive-upgrade-hint" hidden>Student archiving needs the updated Apps Script backend.</p>
+              <p class="field-hint" id="student-archive-upgrade-hint" hidden>Student archives are available after sign-in.</p>
             </div>
             <div class="student-panel-actions">
               <button type="button" class="button button-quiet" id="roster-check-button">Check roster IDs</button>
               <button type="button" class="button button-quiet" id="add-student-button"><svg viewbox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="4"></circle><path d="M2.5 20a6.5 6.5 0 0 1 13 0M19 8v8m-4-4h8"></path></svg>Add student</button>
+              <button type="button" class="button button-quiet" id="bulk-class-students-button">Paste student list</button>
             </div>
           </div>
           <section id="roster-check" class="roster-check" aria-labelledby="roster-check-title" hidden>
@@ -193,7 +184,7 @@
                   <label><input type="radio" name="lesson-record-status" value="Cancelled"><span>Cancelled</span></label>
                 </div>
               </fieldset>
-              <p id="record-features-hint" class="feature-update-hint" hidden>Update Apps Script and run setupDashboard to enable Late, Excused, and the new lesson fields.</p>
+              <p id="record-features-hint" class="feature-update-hint" hidden>All lesson fields are available.</p>
               <label for="lesson-unit">Unit</label><input id="lesson-unit" maxlength="120" placeholder="e.g. Unit 3 · Travel">
               <label for="lesson-lessonTitle">Lesson title</label><input id="lesson-lessonTitle" maxlength="200" placeholder="e.g. Planning a journey">
               <div class="field-label" id="lesson-notes-label">Logs</div>
@@ -252,7 +243,7 @@
       <label for="class-subject">Subject</label>
       <input id="class-subject" maxlength="120" placeholder="e.g. Mathematics" required>
       <div class="meeting-section-heading"><strong>Weekly meetings</strong><button type="button" class="button button-quiet" id="add-class-meeting" aria-label="Add another meeting day">+ Add day</button></div>
-      <p class="field-hint" id="meeting-upgrade-hint" hidden>Update the Apps Script backend to add more meeting days.</p>
+      <p class="field-hint" id="meeting-upgrade-hint" hidden>Add up to one meeting per weekday.</p>
       <div class="form-row">
         <div><label for="class-weekday">Weekday</label><select id="class-weekday" required>
           <option value="1">Monday</option><option value="2">Tuesday</option><option value="3">Wednesday</option>
@@ -279,6 +270,7 @@
         <h2 id="student-dialog-title">Add student</h2>
         <button type="button" class="icon-button close-button" id="close-student-dialog" aria-label="Close">×</button>
       </div>
+      <button type="button" class="button button-quiet" id="student-dialog-bulk">Paste several students</button>
       <label for="student-choice">Student</label>
       <select id="student-choice"><option value="new">Create a new student</option></select>
       <button type="button" class="button button-text" id="view-student-profile" hidden>View student history</button>
@@ -342,24 +334,49 @@
         <label for="record-nextClassNotes">Notes for next class</label><textarea id="record-nextClassNotes" maxlength="2000" rows="3"></textarea>
         <label for="record-rating">Class rating</label><select id="record-rating"><option value="">No rating</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option></select>
       </div>
-      <div id="record-archive-fields" hidden><label for="record-reason">Why!</label><textarea id="record-reason" maxlength="1000" placeholder="Explain why you are deleting this lesson record"></textarea><p>The entire lesson row will move to ArchivedLessonLogs.</p></div>
+      <div id="record-archive-fields" hidden><label for="record-reason">Why!</label><textarea id="record-reason" maxlength="1000" placeholder="Explain why you are deleting this lesson record"></textarea><p>The lesson record will move to ArchivedLessonLogs.</p></div>
       <p id="record-error" role="alert" class="dialog-error"></p>
       <div class="dialog-actions"><button type="button" id="record-cancel" class="button button-quiet">Cancel</button><button type="submit" id="record-confirm" class="button button-primary">Save changes</button></div>
     </form>
   </dialog>
-  <dialog id="diagnostics-dialog" aria-labelledby="diagnostics-title">
-    <div class="dialog-heading"><h2 id="diagnostics-title">Settings &amp; activity log</h2><button type="button" class="button button-quiet" id="diagnostics-close">Close</button></div>
-    <p class="diagnostics-description">Recent actions and errors stay on this device for up to 7 days. Typed text, passwords, student identities and teaching records are excluded. Each error includes the steps that preceded it.</p>
-    <div class="diagnostics-toolbar">
-      <label for="diagnostics-filter">Show <select id="diagnostics-filter"><option value="all">Actions &amp; errors</option><option value="errors">Errors only</option></select></label>
-      <button type="button" class="button button-quiet" id="diagnostics-refresh">Refresh log</button>
-      <button type="button" class="button button-quiet" id="diagnostics-download">Download log</button>
-      <button type="button" class="button button-quiet" id="diagnostics-clear">Clear log</button>
-    </div>
-    <p id="diagnostics-status" role="status"></p>
-    <div id="diagnostics-list" class="diagnostics-list" aria-label="Recorded activity and errors"></div>
-    <div class="dialog-actions"><button type="button" class="button button-quiet" id="change-connection-button">Change connection</button></div>
-    <p class="diagnostics-description">Sign out before changing the connection. The log keeps up to 500 steps and 100 errors per page visit, across the 8 most recent visits. Showing the latest 100 entries; downloads include the full retained log.</p>
-  </dialog>
-</body>
+  
+<dialog id="student-import-dialog" aria-labelledby="student-import-title">
+  <div class="dialog-heading"><h2 id="student-import-title">Add students in bulk</h2><button type="button" class="button" id="student-import-close">Close</button></div>
+  <div id="student-import-edit">
+    <p>Paste a table with <strong>Full name</strong> and <strong>Group ID</strong>, spreadsheet rows, CSV, or one name per line. Up to 500 students at once.</p>
+    <label class="student-import-field">Default class for blank Group IDs<select id="student-import-default"></select></label>
+    <p class="field-hint">Group IDs in your paste take priority. Blank groups need a default class. Unknown groups must be matched to an existing class; add missing classes first using Add class.</p>
+    <label class="student-import-field">Student list<textarea id="student-import-source" rows="9" maxlength="200000" spellcheck="false" placeholder="Full name&#9;Group ID&#10;First student&#9;8E&#10;Second student&#9;9A"></textarea></label>
+    <button type="button" class="button" id="student-import-parse">Review students</button>
+    <section id="student-import-preview" hidden>
+      <h3>Match groups and review students</h3><div id="student-import-groups" class="student-import-groups"></div>
+      <p>Each mapping applies to every row with that Group ID. Students join that class’s official roster. Names are kept as pasted; edit any mistakes below. Matching names within the same class are skipped, including repeated rows. Archived students should be restored from Settings.</p>
+      <div class="student-import-table-wrap"><table class="student-import-table"><thead><tr><th>Include</th><th>Full name</th><th>Pasted group</th><th>Result</th></tr></thead><tbody id="student-import-rows"></tbody></table></div>
+      <p id="student-import-summary" role="status"></p>
+    </section>
+  </div>
+  <p id="student-import-status" role="status" aria-live="polite"></p>
+  <div class="dialog-actions"><button type="button" class="button button-primary" id="student-import-save" disabled>Add reviewed students</button></div>
+</dialog>
+<dialog id="timetable-import-dialog" aria-labelledby="timetable-import-title">
+  <div class="dialog-heading"><h2 id="timetable-import-title">Import timetable from image</h2><button type="button" class="button" id="timetable-import-close">Close</button></div>
+  <p>Upload one teacher’s weekly timetable. DeepSeek will read it, then you can correct the results before adding classes.</p>
+  <label class="timetable-import-upload">Timetable image (PNG, JPEG or WebP, up to 8 MB)<input id="timetable-import-file" type="file" accept="image/png,image/jpeg,image/webp"></label>
+  <label class="timetable-import-upload">Subject to use where the image omits it (optional)<input id="timetable-import-subject" type="text" maxlength="120" placeholder="For example, English"></label>
+  <img id="timetable-import-image" class="timetable-import-image" alt="Selected timetable for review" hidden>
+  <p class="muted">Clicking Read image sends this image to DeepSeek. Existing classes remain in your timetable.</p>
+  <button type="button" id="timetable-import-read" class="button button-primary" disabled>Read image</button>
+  <p id="timetable-import-status" role="status" aria-live="polite"></p>
+  <p id="timetable-import-warnings" class="timetable-import-warnings"></p>
+  <section id="timetable-import-review" hidden>
+    <h3>Review extracted classes</h3><p>Check group IDs, subjects and every meeting. Exclude classes you already have. Each class supports one meeting per weekday; combine consecutive periods into one meeting if appropriate.</p>
+    <div id="timetable-import-classes"></div>
+    <p id="timetable-import-validation" aria-live="polite"></p>
+    <div class="dialog-actions"><button type="button" id="timetable-import-save" class="button button-primary" disabled>Add reviewed timetable</button></div>
+  </section>
+</dialog>
+<dialog id="archives-dialog" aria-labelledby="archives-title">
+  <div class="dialog-heading"><h2 id="archives-title">Archives &amp; recovery</h2><button type="button" class="button" id="archives-close">Close</button></div>
+  <p id="archives-status" role="status"></p><div id="archives-list"></div>
+</dialog></body>
 </html>

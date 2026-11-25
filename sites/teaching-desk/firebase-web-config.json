@@ -1,0 +1,7 @@
+{
+  "VITE_FIREBASE_API_KEY": "AIzaSyDoGTwbFwfsgrHFPOr1zbsI2YrxV-gS5Iw",
+  "VITE_FIREBASE_AUTH_DOMAIN": "dashfirebase-9f0aa.firebaseapp.com",
+  "VITE_FIREBASE_PROJECT_ID": "dashfirebase-9f0aa",
+  "VITE_FIREBASE_DATABASE_URL": "https://dashfirebase-9f0aa-default-rtdb.asia-southeast1.firebasedatabase.app",
+  "VITE_FIREBASE_APP_ID": "1:149911454669:web:a8da7a73b6c75ee2da3a84"
+}

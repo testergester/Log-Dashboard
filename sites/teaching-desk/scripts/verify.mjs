@@ -1,0 +1,27 @@
+import assert from 'node:assert/strict';
+import {readFile} from 'node:fs/promises';
+const source=await readFile('dist/server/index.js','utf8');
+const {default:worker}=await import('data:text/javascript;base64,'+Buffer.from(source).toString('base64'));
+const origin='https://teaching-desk-firebase.mouad-elamrani3.chatgpt.site';
+const env={FIREBASE_PROJECT_ID:'dashfirebase-9f0aa',DEEPSEEK_API_KEY:'test-only'};
+for(const path of ['/','/analysis.html','/healthz'])assert.equal((await worker.fetch(new Request(origin+path),env)).status,200);
+for(const path of ['/.env.local','/.env.server','/src/firebase-client.js','/unknown'])assert.equal((await worker.fetch(new Request(origin+path),env)).status,404);
+const page=await(await worker.fetch(new Request(origin),env)).text();
+const scripts=[...page.matchAll(/(?:src|href)="(\.\/assets\/[^\"]+)"/g)];assert.ok(scripts.length);
+for(const m of scripts)assert.equal((await worker.fetch(new Request(new URL(m[1],origin)),env)).status,200);
+const call=(token,body={},headers={})=>worker.fetch(new Request(origin+'/api/timetable/extract',{method:'POST',headers:{'Content-Type':'application/json',Origin:origin,...(token?{Authorization:'Bearer '+token}:{}),...headers},body:JSON.stringify(body)}),env);
+assert.equal((await call()).status,401);
+assert.equal((await call('invalid')).status,401);
+assert.equal((await call(null,{}, {Origin:'https://other.example'})).status,403);
+const pair=await crypto.subtle.generateKey({name:'RSASSA-PKCS1-v1_5',modulusLength:2048,publicExponent:new Uint8Array([1,0,1]),hash:'SHA-256'},true,['sign','verify']);
+const jwk=await crypto.subtle.exportKey('jwk',pair.publicKey);jwk.kid='test';
+const b64=x=>Buffer.from(JSON.stringify(x)).toString('base64url');
+async function token(overrides={}){const now=Math.floor(Date.now()/1000);const s=b64({alg:'RS256',kid:'test'})+'.'+b64({sub:'test-teacher',aud:env.FIREBASE_PROJECT_ID,iss:'https://securetoken.google.com/'+env.FIREBASE_PROJECT_ID,exp:now+3600,iat:now,auth_time:now,firebase:{sign_in_provider:'google.com'},...overrides});return s+'.'+Buffer.from(await crypto.subtle.sign('RSASSA-PKCS1-v1_5',pair.privateKey,new TextEncoder().encode(s))).toString('base64url');}
+let providerCalls=0;
+globalThis.fetch=async(url)=>{if(String(url).startsWith('https://www.googleapis.com/'))return Response.json({keys:[jwk]});assert.equal(url,'https://api.deepseek.com/chat/completions');providerCalls++;return Response.json({choices:[{finish_reason:'stop',message:{content:JSON.stringify({classes:[{groupId:'8E',name:'8E',subject:'English',meetings:[{weekday:1,start:'08:00',end:'08:45',room:''}]}],warnings:[]})}}]});};
+assert.equal((await call(await token({aud:'other-project'}))).status,401);
+assert.equal((await call(await token({exp:1}))).status,401);
+assert.equal((await call(await token(),{image:'https://other.example/image.png'})).status,400);
+const response=await call(await token(),{image:'data:image/png;base64,iVBORw0KGgo='});
+assert.equal(response.status,200);assert.equal((await response.json()).classes[0].requestedId,'8E');assert.equal(providerCalls,1);
+console.log('Worker checks passed: pages/assets, private-file denial, origins, signed Firebase JWTs, wrong-project/expired rejection, validated extraction. No live data or paid calls.');

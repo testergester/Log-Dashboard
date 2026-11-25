@@ -1,0 +1,214 @@
+/* Astryx lives on its own entry points. The classic dashboard keeps its styles. */
+:root:has(body.astryx-page) {
+  --navy: var(--color-text-primary, #24242b);
+  --text: var(--color-text-primary, #24242b);
+  --muted: var(--color-text-secondary, #73727d);
+  --line: var(--color-border, #e3e2e8);
+  --page: #f7f7fa;
+  --blue: #6050c8;
+  --blue-dark: #4d3da9;
+  --blue-pale: #eeebfb;
+  --white: var(--color-background-surface, white);
+  font-size: 14px;
+}
+.astryx-page {
+  --color-accent: #6050c8;
+  --color-accent-muted: #eeebfb;
+  --color-on-accent: #fff;
+  font-family: var(--font-family-body, system-ui, sans-serif);
+  background: var(--page);
+}
+.astryx-page .astryx-shared-content { display: contents; }
+.astryx-page .astryx-loading { padding: 48px; text-align: center; color: var(--muted); }
+.astryx-page .app-shell { min-height: 100vh; }
+.astryx-page .astryx-topbar { display: block; padding: 0; background: #fff; }
+.astryx-nav-row { display: flex; align-items: center; gap: 32px; padding: 18px 28px; min-height: 78px; }
+.astryx-brand { display: flex; align-items: center; flex-shrink: 0; gap: 12px; color: var(--navy); font-size: 17px; font-weight: 700; text-decoration: none; letter-spacing: -.4px; }
+.astryx-brand small { display: block; margin-top: 3px; color: var(--muted); font-size: 11px; font-weight: 400; letter-spacing: 0; }
+.astryx-mark { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 12px; color: #fff; background: #6050c8; box-shadow: 0 3px 8px #6050c81a; }
+.astryx-mark svg { width: 25px; height: 25px; }
+.astryx-navigation, .astryx-utilities { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.astryx-utilities { margin-left: auto; justify-content: flex-end; }
+.astryx-page .connection-state { font-size: 11px; padding-right: 6px; }
+.astryx-page .astryx-navigation [aria-current="page"] { color: #5140b2; background: #f0edfc; }
+.astryx-action-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 12px 28px; border-top: 1px solid #f0eff4; }
+.astryx-breadcrumb { display: flex; align-items: center; gap: 12px; color: var(--muted); font-size: 11px; letter-spacing: .035em; }
+.astryx-breadcrumb > span { color: #c4c1cd; }
+.astryx-page .topbar-actions { gap: 8px; }
+.astryx-page .main-content, .astryx-page .analysis-main { max-width: 1664px; margin: 0 auto; padding: 32px 28px 48px; }
+.astryx-page .page-heading, .astryx-page .analysis-heading { display: flex; gap: 20px; align-items: center; justify-content: space-between; margin-bottom: 28px; }
+.astryx-page-heading { display: flex; align-items: center; justify-content: space-between; gap: 20px; flex: 1; min-width: 0; }
+.astryx-edition { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 12px; color: var(--muted); font-size: 10px; letter-spacing: .1em; font-weight: 600; }
+.astryx-edition > span:not([class]) { color: #cbc8d4; }
+.astryx-edition-dot { width: 6px; height: 6px; border-radius: 50%; background: #7967da; }
+.astryx-page .astryx-page-heading h1 { font-size: clamp(25px, 2.7vw, 35px); line-height: 1.2; font-weight: 600; letter-spacing: -1.1px; margin: 0 0 9px; }
+.astryx-page .heading-detail { max-width: 660px; font-size: 13px; line-height: 1.65; color: var(--muted); }
+.astryx-page .astryx-date-card { display: flex; align-items: center; gap: 12px; flex-shrink: 0; background: #fff; border-radius: 12px; padding: 12px 16px; }
+.astryx-date-card > svg { color: #8174bb; }
+.astryx-date-card small, .astryx-date-card strong { display: block; }
+.astryx-date-card small { margin-bottom: 4px; color: var(--muted); font-size: 10px; font-weight: 400; }
+.astryx-date-card strong { font-size: 12px; font-weight: 600; }
+.astryx-page .workspace-toolbar { display: flex; flex-wrap: wrap; justify-content: space-between; margin: 0 0 18px; gap: 12px; }
+.astryx-page .class-filters { justify-content: flex-start; flex: 1; }
+.astryx-page .class-filter { padding: 7px 14px; font-size: 12px; border-radius: 8px; }
+.astryx-page .class-filter[aria-pressed="true"] { color: #5140b2; border-color: #d6cff3; background: #eeebfb; }
+.astryx-page .workspace-summary { font-size: 11px; white-space: normal; }
+.astryx-page .button { min-height: 34px; padding: 7px 11px; border-radius: 8px; font-size: 12px; }
+.astryx-page .button-primary { background: #6050c8; box-shadow: none; }
+.astryx-page .button-primary:hover:not(:disabled) { background: #4d3da9; }
+.astryx-page .button-quiet { background: white; }
+.astryx-page .icon-button { border-radius: 8px; width: 34px; height: 34px; }
+.astryx-page input:not([type="checkbox"]):not([type="radio"]), .astryx-page select, .astryx-page textarea { border-color: var(--line); border-radius: 8px; font-size: 13px; }
+.astryx-page input:focus-visible, .astryx-page textarea:focus-visible, .astryx-page button:focus-visible, .astryx-page a:focus-visible, .astryx-page [contenteditable]:focus-visible { outline: 2px solid #8d7cdb; outline-offset: 3px; }
+.astryx-page .teaching-layout { grid-template-columns: 254px minmax(0, 1fr); gap: 20px; }
+.astryx-page .schedule-rail { top: 20px; border-radius: 14px; border-color: var(--line); box-shadow: 0 3px 10px #24203203; }
+.astryx-page .schedule-controls { padding: 16px 14px 12px; gap: 12px; }
+.astryx-page .date-controls { gap: 6px; }
+.astryx-page .view-switch { border-radius: 8px; background: #f0eff5; }
+.astryx-page .view-switch button { min-height: 30px; border-radius: 6px; padding-inline: 9px; }
+.astryx-page .chosen-date { padding-top: 4px; font-size: 13px; }
+.astryx-page .week-strip { padding: 10px 8px; gap: 3px; background: #fff; }
+.astryx-page .week-day { padding: 8px 0; border-radius: 8px; min-height: 50px; }
+.astryx-page .week-day[aria-current="date"] { border-color: #d4ccf4; background: #eeebfb; color: #5140b2; }
+.astryx-page .week-day .day-name { font-size: 10px; }
+.astryx-page .week-day .day-number { font-size: 13px; margin-top: 3px; }
+.astryx-page .schedule-surface .surface-heading { display: flex; padding: 16px 14px 10px; border: 0; }
+.astryx-page .schedule-surface h2 { font-size: 13px; font-weight: 600; }
+.astryx-page .count-chip { background: #f2f1f6; border: 0; padding: 3px 6px; font-size: 10px; }
+.astryx-page .school-day-note { padding-inline: 14px; font-size: 10px; }
+.astryx-page .schedule-list { padding: 0 10px 12px; max-height: calc(100vh - 440px); min-height: 180px; }
+.astryx-page .schedule-card { padding: 11px 10px; border-radius: 9px; background: #faf9fd; border-color: #eceaf2; border-left: 3px solid hsl(var(--group-hue) 45% 60%); }
+.astryx-page .schedule-card:hover { background: #f1eefb; }
+.astryx-page .schedule-card.is-selected { border-color: #b7a9ed; border-left-color: #7560d0; background: #f0ecfc; box-shadow: none; }
+.astryx-page .schedule-card + .schedule-card { margin-top: 8px; }
+.astryx-page .schedule-time { flex-basis: 44px; font-size: 13px; }
+.astryx-page .schedule-time small { font-size: 10px; }
+.astryx-page .schedule-main strong { font-size: 13px; }
+.astryx-page .schedule-main span { margin-top: 2px; font-size: 11px; }
+.astryx-page .day-period-heading { font-size: 10px; letter-spacing: .05em; }
+.astryx-page .surface, .astryx-page .group-view, .astryx-page .analysis-card { border-radius: 14px; border-color: var(--line); box-shadow: 0 3px 10px #24203203; }
+.astryx-page .group-view-heading { justify-content: space-between; padding: 17px 20px; background: #fff; }
+.astryx-page .group-view-heading > div { justify-content: flex-start; gap: 8px 14px; }
+.astryx-page .group-view-heading h2 { font-size: 22px; letter-spacing: -.6px; }
+.astryx-page .group-view-heading p { font-size: 12px; }
+.astryx-page .live-grid { grid-template-columns: minmax(0, 1fr) 302px; }
+.astryx-page .student-panel { border-radius: 0; box-shadow: none; }
+.astryx-page .student-panel-heading { padding: 20px 18px 12px; gap: 12px; }
+.astryx-page .student-panel-heading h2 { font-size: 16px; margin-bottom: 6px; }
+.astryx-page .student-panel-heading p { font-size: 11px; line-height: 1.5; }
+.astryx-page .student-panel-actions { flex-wrap: wrap; gap: 5px; }
+.astryx-page .student-panel-actions .button { min-height: 30px; font-size: 10px; padding: 6px 8px; }
+.astryx-page .checklist-stats { padding: 0 18px 12px; gap: 6px; }
+.astryx-page .checklist-stat { padding: 4px 7px; border-radius: 6px; font-size: 11px; }
+.astryx-page .attendance-toolbar { padding: 12px 18px; gap: 8px; }
+.astryx-page .attendance-toolbar > .button { font-size: 10px; }
+.astryx-page .attendance-search-label input { min-height: 34px !important; padding: 8px 10px !important; font-size: 12px; }
+.astryx-page .attendance-table-scroll { margin: 0 18px 18px; border: 1px solid var(--line); border-radius: 9px; }
+.astryx-page .student-list-head, .astryx-page .student-row { grid-template-columns: minmax(125px, 1.25fr) 112px 110px minmax(95px, 1fr); min-width: 490px; padding: 10px; gap: 8px; }
+.astryx-page .student-list-head { background: #f8f7fb; font-size: 10px; }
+.astryx-page .student-row { min-height: 64px; }
+.astryx-page .student-name-button { font-size: 13px; }
+.astryx-page .student-score { font-size: 10px; margin-top: 4px; }
+.astryx-page .choice-button { border-radius: 5px; min-height: 32px; font-size: 11px; }
+.astryx-page .student-note { font-size: 11px; }
+.astryx-page .student-list-head > span:last-child { display: block; }
+.astryx-page .student-note-wrap { grid-column: auto; }
+.astryx-page .lesson-column { padding: 16px 12px; gap: 14px; background: #fcfbfe; }
+.astryx-page .lesson-surface { padding: 0; border-radius: 0; box-shadow: none; background: transparent; }
+.astryx-page .lesson-heading { padding: 4px 8px 0; }
+.astryx-page .lesson-heading h2 { font-size: 12px; }
+.astryx-page #lesson-form { padding: 14px 8px; }
+.astryx-page .lesson-context strong { font-size: 15px; }
+.astryx-page .record-fieldset { margin-bottom: 15px; }
+.astryx-page .record-fieldset legend, .astryx-page .rating-fieldset legend { font-size: 12px; margin-bottom: 8px; }
+.astryx-page .record-options span { font-size: 11px; border-radius: 6px; min-height: 33px; padding: 6px; }
+.astryx-page .record-options input:checked + span, .astryx-page .rating-options input:checked + span { border-color: #b6a7ed; background: #eeebfb; color: #5140b2; }
+.astryx-page #lesson-notes { min-height: 150px; padding: 12px; border-color: var(--line); border-radius: 8px; font-size: 13px; }
+.astryx-page .lesson-notes-toolbar { margin-bottom: 8px; }
+.astryx-page .previous-records { border-radius: 10px; }
+.astryx-page .previous-records > summary { background: #fff; padding: 12px; }
+.astryx-page .live-savebar { padding: 13px 18px; background: #fff; gap: 12px; }
+.astryx-page .live-savebar span { font-size: 12px; }
+.astryx-page .teaching-empty { min-height: 390px; display: grid; place-items: center; padding: 40px; border: 1px dashed #d6d0e5; background: #ffffffb0; }
+.astryx-page .teaching-empty svg { width: 34px; height: 34px; color: #9687c7; }
+.astryx-page .teaching-empty h2 { font-size: 20px; letter-spacing: -.4px; }
+.astryx-page .teaching-empty p { max-width: 310px; font-size: 13px; line-height: 1.7; }
+.astryx-page .access-panel { max-width: 470px; margin: 58px auto; border-radius: 18px; border-color: var(--line); background: #fff; box-shadow: 0 12px 45px #33235808; }
+.astryx-page .access-content { padding: 38px; }
+.astryx-page .access-content .eyebrow { font-size: 10px; letter-spacing: .12em; }
+.astryx-page .access-content h2 { font-size: 25px; letter-spacing: -.7px; }
+.astryx-page .access-content > p:not(.eyebrow) { font-size: 13px; line-height: 1.7; }
+.astryx-page .access-form .button { min-height: 42px; font-size: 13px; }
+.astryx-page .analysis-filters, .astryx-page .analysis-context { background: #fff; border-color: var(--line); border-radius: 12px; }
+.astryx-page .analysis-card { background: #fff; }
+.astryx-page .analysis-heading .astryx-date-card { display: none; }
+.astryx-page dialog { border-color: var(--line); border-radius: 16px; box-shadow: 0 24px 80px #26203926; }
+.astryx-page dialog::backdrop { background: #211d354a; backdrop-filter: blur(3px); }
+
+@media (max-width: 1250px) {
+  .astryx-nav-row { gap: 18px; flex-wrap: wrap; }
+  .astryx-brand small { display: none; }
+  .astryx-page .teaching-layout { grid-template-columns: 230px minmax(0, 1fr); gap: 16px; }
+  .astryx-page .live-grid { grid-template-columns: minmax(0, 1fr); }
+  .astryx-page .lesson-column { grid-column: 1; grid-row: 2; border-left: 0; border-top: 1px solid var(--line); padding: 16px; display: grid; grid-template-columns: minmax(200px, .8fr) minmax(0, 1.2fr); }
+  .astryx-page #lesson-form { display: block; }
+}
+@media (max-width: 850px) {
+  .astryx-nav-row { padding: 16px 20px; gap: 14px; }
+  .astryx-utilities { gap: 5px; }
+  .astryx-utilities .connection-state { flex-basis: 100%; text-align: right; }
+  .astryx-navigation { order: 3; width: 100%; }
+  .astryx-action-row { padding: 12px 20px; }
+  .astryx-breadcrumb { display: none; }
+  .astryx-page .main-content, .astryx-page .analysis-main { padding: 25px 20px 40px; }
+  .astryx-page .astryx-date-card { display: none; }
+  .astryx-page .teaching-layout { grid-template-columns: 210px minmax(0, 1fr); gap: 12px; }
+  .astryx-page .lesson-column { display: block; }
+  .astryx-page .lesson-surface { margin-top: 18px; }
+}
+@media (max-width: 700px) {
+  .astryx-nav-row { padding: 14px; gap: 12px; }
+  .astryx-brand { font-size: 15px; gap: 8px; }
+  .astryx-mark { width: 32px; height: 32px; border-radius: 9px; }
+  .astryx-utilities { flex-basis: 100%; order: 3; margin: 0; justify-content: flex-start; }
+  .astryx-utilities .connection-state { flex-basis: auto; margin-right: auto; text-align: left; }
+  .astryx-navigation { order: 2; width: auto; margin-left: auto; gap: 4px; }
+  .astryx-navigation .astryx-button { font-size: 11px; }
+  .astryx-navigation .astryx-button svg { display: none; }
+  .astryx-action-row { padding: 10px 14px; }
+  .astryx-page .topbar-actions { width: 100%; justify-content: flex-start; }
+  .astryx-page .topbar-actions .astryx-button { font-size: 11px; }
+  .astryx-page .main-content, .astryx-page .analysis-main { padding: 24px 14px 100px; }
+  .astryx-page .page-heading, .astryx-page .analysis-heading { align-items: flex-start; flex-wrap: wrap; margin-bottom: 24px; }
+  .astryx-page .astryx-page-heading h1 { font-size: 27px; }
+  .astryx-page .heading-detail { font-size: 12px; }
+  .astryx-page .workspace-toolbar { gap: 8px; }
+  .astryx-page .teaching-layout { display: block; }
+  .astryx-page .schedule-rail { position: static; margin-bottom: 16px; }
+  .astryx-page .schedule-controls { padding: 12px; }
+  .astryx-page .date-controls { flex: 1; width: auto; }
+  .astryx-page .chosen-date { flex-basis: 100%; }
+  .astryx-page .week-strip { padding: 8px; }
+  .astryx-page .week-day { min-height: 45px; }
+  .astryx-page .schedule-list { display: flex; min-height: 0; max-height: 200px; padding: 8px 10px 12px; gap: 8px; }
+  .astryx-page .schedule-card { min-width: 190px; flex: 0 0 auto; }
+  .astryx-page .schedule-card + .schedule-card { margin-top: 0; }
+  .astryx-page .group-view { overflow: hidden; }
+  .astryx-page .group-view-heading { padding: 14px; flex-wrap: wrap; }
+  .astryx-page .group-view-heading > div { display: block; }
+  .astryx-page .group-view-heading h2 { text-align: left; margin-bottom: 4px; }
+  .astryx-page .student-panel-heading { padding: 16px 14px 10px; }
+  .astryx-page .attendance-toolbar { padding: 12px 14px; }
+  .astryx-page .checklist-stats { padding: 0 14px 10px; }
+  .astryx-page .attendance-table-scroll { margin: 0 14px 16px; }
+  .astryx-page .table-scroll-hint { display: block; padding: 0 14px; margin: 0 0 8px; font-size: 10px; color: var(--muted); }
+  .astryx-page .student-panel { overflow: hidden; }
+  .astryx-page .mobile-jump { gap: 5px; margin-bottom: 10px; padding: 5px 0; }
+  .astryx-page .mobile-jump .button { font-size: 10px; padding: 7px 4px; white-space: normal; }
+  .astryx-page .live-savebar { position: fixed; padding: 12px 14px; flex-wrap: wrap; }
+  .astryx-page .live-savebar span { font-size: 10px; }
+  .astryx-page .live-save-actions { margin-left: auto; }
+  .astryx-page .teaching-empty { min-height: 250px; padding: 24px; }
+  .astryx-page .access-panel { margin: 28px auto; }
+  .astryx-page .access-content { padding: 28px; }
+}
