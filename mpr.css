@@ -26,6 +26,9 @@
   border-radius: 12px;
   background: #f6f9f5;
 }
+#lesson-form > #mpr-inline {
+  margin-block: 12px;
+}
 #mpr-inline summary, #record-mpr summary,
 #mpr-dialog summary,
 #mpr-editor summary {
