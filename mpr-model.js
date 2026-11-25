@@ -274,7 +274,11 @@ const MprModel = (() => {
           gaps.push({ text: section + " " + skill.toLowerCase() + " has no outcome.", field: id });
       }
     }
-    const evidence = regular.filter((e) => e.evidence || e.highlight);
+    const evidence = regular.filter(
+      (e) =>
+        e.evidence ||
+        ((e.highlight ?? true) && Object.values(e.outcomes || {}).some((value) => value.trim())),
+    );
     add(
       "Regular classes · progress",
       "evidence",

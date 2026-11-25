@@ -61,6 +61,10 @@ const detailed = ctx.editLog_({log:{...edit,updatedAt:'new',unit:'Unit 2',lesson
 assert.equal(detailed.unit,'Unit 2');
 assert.deepEqual(logs.data[1].slice(12,15),['Unit 2','Decimals','Bring rulers']);
 assert.throws(() => ctx.editLog_({log:{...edit,updatedAt:'new',unit:'x'.repeat(121)}}),/too long/);
+const customStatus = 'Taught with another group';
+const custom = ctx.editLog_({log:{...edit,updatedAt:'new',lessonStatus:customStatus}});
+assert.equal(custom.lessonStatus, customStatus);
+assert.equal(logs.data[1][11], customStatus);
 // Upgrade an existing archive without moving metadata into the new data fields.
 const oldHeaders = headers.slice(0,12);
 sheet('LessonLogs',[headers.slice(0,15)]);

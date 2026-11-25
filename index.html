@@ -7,15 +7,15 @@
   <meta name="description" content="A private teaching timetable and lesson log.">
   <title>Teaching Dashboard</title>
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=&#x27;http://www.w3.org/2000/svg&#x27; viewBox=&#x27;0 0 64 64&#x27;%3E%3Crect width=&#x27;64&#x27; height=&#x27;64&#x27; rx=&#x27;16&#x27; fill=&#x27;%23315e44&#x27;/%3E%3Cpath d=&#x27;M16 18h32v30H16z&#x27; fill=&#x27;none&#x27; stroke=&#x27;white&#x27; stroke-width=&#x27;4&#x27;/%3E%3Cpath d=&#x27;M22 12v12m20-12v12M16 29h32M24 37h7&#x27; stroke=&#x27;white&#x27; stroke-width=&#x27;4&#x27; stroke-linecap=&#x27;round&#x27;/%3E%3C/svg%3E">
-  <link rel="stylesheet" href="./styles.css?v=a3eaf2c3522d">
+  <link rel="stylesheet" href="./styles.css?v=b09cbfed4761">
   <script src="./crash-log-messages.js?v=d32c1323ac93" defer></script>
   <script src="./crash-log.js?v=6bd59d855907" defer></script>
-  <link rel="stylesheet" href="./mpr.css?v=74614b6054f4">
-  <script src="./mpr-model.js?v=7584b7d6dd08" defer></script>
-  <script src="./mpr-lesson.js?v=59b8e4924dc5" defer></script>
-  <script src="./mpr-ui.js?v=9e7b976fd769" defer></script>
-  <script src="./script.js?v=e4d2030b4e13" defer></script>
-  <meta name="dashboard-version" content="e4d2030b4e13">
+  <link rel="stylesheet" href="./mpr.css?v=92bcafe63412">
+  <script src="./mpr-model.js?v=6d0399ad1863" defer></script>
+  <script src="./mpr-lesson.js?v=7e3c6dc96124" defer></script>
+  <script src="./mpr-ui.js?v=53987bd35da9" defer></script>
+  <script src="./script.js?v=7165e91cdcb4" defer></script>
+  <meta name="dashboard-version" content="7165e91cdcb4">
 </head>
 <body>
   <section id="week-preview" class="week-preview" role="region" aria-labelledby="week-preview-title" hidden>
@@ -196,6 +196,11 @@
                   <label><input type="radio" name="lesson-record-status" value="Skipped"><span>Skipped</span></label>
                   <label><input type="radio" name="lesson-record-status" value="Late"><span>Late</span></label>
                   <label><input type="radio" name="lesson-record-status" value="Cancelled"><span>Cancelled</span></label>
+                  <label><input type="radio" name="lesson-record-status" value="__custom"><span>New input</span></label>
+                </div>
+                <div id="custom-lesson-status-wrap" class="custom-type-wrap" hidden>
+                  <label for="custom-lesson-status">Custom lesson status</label>
+                  <input id="custom-lesson-status" maxlength="60" placeholder="e.g. Rescheduled">
                 </div>
               </fieldset>
               <p id="record-features-hint" class="feature-update-hint" hidden>Update Apps Script and run setupDashboard to enable Late, Excused, and the new lesson fields.</p>
@@ -353,7 +358,7 @@
         <label for="record-end">End time</label><input id="record-end" type="time" maxlength="120">
         <label for="record-room">Room</label><input id="record-room" type="text" maxlength="120">
         <label for="record-lessonType">Lesson type</label><input id="record-lessonType" type="text" maxlength="120">
-        <label for="record-lessonStatus">Lesson status</label><select id="record-lessonStatus"><option>Done</option><option>Skipped</option><option>Late</option><option>Cancelled</option></select>
+        <label for="record-lessonStatus">Lesson status</label><input id="record-lessonStatus" list="lesson-status-options" maxlength="60" required><datalist id="lesson-status-options"><option value="Done"><option value="Skipped"><option value="Late"><option value="Cancelled"></datalist>
         <label for="record-unit">Unit</label><input id="record-unit" maxlength="120">
         <label for="record-lessonTitle">Lesson title</label><input id="record-lessonTitle" maxlength="200">
         <section id="record-mpr" aria-label="Monthly performance report note"></section>

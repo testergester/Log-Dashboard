@@ -32,6 +32,10 @@ For an existing dashboard, open its Google Sheet and choose **Extensions → App
 
 The form wording follows the November 2026 MPR receipt. Monthly totals use confirmed sessions in Tashkent time. One normal timetable period initially defaults to one teaching hour, adjustable in setup or for an individual lesson. Record a scheduled ECA or Master Class inside its lesson. Use **Add activity** for a session outside the timetable. Use **Make-up lesson** when a session replaces a missed lesson. Report drafts use the recorded topics and outcomes. Teacher edits are kept separately for each month and field.
 
+## Custom lesson statuses
+
+Replace `ClassesAndLogs.gs` in the bound Apps Script project and deploy a new version of the existing web app. **Lesson status → New input** saves custom labels of up to 60 characters in the existing **Lesson status** column.
+
 ## Attendance and lesson tracking update (October 13, 2026)
 
 Update `AppsScript.gs`, `Attendance.gs`, `ClassesAndLogs.gs`, and `DashboardData.gs` together, run `setupDashboard()`, and publish a new version of the existing web app deployment (keep its `/exec` URL). Update the website assets and reload the dashboard afterward. A GitHub push alone does not update the bound Apps Script deployment.

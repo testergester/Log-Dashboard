@@ -590,3 +590,27 @@ dialog::backdrop { background: #13284a8c; }
 .class-filter.group-filter { background: hsl(var(--group-hue) 75% 88%); border-color: hsl(var(--group-hue) 55% 69%); }
 .class-filter.group-filter:hover { background: hsl(var(--group-hue) 75% 81%); }
 .class-filter.group-filter[aria-pressed="true"] { background: hsl(var(--group-hue) 75% 88%); border-color: #315e44; box-shadow: inset 0 0 0 1px #315e44; }
+
+.lesson-type-options label, .lesson-status-options label {
+  flex: 0 0 auto;
+}
+.lesson-type-options span, .lesson-status-options span {
+  min-height: 32px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+#custom-lesson-status-wrap { margin-top: .4rem; }
+
+@media (min-width: 1001px) {
+  .group-view { overflow: clip; }
+  .lesson-column {
+    position: sticky;
+    top: 10px;
+    align-self: start;
+    align-content: start;
+    max-height: calc(100dvh - 58px);
+    overflow-y: auto;
+    scrollbar-gutter: stable;
+  }
+}

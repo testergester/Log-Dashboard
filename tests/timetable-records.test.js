@@ -53,8 +53,9 @@ assert.equal(checklist.checklist.classInfo.room,'Thursday room');
 timetable.data[2][4]='10:30';timetable.data[2][5]='11:15';
 saved=context.saveLog_({log:{classId:'11A',date:'2026-10-08',notes:'Updated note'}});
 assert.equal(saved.start,'09:40');assert.equal(saved.notes,'Updated note');
-saved=context.saveLog_({log:{classId:'11A',date:'2026-10-08',notes:'Updated note',unit:'Unit 3',lessonTitle:'Travel',nextClassNotes:'Bring maps'}});
+saved=context.saveLog_({log:{classId:'11A',date:'2026-10-08',notes:'Updated note',lessonStatus:'Taught with another group',unit:'Unit 3',lessonTitle:'Travel',nextClassNotes:'Bring maps'}});
 assert.equal(saved.unit,'Unit 3');assert.equal(saved.lessonTitle,'Travel');assert.equal(saved.nextClassNotes,'Bring maps');
+assert.equal(saved.lessonStatus,'Taught with another group');
 saved=context.saveLog_({log:{classId:'11A',date:'2026-10-08',notes:'Legacy client update'}});
 assert.equal(saved.unit,'Unit 3','omitted lesson details are preserved');
 for (const attendance of ['late','excused']) {

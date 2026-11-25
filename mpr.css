@@ -246,3 +246,65 @@
 
 .mpr-note-heading { margin:0; font-size:1rem; }
 .mpr-note-fields { border:0; margin:0; padding:0; min-width:0; }
+
+.mpr-choice-group {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+.mpr-choice-group legend {
+  margin-bottom: .35rem;
+  padding: 0;
+}
+.mpr-category { position: relative; cursor: pointer; }
+.mpr-category input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  z-index: 1;
+  cursor: pointer;
+}
+.mpr-pill {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 34px;
+  padding: .3rem .65rem;
+  border: 1px solid var(--mpr-line, var(--line));
+  border-radius: 999px;
+  background: white;
+  color: var(--navy);
+  white-space: nowrap;
+  cursor: pointer;
+}
+.mpr-category input:checked + .mpr-pill, .mpr-skill[aria-pressed="true"] {
+  border-color: #52785c;
+  background: #dcecdf;
+  box-shadow: inset 0 0 0 1px #52785c;
+}
+.mpr-category input:focus-visible + .mpr-pill, .mpr-skill:focus-visible {
+  outline: 2px solid #5285d1;
+  outline-offset: 2px;
+}
+.mpr-skill { min-width: 42px; min-height: 36px; }
+.mpr-skill-icon { font-size: 1rem; }
+.mpr-skill-tooltip {
+  display: none;
+  position: absolute;
+  z-index: 1;
+  bottom: calc(100% + 4px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: #26382d;
+  color: white;
+  padding: 3px 7px;
+  border-radius: 5px;
+  font-size: .75rem;
+}
+.mpr-skill:is(:hover, :focus-visible) .mpr-skill-tooltip { display: block; }
+.mpr-summary-check { font-weight: 400; }

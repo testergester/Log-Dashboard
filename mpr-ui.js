@@ -70,7 +70,7 @@ function createMprDesk() {
     ...lessonOptions,
     element: () => $("#mpr-inline"),
     lesson: selectedLesson,
-    status: () => document.querySelector('input[name="lesson-record-status"]:checked')?.value || "Done",
+    status: lessonStatusValue,
     changed: updateTeachingSaveState,
     afterRender: (host) => {
       if (returnToDay) host.append(button("Back to MPR", open));
@@ -81,7 +81,7 @@ function createMprDesk() {
     element: () => $("#record-mpr"),
     lesson: () =>
       editingRecord && { id: editingRecord.classId, name: editingRecord.className, date: editingRecord.date },
-    status: () => $("#record-lessonStatus").value,
+    status: () => $("#record-lessonStatus").value.trim(),
     changed: () => {},
   });
   const { el, button, field, tick, outcomeInputs, sessionInputs, validateEntry, renderInline } = inline;

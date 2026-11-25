@@ -101,8 +101,42 @@ const { randomUUID } = require("node:crypto");
       await page.waitForFunction(() => !document.querySelector("#mpr-open").disabled);
       await page.evaluate(() => changeDate("2026-11-18"));
       const inline = page.locator("#mpr-inline");
+      if (width === 1366) {
+        await page.locator("#student-panel").evaluate((panel) => {
+          panel.style.minHeight = "1600px";
+        });
+        await page.evaluate(() => window.scrollTo(0, 400));
+        const column = page.locator(".lesson-column");
+        assert.equal(await column.evaluate((panel) => getComputedStyle(panel).position), "sticky");
+        assert.ok(
+          await column.evaluate(
+            (panel) => panel.getBoundingClientRect().top >= 0 && panel.getBoundingClientRect().top < 25,
+          ),
+        );
+        assert.ok(await column.evaluate((panel) => panel.scrollHeight > panel.clientHeight));
+        await page.locator("#student-panel").evaluate((panel) => {
+          panel.style.minHeight = "";
+        });
+      }
+      await page.locator(".lesson-status-options").getByText("New input", { exact: true }).click();
+      await page.getByLabel("Custom lesson status", { exact: true }).fill("Taught with another group");
       await page.locator("#lesson-unit").fill("Unit 7");
-      await inline.getByLabel("Reading", { exact: true }).check();
+      assert.equal(await inline.getByLabel("Number periods").inputValue(), "1");
+      assert.ok(await inline.getByLabel("I taught these hours").isChecked());
+      const summary = inline.getByLabel("Use this outcome in the monthly progress summary");
+      assert.ok(await summary.isChecked());
+      assert.equal(
+        await summary.evaluate((input) => getComputedStyle(input.parentElement).fontWeight),
+        "400",
+      );
+      await inline.getByRole("radio", { name: "ECA", exact: true }).check();
+      assert.ok(await inline.getByLabel("ECA type").isVisible());
+      await inline.getByRole("radio", { name: "Regular", exact: true }).check();
+      const reading = inline.getByRole("button", { name: "Reading", exact: true });
+      await reading.hover();
+      assert.ok(await reading.locator(".mpr-skill-tooltip").isVisible());
+      await reading.click();
+      assert.equal(await reading.getAttribute("aria-pressed"), "true");
       await inline.getByLabel("Reading · What could students do?").fill("Matched headings.");
       await inline.getByLabel("I taught these hours").check();
       await page.locator("#save-all-button").click();
@@ -118,6 +152,7 @@ const { randomUUID } = require("node:crypto");
       await inline.getByText("MPR note saved").waitFor();
       await page.waitForFunction(() => !document.querySelector("#save-all-button").disabled);
       assert.equal(payload.mprRecords.length, 1);
+      assert.equal(payload.logs[0].lessonStatus, "Taught with another group");
       assert.equal(payload.checklists.length, 1);
       await open.click();
       const dialog = page.locator("#mpr-dialog"),
@@ -202,6 +237,7 @@ const { randomUUID } = require("node:crypto");
       await page.evaluate(() => changeDate("2026-11-25"));
       await page.locator("#previous-records summary").click();
       await page.getByRole("button", { name: "Edit lesson record for 2026-11-18" }).click();
+      assert.equal(await page.locator("#record-lessonStatus").inputValue(), "Taught with another group");
       const past = page.locator("#record-mpr");
       await past.getByRole("heading", { name: "MPR note" }).waitFor();
       await past.getByLabel("Reading · What could students do?").fill("Found supporting details.");
@@ -213,7 +249,13 @@ const { randomUUID } = require("node:crypto");
       );
       await page.goto("http://localhost/experiments/lumen-teaching-desk/index.html");
       await inline.getByRole("heading", { name: "MPR note" }).waitFor();
-      await inline.getByLabel("Writing", { exact: true }).check();
+      await page.locator("#save-button").click();
+      await inline.getByText("MPR note saved").waitFor();
+      const defaultNote = payload.mprRecords.find((row) => row.key === "lesson|9A|2026-11-25").value;
+      assert.equal(defaultNote.hours, 1);
+      assert.equal(defaultNote.confirmed, true);
+      assert.equal(defaultNote.highlight, true);
+      await inline.getByRole("button", { name: "Writing", exact: true }).click();
       await inline.getByLabel("Writing · What could students do?").fill("Wrote an invitation.");
       await page.locator("#save-button").click();
       await inline.getByText("MPR note saved").waitFor();
@@ -230,7 +272,7 @@ const { randomUUID } = require("node:crypto");
       delete payload.mprRecords;
       await page.reload();
       await inline.getByRole("heading", { name: "MPR note" }).waitFor();
-      assert.ok(await inline.getByLabel("Reporting category").isDisabled());
+      assert.ok(await inline.getByRole("radio", { name: "Regular", exact: true }).isDisabled());
       assert.ok(await inline.getByText(/setupMpr/).isVisible());
       assert.ok(await page.locator("#lesson-unit").isEnabled());
       assert.deepEqual(errors, []);

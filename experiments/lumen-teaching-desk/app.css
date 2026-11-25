@@ -34,11 +34,15 @@ html[data-theme="light"]{--canvas:45 20% 97%;--surface:0 0% 100%;--surface-muted
   margin: 12px 0;
   --navy: hsl(var(--ink));
   --muted: hsl(var(--ink-muted));
+  --mpr-line: hsl(var(--line));
   border: 1px solid hsl(var(--line));
 }
 .notes-panel #mpr-inline .mpr-field { margin: 0; }
 .notes-panel #mpr-inline .mpr-check { display: inline-flex; align-items: center; margin: 0; }
 .notes-panel #mpr-inline .mpr-chips .mpr-check { border: 1px solid hsl(var(--line)); }
 .notes-panel #mpr-inline .mpr-field :is(textarea,input,select) {
+  width: 100%; min-width: 0; padding: 6px; border: 1px solid hsl(var(--line)); border-radius: 5px;
+}
+#lesson-status-control {
   width: 100%; min-width: 0; padding: 6px; border: 1px solid hsl(var(--line)); border-radius: 5px;
 }

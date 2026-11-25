@@ -7,6 +7,7 @@ const ENDPOINT_STORAGE_KEY = "teaching-dashboard-endpoint";
 const SESSION_STORAGE_KEY = "teaching-dashboard-session";
 const TZ = "Asia/Tashkent";
 const WEEKDAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+const STANDARD_LESSON_STATUSES = ["Done", "Skipped", "Late", "Cancelled"];
 const STANDARD_LESSON_TYPES = ["Lesson", "Quiz", "Exam"];
 const ATTENDANCE_OPTIONS = [["present", "Present"], ["absent", "Absent"], ["late", "Late"], ["excused", "Excused"]];
 const LESSON_DETAIL_FIELDS = ["unit", "lessonTitle", "nextClassNotes"];
@@ -297,7 +298,11 @@ function logFor(id, date) {
 
 function statusFor(item, date) {
   const log = logFor(item.id, date);
-  if (log) return [log.lessonStatus || "Done", "logged status-" + String(log.lessonStatus || "Done").toLowerCase()];
+  if (log) {
+    const status = log.lessonStatus || "Done";
+    const style = STANDARD_LESSON_STATUSES.includes(status) ? status.toLowerCase() : "custom";
+    return [status, "logged status-" + style];
+  }
   if (state.checklists.some(value => value.classId === item.id && value.date === date)) return ["Checklist saved", "logged"];
   if (date !== todayInTashkent()) return [item.archived ? "Archived" : "Scheduled", ""];
   const now = timeNowInTashkent();
@@ -601,7 +606,7 @@ function saveDraft() {
   const notes = readLessonNotes();
   const rating = document.querySelector('input[name="rating"]:checked')?.value || "";
   const lessonType = lessonTypeValue();
-  const lessonStatus = document.querySelector('input[name="lesson-record-status"]:checked')?.value || "Done";
+  const lessonStatus = lessonStatusValue();
   const saved = logFor(state.selectedClassId, state.selectedDate);
   const details = readLessonDetails();
   if (state.savingLessonKey === draftKey() || notes !== (saved?.notes || "") || rating !== String(saved?.rating || "") ||
@@ -621,6 +626,11 @@ function readLessonDetails() {
 function lessonTypeValue() {
   const selected = document.querySelector('input[name="lesson-type"]:checked')?.value || "Lesson";
   return selected === "__custom" ? $("#custom-lesson-type").value : selected;
+}
+
+function lessonStatusValue() {
+  const selected = document.querySelector('input[name="lesson-record-status"]:checked')?.value || "Done";
+  return selected === "__custom" ? $("#custom-lesson-status").value.trim() : selected;
 }
 
 function showCustomLessonType(show) {
@@ -652,9 +662,12 @@ function renderLesson() {
   $("#custom-lesson-type").value = standardType ? "" : lessonType;
   showCustomLessonType(!standardType);
   const lessonStatus = draft ? draft.lessonStatus : saved?.lessonStatus || "Done";
+  const standardStatus = STANDARD_LESSON_STATUSES.includes(lessonStatus);
   document.querySelectorAll('input[name="lesson-record-status"]').forEach(input => {
-    input.checked = input.value === lessonStatus;
+    input.checked = input.value === (standardStatus ? lessonStatus : "__custom");
   });
+  $("#custom-lesson-status-wrap").hidden = standardStatus;
+  $("#custom-lesson-status").value = standardStatus ? "" : lessonStatus;
   document.querySelectorAll('input[name="rating"]').forEach(input => {
     input.checked = input.value === String(draft ? draft.rating : saved?.rating || "");
   });
@@ -1934,7 +1947,11 @@ $("#custom-lesson-type").addEventListener("input", () => {
   $("#lesson-status").textContent = "Unsaved changes";
   $("#lesson-status").classList.remove("error");
 });
+$("#custom-lesson-status").addEventListener("input", saveDraft);
+$("#custom-lesson-status").addEventListener("change", () => globalThis.MprDesk?.statusChanged());
 document.querySelectorAll('input[name="lesson-record-status"]').forEach(input => input.addEventListener("change", () => {
+  $("#custom-lesson-status-wrap").hidden = input.value !== "__custom";
+  if (input.value === "__custom") $("#custom-lesson-status").focus();
   globalThis.MprDesk?.statusChanged();
   saveDraft();
   $("#lesson-status").textContent = "Unsaved changes";
@@ -1945,11 +1962,16 @@ async function saveCurrentLesson() {
   if (state.pending || !state.selectedClassId) return false;
   const rating = document.querySelector('input[name="rating"]:checked')?.value;
   const lessonType = lessonTypeValue().trim();
-  const lessonStatus = document.querySelector('input[name="lesson-record-status"]:checked')?.value || "Done";
+  const lessonStatus = lessonStatusValue();
   if (!lessonType) {
     $("#lesson-status").textContent = "Enter a custom lesson type before saving.";
     $("#lesson-status").classList.add("error");
     $("#custom-lesson-type").focus();
+    return false;
+  }
+  if (!lessonStatus) {
+    setNotice("Enter a custom lesson status before saving.", true);
+    $("#custom-lesson-status").focus();
     return false;
   }
   saveDraft();
@@ -2074,6 +2096,10 @@ $("#record-form").addEventListener("submit", async event => {
   if (archivingRecord && !reason) { $("#record-error").textContent = "Explain why before confirming."; return; }
   const record = {...item};
   ["className", "subject", "start", "end", "room", "lessonType", "lessonStatus", "rating", ...LESSON_DETAIL_FIELDS].forEach(key => { record[key] = $("#record-" + key).value; });
+  if (!archivingRecord && !record.lessonStatus.trim()) {
+    $("#record-error").textContent = "Enter a lesson status.";
+    return;
+  }
   if (!archivingRecord && !state.lessonDetailsReady && LESSON_DETAIL_FIELDS.some(key => record[key])) {
     $("#record-error").textContent = "Update Apps Script and run setupDashboard before saving lesson details.";
     return;
@@ -2124,7 +2150,7 @@ function updateTeachingSaveState() {
 async function saveAllTeachingRecords() {
   if (state.pending || state.savingAll || !selectedLesson()) return;
   // Validate notes first, so an invalid lesson cannot result in an attendance-only save.
-  if (!lessonTypeValue().trim() || readLessonNotes().length > 5000) {
+  if (!lessonTypeValue().trim() || !lessonStatusValue() || readLessonNotes().length > 5000) {
     await saveCurrentLesson();
     return;
   }

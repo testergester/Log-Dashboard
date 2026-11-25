@@ -101,8 +101,7 @@ function saveLog_(request) {
   const rating = input.rating === null || input.rating === undefined || input.rating === '' ? '' : Number(input.rating);
   if (rating !== '' && (!Number.isInteger(rating) || rating < 1 || rating > 5)) throw new Error('Choose a rating from 1 to 5.');
   const lessonType = text_(input.lessonType || 'Lesson', 'Lesson type', 60, true);
-  const lessonStatus = text_(input.lessonStatus || 'Done', 'Lesson status', 20, true);
-  if (['Done', 'Skipped', 'Late', 'Cancelled'].indexOf(lessonStatus) === -1) throw new Error('Choose a valid lesson status.');
+  const lessonStatus = text_(input.lessonStatus || 'Done', 'Lesson status', 60, true);
   const lock = LockService.getScriptLock();
   lock.waitLock(30000);
   try {
@@ -220,8 +219,7 @@ function editLog_(request) {
   const date = date_(input.date);
   const notes = text_(input.notes, 'Notes', 5000, false);
   const type = text_(input.lessonType, 'Lesson type', 60, true);
-  const status = text_(input.lessonStatus, 'Lesson status', 20, true);
-  if (['Done', 'Skipped', 'Late', 'Cancelled'].indexOf(status) === -1) throw new Error('Choose a valid lesson status.');
+  const status = text_(input.lessonStatus, 'Lesson status', 60, true);
   const rating = input.rating == null || input.rating === '' ? '' : Number(input.rating);
   if (rating !== '' && (!Number.isInteger(rating) || rating < 1 || rating > 5)) throw new Error('Choose a rating from 1 to 5.');
   const name = text_(input.className, 'Class name', 120, true);
