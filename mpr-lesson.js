@@ -129,10 +129,16 @@ function createLessonMpr(options) {
       pill.append(icon, tooltip);
       chips.append(pill);
     }
-    field(parent, "Evidence or work sample (optional)", value.evidence, (v) => {
-      value.evidence = v;
-      changed();
-    });
+    field(
+      parent,
+      "Evidence or work sample (optional)",
+      value.evidence,
+      (v) => {
+        value.evidence = v;
+        changed();
+      },
+      options.sectioned ? { placeholder: "Paste a link or describe the evidence" } : {},
+    );
     tick(parent, "Use this outcome in the monthly progress summary", value.highlight ?? true, (v) => {
       value.highlight = v;
       changed();
@@ -255,7 +261,7 @@ function createLessonMpr(options) {
     parent.append(people);
     attendees(people, value, value.category, changed);
   }
-  function lessonControls(host, value, changed, redraw) {
+  function lessonControls(host, value, changed, redraw, evidenceHost) {
     const body = el("div", null, "mpr-form");
     host.append(body);
     if (M.missed(value.status)) {
@@ -288,7 +294,7 @@ function createLessonMpr(options) {
       choice.append(input, el("span", label, "mpr-pill"));
       choices.append(choice);
     }
-    field(
+    const periods = field(
       body,
       "Number periods",
       value.hours,
@@ -298,6 +304,25 @@ function createLessonMpr(options) {
       },
       { type: "number", max: 24 },
     );
+    if (options.sectioned) {
+      const stepper = el("div", null, "studio-stepper");
+      periods.before(stepper);
+      const stepBy = (label, glyph, amount) => {
+        const control = button(glyph, () => {
+          const number = periods.value === "" ? 0 : Number(periods.value);
+          periods.value = String(Math.round(Math.min(24, Math.max(0, number + amount)) * 100) / 100);
+          periods.dispatchEvent(new Event("input", { bubbles: true }));
+        });
+        control.classList.add("studio-only");
+        control.setAttribute("aria-label", label);
+        return control;
+      };
+      stepper.append(
+        stepBy("Decrease number of periods", "−", -1),
+        periods,
+        stepBy("Increase number of periods", "+", 1),
+      );
+    }
     tick(body, "I taught these hours", value.confirmed, (v) => {
       value.confirmed = v;
       changed();
@@ -319,7 +344,7 @@ function createLessonMpr(options) {
         },
         { options: ["", ...Array.from({ length: 11 }, (_, i) => String(i + 1))] },
       );
-      outcomeInputs(body, value, changed);
+      outcomeInputs(evidenceHost || body, value, changed);
     }
   }
   function renderInline() {
@@ -327,6 +352,12 @@ function createLessonMpr(options) {
     if (!host) return;
     const item = options.lesson();
     host.hidden = !item;
+    const openSections = new Map(
+      [...host.querySelectorAll("details[data-lesson-section]")].map((section) => [
+        section.dataset.lessonSection,
+        section.open,
+      ]),
+    );
     host.replaceChildren();
     if (host.hidden) return;
     const key = M.recordKey(item.id, item.date);
@@ -346,7 +377,30 @@ function createLessonMpr(options) {
     fields.disabled = Boolean(problem);
     fields.setAttribute("aria-label", "Class MPR note");
     host.append(fields);
-    lessonControls(fields, value, changed, renderInline);
+    if (options.sectioned) {
+      const card = (title, icon, name) => {
+        const section = el("details", null, "studio-card mpr-studio-card");
+        section.dataset.lessonSection = name;
+        section.open = !host.closest(".is-studio") || openSections.get(name) !== false;
+        const summary = el("summary", null, "studio-only");
+        const symbol = el("span", icon);
+        symbol.setAttribute("aria-hidden", "true");
+        summary.append(symbol, document.createTextNode(title));
+        const body = el("div", null, "studio-card-body");
+        section.append(summary, body);
+        fields.append(section);
+        return body;
+      };
+      const note = card("MPR note", "▱", "mpr");
+      const evidence =
+        value.category === "Regular" && !M.missed(value.status)
+          ? card("Learning evidence", "◎", "evidence")
+          : null;
+      if (evidence) evidence.classList.add("mpr-evidence-body");
+      lessonControls(note, value, changed, renderInline, evidence);
+    } else {
+      lessonControls(fields, value, changed, renderInline);
+    }
     if (M.get(options.rows(), key) && !drafts.has(key)) host.append(el("p", "MPR note saved", "field-hint"));
     options.afterRender?.(host);
   }

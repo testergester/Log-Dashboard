@@ -10,7 +10,7 @@ const { randomUUID } = require("node:crypto");
     ...(process.env.CHROME_PATH ? { executablePath: process.env.CHROME_PATH } : {}),
   });
   try {
-    for (const width of [1366, 390]) {
+    for (const width of [1274, 390]) {
       const context = await browser.newContext({
         viewport: { width, height: 820 },
         permissions: ["clipboard-read", "clipboard-write"],
@@ -101,7 +101,7 @@ const { randomUUID } = require("node:crypto");
       await page.waitForFunction(() => !document.querySelector("#mpr-open").disabled);
       await page.evaluate(() => changeDate("2026-11-18"));
       const inline = page.locator("#mpr-inline");
-      if (width === 1366) {
+      if (width === 1274) {
         await page.locator("#student-panel").evaluate((panel) => {
           panel.style.minHeight = "1600px";
         });
@@ -118,7 +118,11 @@ const { randomUUID } = require("node:crypto");
           panel.style.minHeight = "";
         });
       }
-      await page.locator(".lesson-status-options").getByText("New input", { exact: true }).click();
+      await page
+        .locator(".lesson-status-options")
+        .getByRole("radio", { name: "New input", exact: true })
+        .locator("..")
+        .click();
       await page.getByLabel("Custom lesson status", { exact: true }).fill("Taught with another group");
       await page.locator("#lesson-unit").fill("Unit 7");
       assert.equal(await inline.getByLabel("Number periods").inputValue(), "1");
@@ -139,7 +143,35 @@ const { randomUUID } = require("node:crypto");
       assert.equal(await reading.getAttribute("aria-pressed"), "true");
       await inline.getByLabel("Reading · What could students do?").fill("Matched headings.");
       await inline.getByLabel("I taught these hours").check();
-      await page.locator("#save-all-button").click();
+      const studio = page.getByRole("tab", { name: "Studio", exact: true });
+      const classic = page.getByRole("tab", { name: "Classic", exact: true });
+      assert.equal(await classic.getAttribute("aria-selected"), "true");
+      await studio.click();
+      assert.equal(await studio.getAttribute("aria-selected"), "true");
+      assert.equal(await page.locator("#studio-unit-body #lesson-unit").inputValue(), "Unit 7");
+      assert.equal(await page.locator("#studio-summary input").isChecked(), true);
+      assert.equal(
+        await inline.getByLabel("Reading · What could students do?").inputValue(),
+        "Matched headings.",
+      );
+      await page.getByRole("button", { name: "Increase number of periods" }).click();
+      assert.equal(await inline.getByLabel("Number periods").inputValue(), "2");
+      await page.getByRole("button", { name: "Decrease number of periods" }).click();
+      const details = page.locator("#studio-lesson-details");
+      await details.locator("summary").click();
+      assert.equal(await details.getAttribute("open"), null);
+      await details.locator("summary").click();
+      assert.ok(
+        await page
+          .locator("#lesson-column")
+          .evaluate((column) => column.scrollWidth <= column.clientWidth + 1),
+      );
+      await studio.press("ArrowLeft");
+      assert.equal(await classic.getAttribute("aria-selected"), "true");
+      assert.ok(await inline.getByLabel("Use this outcome in the monthly progress summary").isChecked());
+      assert.equal(await page.locator("#lesson-form > #lesson-unit").inputValue(), "Unit 7");
+      await studio.click();
+      await page.getByRole("button", { name: "Save changes", exact: true }).click();
       await page
         .getByText(/MPR note still needs saving/)
         .first()
@@ -148,6 +180,7 @@ const { randomUUID } = require("node:crypto");
         await inline.getByLabel("Reading · What could students do?").inputValue(),
         "Matched headings.",
       );
+      await page.getByRole("button", { name: "Switch to Classic", exact: true }).click();
       await page.locator("#save-all-button").click();
       await inline.getByText("MPR note saved").waitFor();
       await page.waitForFunction(() => !document.querySelector("#save-all-button").disabled);
@@ -279,7 +312,7 @@ const { randomUUID } = require("node:crypto");
       await context.close();
     }
     console.log(
-      "MPR desktop and mobile after-lesson, failure/retry, attendance, make-up, setup, copying, manual edits, source changes and reload passed.",
+      "MPR desktop and mobile layouts, shared lesson draft, saves and retry, attendance, make-up, setup, copying and reload passed.",
     );
   } finally {
     await browser.close();

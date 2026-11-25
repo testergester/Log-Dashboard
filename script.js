@@ -650,6 +650,16 @@ function renderLesson() {
   const draft = state.drafts.get(draftKey());
   $("#lesson-title").textContent = formatDate(state.selectedDate, {weekday: "long", month: "short", day: "numeric"});
   $("#lesson-class-name").textContent = item.name;
+  $("#studio-class-name").textContent = item.name;
+  const studioMeta = $("#studio-class-meta");
+  if (studioMeta?.replaceChildren) {
+    studioMeta.replaceChildren();
+    for (const text of [item.subject, item.start + " – " + item.end, item.room && "Room " + item.room].filter(Boolean)) {
+      const line = document.createElement("span");
+      line.textContent = text;
+      studioMeta.append(line);
+    }
+  }
   $("#lesson-class-detail").textContent = [item.subject, item.start + "–" + item.end, item.room && "Room " + item.room].filter(Boolean).join(" · ");
   showLessonNotes($("#lesson-notes"), draft ? draft.notes : saved?.notes || "");
   LESSON_DETAIL_FIELDS.forEach(key => { $("#lesson-" + key).value = (draft || saved)?.[key] || ""; });
@@ -1958,6 +1968,13 @@ document.querySelectorAll('input[name="lesson-record-status"]').forEach(input =>
   $("#lesson-status").classList.remove("error");
 }));
 
+function focusLessonField(selector) {
+  const field = $(selector);
+  const section = field.closest?.("details.studio-card");
+  if (section) section.open = true;
+  field.focus();
+}
+
 async function saveCurrentLesson() {
   if (state.pending || !state.selectedClassId) return false;
   const rating = document.querySelector('input[name="rating"]:checked')?.value;
@@ -1966,12 +1983,12 @@ async function saveCurrentLesson() {
   if (!lessonType) {
     $("#lesson-status").textContent = "Enter a custom lesson type before saving.";
     $("#lesson-status").classList.add("error");
-    $("#custom-lesson-type").focus();
+    focusLessonField("#custom-lesson-type");
     return false;
   }
   if (!lessonStatus) {
     setNotice("Enter a custom lesson status before saving.", true);
-    $("#custom-lesson-status").focus();
+    focusLessonField("#custom-lesson-status");
     return false;
   }
   saveDraft();
@@ -2001,7 +2018,7 @@ async function saveCurrentLesson() {
   if (record.notes.length > 5000) {
     $("#lesson-status").textContent = "Notes are too long. Shorten them before saving.";
     $("#lesson-status").classList.add("error");
-    $("#lesson-notes").focus();
+    focusLessonField("#lesson-notes");
     return false;
   }
   state.pending = true;
@@ -2138,6 +2155,8 @@ function updateTeachingSaveState() {
   const lesson = selectedLesson();
   const dirty = globalThis.MprDesk?.dirty(draftKey()) || state.drafts.has(draftKey()) || state.checklistDrafts.has(checklistKey());
   button.disabled = state.pending || state.savingAll || !lesson || Boolean(lesson.archived && !logFor(lesson.id, state.selectedDate) && !savedChecklist());
+  $("#studio-save").disabled = button.disabled;
+  $("#studio-save").textContent = state.savingAll || state.pending ? "Saving…" : "Save changes";
   button.textContent = state.savingAll || state.pending ? "Saving…" : "Save all · ⌘ / Ctrl S";
   status.textContent = state.savingAll ? "Saving this lesson and attendance…" : state.pending ? "Saving…"
     : !lesson ? "Select a class to begin." : dirty ? "Unsaved changes for this lesson"
@@ -2180,6 +2199,7 @@ async function saveAllTeachingRecords() {
 }
 
 $("#save-all-button").addEventListener("click", saveAllTeachingRecords);
+$("#studio-save").addEventListener("click", saveAllTeachingRecords);
 $("#next-class-button").addEventListener("click", () => {
   if (state.pending || state.savingAll) return;
   const lessons = filteredLessons(state.selectedDate);

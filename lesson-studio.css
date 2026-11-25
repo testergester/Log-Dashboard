@@ -1,0 +1,373 @@
+.lesson-view-tabs {
+  position: sticky;
+  top: -12px;
+  z-index: 4;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 3px;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: #eef2ed;
+}
+.lesson-view-tabs button {
+  min-height: 32px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--navy);
+  font: inherit;
+  font-weight: 650;
+}
+.lesson-view-tabs button[aria-selected="true"] {
+  background: #fff;
+  border-color: var(--line);
+}
+.studio-only,
+.record-options .studio-option-icon {
+  display: none;
+}
+
+/* The regular sidebar uses the same MPR controls in their original order. */
+.lesson-column:not(.is-studio) .mpr-studio-card,
+.lesson-column:not(.is-studio) .mpr-studio-card > .studio-card-body,
+.lesson-column:not(.is-studio) .studio-stepper {
+  display: contents;
+}
+.lesson-column:not(.is-studio) #mpr-inline .mpr-evidence-body {
+  display: grid;
+  gap: 0.65rem;
+  margin-block-start: 0.65rem;
+  padding: 0;
+}
+
+.lesson-column.is-studio {
+  --studio-dark: #221746;
+  --studio-accent: #582aca;
+  --studio-line: #dfd7f6;
+  --studio-surface: #fbfaff;
+  --studio-tint: #f1ecfc;
+  color: var(--studio-dark);
+  background: #f7f4fd;
+}
+.is-studio .lesson-view-tabs {
+  background: #eee8fa;
+  border-color: var(--studio-line);
+}
+.is-studio .lesson-view-tabs button {
+  color: var(--studio-dark);
+}
+.is-studio .lesson-view-tabs button[aria-selected="true"] {
+  color: #fff;
+  background: #482e82;
+  border-color: #482e82;
+}
+.is-studio .lesson-surface {
+  padding: 0;
+  background: #fff;
+  border: 1px solid var(--studio-line);
+  border-radius: 14px;
+  box-shadow: 0 5px 16px rgb(52 34 95 / 9%);
+}
+.is-studio .lesson-heading {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  padding: 12px;
+  border-radius: 13px 13px 0 0;
+  background: linear-gradient(120deg, #382269, #52408a);
+  color: #fff;
+}
+.is-studio .studio-heading-icon {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  background: #6643a5;
+  font-size: 22px;
+}
+.is-studio .lesson-heading h2 {
+  font-size: 11px;
+  color: #eee5ff;
+}
+.is-studio .studio-heading-title {
+  display: block;
+  color: #fff;
+  font-size: 16px;
+  font-weight: 750;
+  grid-row: 1;
+}
+.is-studio .lesson-heading > div:not(.lesson-header-actions) {
+  display: grid;
+  gap: 2px;
+}
+.is-studio .lesson-header-actions {
+  display: grid;
+  justify-items: end;
+  gap: 1px;
+}
+.is-studio #edit-class-button {
+  color: #eee5ff;
+  padding: 0 2px;
+}
+.is-studio .studio-close {
+  display: grid;
+  place-items: center;
+  min-width: 28px;
+  min-height: 28px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #fff;
+  font-size: 22px;
+  line-height: 1;
+}
+.is-studio .studio-close:hover {
+  background: rgb(255 255 255 / 12%);
+}
+.is-studio #lesson-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 10px;
+  padding: 10px;
+}
+.is-studio .lesson-context {
+  display: none;
+}
+.is-studio .studio-class {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  border-radius: 10px;
+  background: linear-gradient(125deg, #f7f3ff 40%, #e8ddfc);
+}
+.studio-class > strong {
+  display: grid;
+  place-items: center;
+  min-width: 42px;
+  min-height: 42px;
+  padding: 5px;
+  border-radius: 8px;
+  background: #fff;
+  color: #24164a;
+  font-size: 1.1rem;
+  box-shadow: 0 2px 9px rgb(78 44 143 / 16%);
+}
+#studio-class-meta {
+  display: grid;
+  gap: 2px;
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+.studio-book {
+  font-size: 22px;
+}
+.is-studio .studio-card {
+  display: block;
+  min-width: 0;
+  overflow: clip;
+  border: 1px solid var(--studio-line);
+  border-radius: 10px;
+  background: var(--studio-surface);
+}
+.is-studio .studio-card > summary {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 10px;
+  background: var(--studio-tint);
+  color: var(--studio-dark);
+  font-weight: 750;
+  cursor: pointer;
+  list-style: none;
+}
+.studio-card > summary::-webkit-details-marker {
+  display: none;
+}
+.studio-card > summary > span {
+  color: var(--studio-accent);
+  font-size: 15px;
+}
+.studio-card > summary::after {
+  content: "";
+  width: 6px;
+  height: 6px;
+  margin: 0 2px 3px auto;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: rotate(45deg);
+}
+.studio-card[open] > summary::after {
+  margin-bottom: 0;
+  transform: rotate(225deg);
+}
+.studio-card-body {
+  min-width: 0;
+  padding: 10px;
+}
+.is-studio .record-fieldset {
+  margin: 0 0 10px;
+}
+.is-studio .record-options span,
+.is-studio .rating-options span,
+.is-studio .mpr-pill {
+  background: #fff;
+  border-color: var(--studio-line);
+  color: var(--studio-dark);
+}
+.is-studio .record-options input:checked + span,
+.is-studio .rating-options input:checked + span,
+.is-studio .mpr-category input:checked + span,
+.is-studio .mpr-skill[aria-pressed="true"] {
+  border-color: #7943e0;
+  background: #eee5ff;
+  color: #402176;
+  box-shadow: none;
+}
+.is-studio .lesson-status-options input[value="Done"]:checked + span {
+  border-color: #58a56c;
+  background: #e8f9e9;
+  color: #245a35;
+}
+#studio-unit-body > label,
+#studio-title-body > label,
+#studio-logs-body > label {
+  display: block;
+  margin: 8px 0 4px;
+  font-weight: 650;
+}
+.is-studio
+  #lesson-form
+  :is(input:not([type="checkbox"]):not([type="radio"]), select, textarea, #lesson-notes) {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid #d5cceb;
+  border-radius: 7px;
+  background: #fff;
+  color: var(--studio-dark);
+}
+.is-studio #lesson-form :is(input:not([type="checkbox"]):not([type="radio"]), select) {
+  min-height: 36px;
+  padding: 5px 7px;
+}
+.is-studio #lesson-notes {
+  min-height: 72px;
+}
+.is-studio #lesson-nextClassNotes {
+  min-height: 56px;
+  height: 60px;
+}
+.is-studio .rating-fieldset {
+  margin: 0;
+}
+.is-studio #lesson-form > #mpr-inline {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  background: none;
+  min-width: 0;
+}
+.is-studio #mpr-inline > .mpr-note-heading {
+  display: none;
+}
+.is-studio #mpr-inline .mpr-note-fields {
+  display: grid;
+  gap: 10px;
+}
+.is-studio #mpr-inline .mpr-form {
+  margin: 0;
+}
+.is-studio .studio-stepper {
+  display: grid;
+  grid-template-columns: auto minmax(48px, 1fr) auto;
+  gap: 4px;
+  max-width: 148px;
+}
+.is-studio .studio-stepper > button {
+  display: inline-flex;
+  background: #f4effc;
+  border-color: var(--studio-line);
+  font-size: 15px;
+}
+.is-studio .studio-stepper > input {
+  text-align: center;
+  appearance: textfield;
+}
+.is-studio .studio-stepper > input::-webkit-inner-spin-button {
+  appearance: none;
+}
+.is-studio .record-options .studio-option-icon {
+  display: inline;
+  min-height: 0;
+  margin-inline-end: 4px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: currentColor;
+  font-size: 1.15em;
+}
+.is-studio .mpr-chips {
+  column-gap: 4px;
+}
+.is-studio .mpr-pill {
+  min-height: 31px;
+}
+.is-studio .mpr-skill {
+  min-width: 34px;
+}
+.is-studio .lesson-actions {
+  margin: 0;
+}
+.is-studio .studio-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  border-top: 1px solid var(--studio-line);
+  padding-top: 8px;
+}
+#studio-summary {
+  flex: 1 1 120px;
+}
+#studio-summary:empty {
+  display: none;
+}
+.is-studio #studio-save {
+  min-height: 36px;
+  background: var(--studio-accent);
+}
+.is-studio #studio-history {
+  display: block;
+  padding: 0 10px 10px;
+}
+.is-studio #studio-history .previous-records {
+  background: #fbf9ff;
+  border-color: var(--studio-line);
+}
+.is-studio #studio-history .previous-records > summary {
+  background: var(--studio-tint);
+}
+@media (min-width: 1001px) {
+  .live-grid:has(> .is-studio) {
+    grid-template-columns: minmax(0, 1fr) clamp(290px, 29vw, 420px);
+  }
+}
+.is-studio #studio-lesson-details {
+  container-type: inline-size;
+}
+@container (min-width: 315px) {
+  .is-studio .studio-lesson-fields {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+}
+.is-studio #mpr-inline .studio-card > summary {
+  padding: 8px 10px;
+  color: var(--studio-dark);
+}

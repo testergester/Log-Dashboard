@@ -10,12 +10,14 @@
   <link rel="stylesheet" href="./styles.css?v=b09cbfed4761">
   <script src="./crash-log-messages.js?v=d32c1323ac93" defer></script>
   <script src="./crash-log.js?v=6bd59d855907" defer></script>
+  <link rel="stylesheet" href="./lesson-studio.css?v=43ee533cb2d3">
   <link rel="stylesheet" href="./mpr.css?v=54ca323ecbcd">
   <script src="./mpr-model.js?v=6d0399ad1863" defer></script>
-  <script src="./mpr-lesson.js?v=7e3c6dc96124" defer></script>
-  <script src="./mpr-ui.js?v=53987bd35da9" defer></script>
-  <script src="./script.js?v=7165e91cdcb4" defer></script>
-  <meta name="dashboard-version" content="7165e91cdcb4">
+  <script src="./mpr-lesson.js?v=dc9eb25ac47d" defer></script>
+  <script src="./mpr-ui.js?v=8bc7ba38e4fd" defer></script>
+  <script src="./lesson-studio.js?v=f2e5775eb2d5" defer></script>
+  <script src="./script.js?v=af68c23f8d6f" defer></script>
+  <meta name="dashboard-version" content="af68c23f8d6f">
 </head>
 <body>
   <section id="week-preview" class="week-preview" role="region" aria-labelledby="week-preview-title" hidden>
@@ -149,26 +151,51 @@
               <div id="student-list" class="student-list"></div>
             </div>
           </form>
-        </section><div class="lesson-column"><details class="previous-records" id="previous-records">
+        </section><div class="lesson-column" id="lesson-column">
+            <div class="lesson-view-tabs" role="tablist" aria-label="Lesson sidebar layout">
+              <button type="button" id="classic-lesson-tab" role="tab" aria-selected="true" aria-controls="lesson-sidebar-panel">Classic</button>
+              <button type="button" id="studio-lesson-tab" role="tab" aria-selected="false" aria-controls="lesson-sidebar-panel" tabindex="-1">Studio</button>
+            </div>
+            <details class="previous-records" id="previous-records">
             <summary>
               <span class="previous-records-heading"><span class="previous-records-title">Previous lesson notes</span><span id="previous-records-hint" class="previous-records-hint">Review earlier lessons for this group</span></span>
               <span class="previous-records-toggle" aria-hidden="true"><span class="previous-records-toggle-label"></span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></span>
             </summary><section class="previous-notes-surface" aria-labelledby="previous-notes-title">
               <div class="surface-heading"><div><p class="eyebrow">CLASS HISTORY</p><h2 id="previous-notes-title">Previous records</h2></div></div>
               <div id="previous-notes-list" class="previous-notes-list"></div>
-            </section></details><aside class="surface lesson-surface" aria-labelledby="lesson-title">
+            </section></details><aside class="surface lesson-surface" id="lesson-sidebar-panel" role="tabpanel" aria-labelledby="classic-lesson-tab">
             <div class="surface-heading lesson-heading">
+              <span class="studio-only studio-heading-icon" aria-hidden="true">✎</span>
               <div>
                 <p class="eyebrow">LESSON RECORD</p>
                 <h2 id="lesson-title">Select a class</h2>
+                <div class="studio-only studio-heading-title" aria-hidden="true">Edit class</div>
               </div>
-              <button type="button" class="button button-text" id="edit-class-button" hidden>Edit class</button>
+              <div class="lesson-header-actions">
+                <button type="button" class="button button-text" id="edit-class-button" hidden>Edit class</button>
+                <button type="button" class="studio-only studio-close" id="close-lesson-studio" aria-label="Switch to Classic">×</button>
+              </div>
             </div>
             <div id="lesson-empty" class="lesson-empty">
               <div class="empty-icon" aria-hidden="true">✎</div>
               <p>Choose a class to write your lesson log.</p>
             </div>
             <form id="lesson-form" hidden>
+              <div class="studio-only studio-class" id="studio-class">
+                <strong id="studio-class-name"></strong>
+                <div id="studio-class-meta"></div>
+                <span class="studio-book" aria-hidden="true">📖</span>
+              </div>
+              <details open class="studio-only studio-card" id="studio-lesson-details">
+                <summary><span aria-hidden="true">▤</span> Lesson details</summary>
+                <div class="studio-card-body">
+                  <div id="studio-details-body"></div>
+                  <div class="studio-lesson-fields">
+                    <div id="studio-unit-body"></div>
+                    <div id="studio-title-body"></div>
+                  </div>
+                </div>
+              </details>
               <div class="lesson-context">
                 <span class="subject-dot" aria-hidden="true"></span>
                 <div>
@@ -207,6 +234,14 @@
               <label for="lesson-unit">Unit</label><input id="lesson-unit" maxlength="120" placeholder="e.g. Unit 3 · Travel">
               <label for="lesson-lessonTitle">Lesson title</label><input id="lesson-lessonTitle" maxlength="200" placeholder="e.g. Planning a journey">
               <section id="mpr-inline" aria-label="Monthly performance report note" hidden></section>
+              <details open class="studio-only studio-card" id="studio-logs">
+                <summary><span aria-hidden="true">▧</span> Logs &amp; notes</summary>
+                <div class="studio-card-body" id="studio-logs-body"></div>
+              </details>
+              <details open class="studio-only studio-card" id="studio-outcome">
+                <summary><span aria-hidden="true">▥</span> Class outcome</summary>
+                <div class="studio-card-body" id="studio-outcome-body"></div>
+              </details>
               <div class="field-label" id="lesson-notes-label">Logs</div>
               <div class="lesson-notes-toolbar" role="toolbar" aria-label="Note formatting">
                 <button type="button" data-notes-command="bold" aria-label="Bold" aria-pressed="false" title="Bold (⌘ / Ctrl B)"><strong aria-hidden="true">B</strong></button>
@@ -227,11 +262,16 @@
                   <label><input type="radio" name="rating" value="5"><span>5<small>Excellent</small></span></label>
                 </div>
               </fieldset>
+              <div class="studio-only studio-footer">
+                <div id="studio-summary"></div>
+                <button type="button" id="studio-save" class="button button-primary">Save changes</button>
+              </div>
               <div class="lesson-actions">
                 <span id="lesson-status" role="status" aria-live="polite"></span>
                 <button type="submit" class="button button-primary" id="save-lesson-button">Save lesson</button>
               </div>
             </form>
+            <div class="studio-only" id="studio-history"></div>
           </aside></div></div><div class="live-savebar"><span id="save-all-status" role="status" aria-live="polite">Select a class to begin.</span><div class="live-save-actions"><button type="button" class="button button-quiet" id="next-class-button">Next class →</button><button type="button" class="button button-primary" id="save-all-button">Save all <small>⌘ / Ctrl S</small></button></div></div></div><section id="teaching-empty" class="surface teaching-empty"><h2>Choose a class</h2><p>Select a lesson from the timetable to take attendance and write notes.</p></section></div></div></div>
     </main>
   </div>

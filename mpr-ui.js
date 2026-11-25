@@ -69,10 +69,12 @@ function createMprDesk() {
   const inline = createLessonMpr({
     ...lessonOptions,
     element: () => $("#mpr-inline"),
+    sectioned: true,
     lesson: selectedLesson,
     status: lessonStatusValue,
     changed: updateTeachingSaveState,
     afterRender: (host) => {
+      window.syncLessonStudioSummary?.(true);
       if (returnToDay) host.append(button("Back to MPR", open));
     },
   });
@@ -142,7 +144,13 @@ function createMprDesk() {
     render();
     const target = $("#mpr-inline");
     target.scrollIntoView({ block: "center" });
-    target.querySelector(".mpr-note-heading")?.focus();
+    const studioSection = target.closest(".is-studio") && target.querySelector('[data-lesson-section="mpr"]');
+    if (studioSection) {
+      studioSection.open = true;
+      studioSection.querySelector("summary").focus();
+    } else {
+      target.querySelector(".mpr-note-heading")?.focus();
+    }
   }
   function dayRows(date) {
     const rows = lessonsOn(date).map((item) => {
