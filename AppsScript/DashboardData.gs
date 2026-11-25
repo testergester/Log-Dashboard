@@ -1,4 +1,4 @@
-function loadDashboard_() {
+function loadDashboard_(includeMpr) {
   const spreadsheet = spreadsheet_();
   const logSheet = spreadsheet.getSheetByName(DASHBOARD.logs);
   const lessonDetailHeaders = logSheet.getLastColumn() >= 15 ? logSheet.getRange(1, 13, 1, 3).getDisplayValues()[0] : [];
@@ -58,7 +58,13 @@ function loadDashboard_() {
       }).forEach(function(record) { studentRecords.push(record); });
     }
   });
-  return {classes: classes, logs: logs, students: students, archivedStudents: archivedStudents, enrollments: enrollments,
+  const mprSheet = includeMpr && typeof MPR_SHEET === 'string' && spreadsheet.getSheetByName(MPR_SHEET);
+  let mprRecords = null, mprError = '';
+  if (mprSheet) {
+    try { mprRecords = loadMpr_(mprSheet); }
+    catch (error) { mprError = 'Could not read MprRecords. Review the MPR sheet for incomplete rows, then reload.'; }
+  }
+  return {mprRecords: mprRecords, mprError: mprError, classes: classes, logs: logs, students: students, archivedStudents: archivedStudents, enrollments: enrollments,
     checklists: checklists, studentRecords: studentRecords, attendanceStorage: 'json-v1',
     meetingScheduleVersion: 1, studentArchiveVersion: 1, extendedAttendanceVersion: 1,
     lessonDetailsVersion: lessonDetailHeaders.join('|') === 'Unit|Lesson title|Notes for next class' ? 1 : 0,

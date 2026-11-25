@@ -10,8 +10,11 @@
   <link rel="stylesheet" href="./styles.css?v=a3eaf2c3522d">
   <script src="./crash-log-messages.js?v=d32c1323ac93" defer></script>
   <script src="./crash-log.js?v=6bd59d855907" defer></script>
-  <script src="./script.js?v=c7f90b6781ca" defer></script>
-  <meta name="dashboard-version" content="c7f90b6781ca">
+  <link rel="stylesheet" href="./mpr.css?v=e1f5fbb1875c">
+  <script src="./mpr-model.js?v=7584b7d6dd08" defer></script>
+  <script src="./mpr-ui.js?v=2707cff83dc5" defer></script>
+  <script src="./script.js?v=21a48b20b8c0" defer></script>
+  <meta name="dashboard-version" content="21a48b20b8c0">
 </head>
 <body>
   <section id="week-preview" class="week-preview" role="region" aria-labelledby="week-preview-title" hidden>
@@ -34,6 +37,7 @@
           <span aria-hidden="true">＋</span> Add class
         </button>
         <a class="button button-quiet" href="./analysis.html">↗ Analysis</a>
+        <button type="button" class="button button-quiet" id="mpr-open" disabled>MPR</button>
         <a class="button button-quiet" id="new-ui-beta-link" href="./experiments/lumen-teaching-desk/">new UI BETTA</a>
         <span class="connection-state" id="connection-state">Not connected</span>
         <button type="button" class="button button-quiet" id="settings-button" aria-label="Connection settings">Settings</button>
@@ -196,6 +200,7 @@
               <p id="record-features-hint" class="feature-update-hint" hidden>Update Apps Script and run setupDashboard to enable Late, Excused, and the new lesson fields.</p>
               <label for="lesson-unit">Unit</label><input id="lesson-unit" maxlength="120" placeholder="e.g. Unit 3 · Travel">
               <label for="lesson-lessonTitle">Lesson title</label><input id="lesson-lessonTitle" maxlength="200" placeholder="e.g. Planning a journey">
+              <section id="mpr-inline" aria-label="Monthly performance report note" hidden></section>
               <div class="field-label" id="lesson-notes-label">Logs</div>
               <div class="lesson-notes-toolbar" role="toolbar" aria-label="Note formatting">
                 <button type="button" data-notes-command="bold" aria-label="Bold" aria-pressed="false" title="Bold (⌘ / Ctrl B)"><strong aria-hidden="true">B</strong></button>
@@ -225,6 +230,18 @@
     </main>
   </div>
 
+  <dialog id="mpr-dialog" aria-labelledby="mpr-title">
+    <header class="dialog-heading"><h2 id="mpr-title">Monthly Performance Report</h2><button type="button" class="button button-quiet" id="mpr-close">Back to dashboard</button></header>
+    <nav class="mpr-nav" aria-label="MPR views"><button type="button" id="mpr-today" aria-pressed="true">Today</button><button type="button" id="mpr-month" aria-pressed="false">Monthly report</button></nav>
+    <p id="mpr-message" role="status"></p><div id="mpr-content"></div>
+  </dialog>
+  <dialog id="mpr-editor" aria-labelledby="mpr-editor-title">
+    <form id="mpr-editor-form"><h2 id="mpr-editor-title">MPR entry</h2>
+      <fieldset id="mpr-editor-fields"><div id="mpr-editor-body"></div></fieldset>
+      <p role="status" id="mpr-editor-message"></p>
+      <footer class="mpr-toolbar"><button type="button" id="mpr-editor-remove" class="button button-danger" hidden>Remove activity</button><button type="button" class="button button-quiet" id="mpr-editor-cancel">Close</button><button type="submit" class="button button-primary" id="mpr-editor-save">Save changes</button></footer>
+    </form>
+  </dialog>
   <dialog id="class-dialog" aria-labelledby="class-dialog-title">
     <form id="class-form" class="class-form">
       <div class="dialog-heading">

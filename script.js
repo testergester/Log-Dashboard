@@ -196,6 +196,7 @@ function isSessionError(error) {
 }
 
 function clearSession() {
+  globalThis.MprDesk?.reset();
   state.token = "";
   localStorage.removeItem(SESSION_STORAGE_KEY);
 }
@@ -223,17 +224,18 @@ function handleError(error, target = "global") {
 }
 
 async function loadData() {
-  const data = await request("load", {token: state.token});
-  applyDashboardData(data);
+  const data = await request("load", {token: state.token, includeMpr: true});
+  applyDashboardData(data, true);
 }
 
-function applyDashboardData(data) {
+function applyDashboardData(data, includeMpr = false) {
   if (!Array.isArray(data.classes) || !Array.isArray(data.logs)) throw new Error("The spreadsheet returned unexpected data.");
   const studentKeys = ["students", "enrollments", "checklists", "studentRecords"];
   const hasStudentData = studentKeys.every(key => Array.isArray(data[key]));
   if (!hasStudentData && studentKeys.some(key => data[key] !== undefined)) {
     throw new Error("Student records are incomplete. Run setupDashboard and redeploy Apps Script.");
   }
+  if (includeMpr) globalThis.MprDesk?.load(data.mprRecords, data.mprError);
   state.classes = data.classes.map(item => ({...item, start: canonicalTime(item.start), end: canonicalTime(item.end),
     meetings: (item.meetings || [{weekday: item.weekday, start: item.start, end: item.end, room: item.room}])
       .map(meeting => ({...meeting, start: canonicalTime(meeting.start), end: canonicalTime(meeting.end)}))}));
@@ -767,8 +769,8 @@ async function checkRosterIds() {
   state.rosterAuditBusy = true;
   renderRosterAudit();
   try {
-    const data = await request("load", {token: state.token});
-    applyDashboardData(data);
+    const data = await request("load", {token: state.token, includeMpr: true});
+    applyDashboardData(data, true);
     if (state.selectedClassId !== classId) return;
     state.rosterAudit = {classId, groupName: state.classes.find(item => item.id === classId)?.name || classId,
       rows: compareStudentSheetIds(state.students, state.enrollments, classId),
@@ -1212,6 +1214,7 @@ function render() {
   renderSchedule();
   if (state.view === "week") renderWeekPreview();
   renderLesson();
+  globalThis.MprDesk?.renderInline();
   renderPreviousNotes();
   renderStudents();
   updateTeachingSaveState();
@@ -1932,6 +1935,7 @@ $("#custom-lesson-type").addEventListener("input", () => {
   $("#lesson-status").classList.remove("error");
 });
 document.querySelectorAll('input[name="lesson-record-status"]').forEach(input => input.addEventListener("change", () => {
+  globalThis.MprDesk?.statusChanged();
   saveDraft();
   $("#lesson-status").textContent = "Unsaved changes";
   $("#lesson-status").classList.remove("error");
@@ -1950,6 +1954,13 @@ async function saveCurrentLesson() {
   }
   saveDraft();
   const key = draftKey();
+  let mprSubmission;
+  try {
+    mprSubmission = globalThis.MprDesk?.prepareInline("lesson|" + key);
+  } catch (error) {
+    setNotice(error.message, true);
+    return false;
+  }
   const record = {
     classId: state.selectedClassId,
     date: state.selectedDate,
@@ -1986,6 +1997,7 @@ async function saveCurrentLesson() {
     }
     state.savingLessonKey = "";
     finishWrite(state.drafts.has(key) ? "Lesson saved; newer changes are still unsaved." : "Lesson saved.");
+    if (globalThis.MprDesk && !await globalThis.MprDesk.saveInline("lesson|" + key, mprSubmission)) return false;
     return true;
   } catch (error) { if (typeof window !== "undefined") window.CrashLog?.record(error);
     if (!state.drafts.has(key)) state.drafts.set(key, submittedDraft);
@@ -2087,7 +2099,7 @@ function updateTeachingSaveState() {
   const status = $("#save-all-status");
   if (!button || !status) return;
   const lesson = selectedLesson();
-  const dirty = state.drafts.has(draftKey()) || state.checklistDrafts.has(checklistKey());
+  const dirty = globalThis.MprDesk?.dirty(draftKey()) || state.drafts.has(draftKey()) || state.checklistDrafts.has(checklistKey());
   button.disabled = state.pending || state.savingAll || !lesson || Boolean(lesson.archived && !logFor(lesson.id, state.selectedDate) && !savedChecklist());
   button.textContent = state.savingAll || state.pending ? "Saving…" : "Save all · ⌘ / Ctrl S";
   status.textContent = state.savingAll ? "Saving this lesson and attendance…" : state.pending ? "Saving…"
@@ -2122,7 +2134,7 @@ async function saveAllTeachingRecords() {
       if (state.token) setNotice((lessonSaved ? "Lesson saved. " : "") + "Attendance was not saved. Your attendance changes are still here; retry Save all.", true);
       return;
     }
-    if (state.token) setNotice(state.drafts.has(draftKey()) || state.checklistDrafts.has(checklistKey())
+    if (state.token) setNotice(globalThis.MprDesk?.dirty(draftKey()) || state.drafts.has(draftKey()) || state.checklistDrafts.has(checklistKey())
       ? "Submitted records saved. Newer changes are still unsaved." : "Lesson and available attendance records saved.");
   } finally {
     state.savingAll = false;
@@ -2155,4 +2167,5 @@ document.addEventListener?.("keydown", event => {
   }
 });
 
+if (typeof createMprDesk === "function") globalThis.MprDesk = createMprDesk();
 restoreSession();

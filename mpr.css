@@ -1,0 +1,245 @@
+#mpr-dialog,
+#mpr-editor {
+  width: min(860px, calc(100vw - 2rem));
+  max-height: 90dvh;
+  overflow: auto;
+  padding: clamp(1rem, 3vw, 2rem);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+}
+#mpr-editor {
+  width: min(600px, calc(100vw - 2rem));
+}
+#mpr-dialog::backdrop,
+#mpr-editor::backdrop {
+  background: rgb(18 35 47 / 45%);
+}
+#mpr-dialog h2,
+#mpr-editor h2,
+#mpr-dialog h3 {
+  margin: 0;
+}
+#mpr-inline {
+  padding: 0.9rem;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #f6f9f5;
+}
+#mpr-inline summary,
+#mpr-dialog summary,
+#mpr-editor summary {
+  cursor: pointer;
+  font-weight: 700;
+  padding: 0.45rem 0;
+  color: var(--navy);
+}
+.mpr-form,
+#mpr-editor-body,
+.mpr-people {
+  display: grid;
+  gap: 0.65rem;
+  min-width: 0;
+}
+.mpr-form {
+  margin-top: 0.65rem;
+}
+.mpr-field {
+  display: grid;
+  gap: 0.22rem;
+  margin: 0.32rem 0;
+  min-width: 0;
+}
+.mpr-field textarea,
+#mpr-editor textarea {
+  min-height: 4.25rem;
+}
+.mpr-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  cursor: pointer;
+}
+.mpr-chips,
+.mpr-nav,
+.mpr-toolbar,
+.mpr-answer-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+.mpr-chips .mpr-check,
+.mpr-nav button {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 0.4rem 0.65rem;
+  background: white;
+  color: var(--navy);
+}
+.mpr-chips .mpr-check:has(:checked),
+.mpr-nav button[aria-pressed="true"] {
+  background: #e7f0e9;
+  border-color: #658674;
+}
+.mpr-nav {
+  margin: 1rem 0 0.4rem;
+}
+.mpr-nav button {
+  min-height: 42px;
+  font-weight: 700;
+}
+.mpr-toolbar {
+  justify-content: space-between;
+  margin: 0.7rem 0;
+  align-items: end;
+}
+.mpr-totals,
+.mpr-pair,
+.mpr-columns {
+  display: grid;
+  gap: 0.75rem;
+}
+.mpr-totals {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 1rem 0;
+}
+.mpr-totals > div,
+.mpr-detail {
+  background: #f4f7f4;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 0.85rem;
+}
+.mpr-totals span,
+.mpr-session span {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+.mpr-totals strong {
+  display: block;
+  font-size: 1.45rem;
+}
+.mpr-pair,
+.mpr-columns {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.mpr-list {
+  display: grid;
+  align-content: start;
+  gap: 0.45rem;
+  max-height: 55vh;
+  overflow: auto;
+}
+.mpr-session {
+  display: grid;
+  justify-content: stretch;
+  text-align: left;
+  white-space: normal;
+}
+.mpr-session[aria-pressed="true"] {
+  border-color: #598170;
+  background: #eef4ef;
+}
+.mpr-section,
+.mpr-gaps {
+  margin: 0.6rem 0;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 0.5rem 0.85rem;
+}
+.mpr-section > summary,
+.mpr-gaps > summary {
+  min-height: 40px;
+}
+.mpr-answer {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.75rem 0;
+  border-top: 1px solid var(--line);
+}
+.mpr-answer h4,
+.mpr-answer p {
+  margin: 0 0 0.25rem;
+}
+.mpr-answer p,
+.mpr-source,
+.mpr-detail p {
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+.mpr-answer-actions {
+  flex-shrink: 0;
+  max-width: 45%;
+}
+.mpr-gaps button {
+  display: block;
+  white-space: normal;
+  text-align: left;
+  margin: 0.35rem 0;
+}
+.mpr-warning {
+  color: #76521c;
+  background: #fff5df;
+  padding: 0.35rem 0.55rem;
+  border-radius: 6px;
+  font-size: 0.85rem;
+}
+.mpr-empty,
+.mpr-caption {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+#mpr-editor-fields {
+  border: 0;
+  padding: 0;
+  margin: 0.75rem 0;
+  min-width: 0;
+}
+#mpr-editor-message.error,
+#mpr-message.error {
+  color: var(--danger);
+}
+#mpr-editor form > footer {
+  position: sticky;
+  bottom: 0;
+  background: white;
+  border-top: 1px solid var(--line);
+  padding: 0.6rem 0;
+}
+@media (max-width: 650px) {
+  #mpr-dialog,
+  #mpr-editor {
+    width: 100%;
+    max-width: 100vw;
+    max-height: 100dvh;
+    border-radius: 12px;
+    margin: auto;
+    padding: 1rem;
+  }
+  #mpr-dialog .dialog-heading {
+    align-items: start;
+  }
+  .mpr-columns,
+  .mpr-pair {
+    grid-template-columns: 1fr;
+  }
+  .mpr-list {
+    max-height: 34dvh;
+  }
+  .mpr-answer {
+    display: grid;
+    gap: 0.4rem;
+  }
+  .mpr-answer-actions {
+    max-width: 100%;
+  }
+  .mpr-totals {
+    gap: 0.35rem;
+  }
+  .mpr-totals > div {
+    padding: 0.5rem;
+  }
+}

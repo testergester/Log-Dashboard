@@ -54,6 +54,7 @@ function setupDashboard() {
   const props = PropertiesService.getScriptProperties();
   props.setProperty('SPREADSHEET_ID', spreadsheet.getId());
   ensureDashboardTabs_(spreadsheet);
+  ensureTab_(spreadsheet, MPR_SHEET, MPR_HEADERS);
   repairLegacyClassStudentFormulas_(spreadsheet.getSheetByName(DASHBOARD.enrollments));
   fillMissingStudentIds_(spreadsheet);
   normalizeTimetableTimes_(spreadsheet.getSheetByName(DASHBOARD.timetable));
@@ -93,7 +94,8 @@ function doPost(e) {
     switch (action) {
       case 'login': data = login_(request); break;
       case 'logout': data = logout_(request); break;
-      case 'load': requireSession_(request); data = loadDashboard_(); break;
+      case 'load': requireSession_(request); data = loadDashboard_(request.includeMpr === true); break;
+      case 'saveMpr': requireSession_(request); data = saveMpr_(request); break;
       case 'saveClass': requireSession_(request); data = saveClass_(request); break;
       case 'archiveClass': requireSession_(request); data = archiveClass_(request); break;
       case 'archiveLog': requireSession_(request); data = archiveLog_(request); break;

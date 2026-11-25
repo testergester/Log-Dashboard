@@ -5,6 +5,7 @@ The backend is split across these `.gs` files. Put **all of them in the same Goo
 | File | Responsibility |
 | --- | --- |
 | `AppsScript.gs` | Configuration, setup, and web app entry points |
+| `Mpr.gs` | MPR setup, validation and versioned saves |
 | `Auth.gs` | Login, logout, and session checks |
 | `DashboardData.gs` | Read dashboard data |
 | `ClassesAndLogs.gs` | Save classes and lesson logs |
@@ -18,6 +19,18 @@ The backend is split across these `.gs` files. Put **all of them in the same Goo
 | `CrashLogging.gs` | Safe request activity and backend error diagnostics |
 
 Apps Script shares top-level functions across script files in one project, so no imports or build step are needed. After updating the project, run `setupDashboard()` and deploy a new web app version.
+
+## Monthly Performance Report update
+
+For an existing dashboard, open its Google Sheet and choose **Extensions → Apps Script**.
+
+1. Replace the contents of [AppsScript.gs](AppsScript.gs) and [DashboardData.gs](DashboardData.gs) with the versions from this release.
+2. Choose **+ → Script**, name it **Mpr**, and paste [Mpr.gs](Mpr.gs). Save the project.
+3. Select **setupMpr** in the function list and click **Run**. It uses the spreadsheet ID already configured by the dashboard and creates the **MprRecords** tab. On a new dashboard installation, the standard **setupDashboard** function also creates this tab.
+4. Choose **Deploy → Manage deployments**, edit the existing web app, select **New version**, and click **Deploy**. This preserves the configured web app URL.
+5. Reload the dashboard. Open **MPR → Monthly report → Confirm monthly setup** to review each group's category, regular teaching hours, co-teachers and roster figures. In an actual completed lesson, confirm the hours, enter an outcome and choose **Save all**. Reload and check the answer in the monthly report.
+
+The form wording follows the November 2026 MPR receipt. Monthly totals use confirmed sessions in Tashkent time. One normal timetable period initially defaults to one teaching hour, adjustable in setup or for an individual lesson. Record a scheduled ECA or Master Class inside its lesson. Use **Add activity** for a session outside the timetable. Use **Make-up lesson** when a session replaces a missed lesson. Report drafts use the recorded topics and outcomes. Teacher edits are kept separately for each month and field.
 
 ## Attendance and lesson tracking update (October 13, 2026)
 
