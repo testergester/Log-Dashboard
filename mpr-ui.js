@@ -9,61 +9,11 @@ function createMprDesk() {
     month,
     selected = "",
     busy = false;
-  let inlineKey = "",
-    editorDirty = false,
+  let editorDirty = false,
     listPosition = 0,
     returnToDay = false;
-  const drafts = new Map();
-  const draftRevisions = new Map();
   let loadError = "";
   const expanded = new Set();
-  const el = (tag, text, cls) => {
-    const item = document.createElement(tag);
-    if (text != null) item.textContent = text;
-    if (cls) item.className = cls;
-    return item;
-  };
-  function button(label, action, primary = false) {
-    const b = el("button", label, "button " + (primary ? "button-primary" : "button-quiet"));
-    b.type = "button";
-    b.addEventListener("click", action);
-    return b;
-  }
-  function field(parent, label, value, onChange, spec = {}) {
-    const wrap = el("label", label, "mpr-field");
-    const input = el(spec.options ? "select" : spec.area ? "textarea" : "input");
-    input.setAttribute("aria-label", label);
-    if (spec.options)
-      for (const option of spec.options) {
-        const [key, text] = Array.isArray(option) ? option : [option, option];
-        const node = el("option", text);
-        node.value = key;
-        input.append(node);
-      }
-    if (!spec.options && !spec.area) input.type = spec.type || "text";
-    if (input.type === "number") {
-      input.min = "0";
-      input.max = String(spec.max ?? 1000);
-      input.step = String(spec.step ?? 0.01);
-    }
-    if (spec.placeholder) input.placeholder = spec.placeholder;
-    if (spec.maxDate) input.max = spec.maxDate;
-    input.value = value ?? "";
-    input.addEventListener(spec.options ? "change" : "input", () => onChange(input.value));
-    wrap.append(input);
-    parent.append(wrap);
-    return input;
-  }
-  function tick(parent, label, checked, onChange) {
-    const wrap = el("label", null, "mpr-check"),
-      input = el("input");
-    input.type = "checkbox";
-    input.checked = Boolean(checked);
-    input.addEventListener("change", () => onChange(input.checked));
-    wrap.append(input, document.createTextNode(label));
-    parent.append(wrap);
-    return input;
-  }
   const groupOptions = () => [...new Map(state.classes.map((g) => [g.id, [g.id, g.name]])).values()];
   function feedback(message, bad = false) {
     const target = $("#mpr-editor").open
@@ -76,10 +26,6 @@ function createMprDesk() {
     if (bad && !$("#mpr-dialog").open && !$("#mpr-editor").open) setNotice(message, true);
   }
   const revisionFor = (key) => records.find((r) => r.key === key)?.revision || "";
-  function keepDraft(key, value) {
-    if (!drafts.has(key)) draftRevisions.set(key, revisionFor(key));
-    drafts.set(key, value);
-  }
   async function write(key, value, revision = revisionFor(key)) {
     const saved = await request("saveMpr", {
       token: state.token,
@@ -97,12 +43,11 @@ function createMprDesk() {
     $("#mpr-open").disabled = !state.token;
   }
   function reset() {
-    drafts.clear();
-    draftRevisions.clear();
+    inline.clear();
+    history.clear();
     expanded.clear();
     records = [];
     ready = false;
-    inlineKey = "";
     editorDirty = false;
     returnToDay = false;
     for (const id of ["#mpr-editor", "#mpr-dialog"]) if ($(id).open) $(id).close();
@@ -111,320 +56,42 @@ function createMprDesk() {
     $("#mpr-inline").replaceChildren();
     $("#mpr-open").disabled = true;
   }
-  const currentStatus = () =>
-    document.querySelector('input[name="lesson-record-status"]:checked')?.value || "Done";
-  function baseLesson(item, date, status) {
-    const config =
-      M.get(records, "month|" + date.slice(0, 7))?.groups.find((g) => g.id === item.id) ||
-      M.get(records, "group|" + item.id) ||
-      {};
-    const saved = M.get(records, M.recordKey(item.id, date));
-    const value = structuredClone(
-      saved || {
-        date,
-        classId: item.id,
-        grade: config.grade ?? M.gradeFrom(item.name),
-        category: config.category || "Regular",
-        hours: config.hours ?? 1,
-        confirmed: false,
-        outcomes: {},
-        useRoster: true,
-      },
-    );
-    if (status !== value.status) {
-      if (M.missed(status)) {
-        value.hours = 0;
-        value.confirmed = true;
-      } else if (status === "Late" || M.missed(value.status)) {
-        value.hours = "";
-        value.confirmed = false;
-      }
-      value.status = status;
-    }
-    return value;
-  }
-  function outcomeInputs(parent, value, changed) {
-    const chips = el("div", null, "mpr-chips"),
-      inputs = el("div");
-    parent.append(el("span", "Which skills did students practise?", "mpr-caption"), chips, inputs);
-    value.outcomes ||= {};
-    for (const skill of M.skills) {
-      const area = field(
-        inputs,
-        skill + " · What could students do?",
-        value.outcomes[skill],
-        (v) => {
-          value.outcomes[skill] = v;
-          changed();
-        },
-        { area: true },
-      );
-      const row = area.parentElement;
-      row.hidden = !(skill in value.outcomes);
-      tick(chips, skill, !row.hidden, (on) => {
-        row.hidden = !on;
-        if (on) {
-          value.outcomes[skill] = area.value;
-          area.focus();
-        } else delete value.outcomes[skill];
-        changed();
-      });
-    }
-    field(parent, "Evidence or work sample (optional)", value.evidence, (v) => {
-      value.evidence = v;
-      changed();
-    });
-    tick(parent, "Use this outcome in the monthly progress summary", value.highlight, (v) => {
-      value.highlight = v;
-      changed();
-    });
-  }
-  function attendees(parent, value, role, changed) {
-    const heading = el("div", null, "mpr-people");
-    parent.append(heading);
-    const directory = new Map();
-    const teacher = role === "Master Class";
-    for (const r of records) {
-      if ((r.value.category || r.value.kind) !== role && r.value.kind !== role) continue;
-      for (const p of r.value.attendees || []) directory.set(p.id, p);
-    }
-    if (!teacher)
-      for (const student of state.students) {
-        const group = state.classes.find((g) => g.id === student.officialGroupId);
-        if (!directory.has(student.id))
-          directory.set(student.id, {
-            id: student.id,
-            name: student.name,
-            grade: M.gradeFrom(group?.name || student.officialGroupId),
-          });
-      }
-    value.attendees ||= [];
-    for (const p of value.attendees) directory.set(p.id, p);
-    function draw() {
-      heading.replaceChildren();
-      heading.append(el("strong", teacher ? "Local teachers who attended" : "Students who attended"));
-      for (const person of value.attendees) {
-        const b = button(person.name + (person.grade ? " · Grade " + person.grade : "") + " ×", () => {
-          value.attendees = value.attendees.filter((p) => p.id !== person.id);
-          changed();
-          draw();
-        });
-        b.setAttribute("aria-label", "Remove " + person.name);
-        heading.append(b);
-      }
-      const choices = [
-        ["", "Choose a person"],
-        ...[...directory.values()]
-          .filter((p) => !value.attendees.some((a) => a.id === p.id))
-          .sort((a, b) => a.name.localeCompare(b.name))
-          .map((p) => [p.id, p.name + (p.grade ? " · Grade " + p.grade : "")]),
-      ];
-      field(
-        heading,
-        "Add existing attendee",
-        "",
-        (id) => {
-          if (id) {
-            value.attendees.push({ ...directory.get(id) });
-            changed();
-            draw();
-          }
-        },
-        { options: choices },
-      );
-      let name = "",
-        grade = "";
-      const add = el("details");
-      add.append(el("summary", "New attendee"));
-      heading.append(add);
-      field(add, "Full name", "", (v) => (name = v));
-      if (!teacher)
-        field(add, "Grade", "", (v) => (grade = v), {
-          options: ["", ...Array.from({ length: 11 }, (_, i) => String(i + 1))],
-        });
-      add.append(
-        button("Add person", () => {
-          if (!name.trim() || (!teacher && !grade)) {
-            feedback("Enter a name" + (teacher ? "." : " and grade."), true);
-            return;
-          }
-          const person = { id: crypto.randomUUID(), name: name.trim(), grade };
-          directory.set(person.id, person);
-          value.attendees.push(person);
-          changed();
-          draw();
-        }),
-      );
-    }
-    draw();
-  }
-  function sessionInputs(parent, value, changed, scheduled) {
-    if (value.category === "ECA")
-      field(
-        parent,
-        "ECA type",
-        value.activityType,
-        (v) => {
-          value.activityType = v;
-          changed();
-        },
-        { placeholder: "e.g. Speaking Club" },
-      );
-    if (!scheduled)
-      field(parent, "Topic", value.topic, (v) => {
-        value.topic = v;
-        changed();
-      });
-    field(
-      parent,
-      "What was the outcome or impact?",
-      value.impact,
-      (v) => {
-        value.impact = v;
-        changed();
-      },
-      { area: true },
-    );
-    const people = el("div");
-    if (scheduled && value.category === "ECA")
-      tick(parent, "Use students marked present or late in this lesson", value.useRoster, (v) => {
-        value.useRoster = v;
-        people.hidden = v;
-        changed();
-      });
-    people.hidden = scheduled && value.category === "ECA" && value.useRoster;
-    parent.append(people);
-    attendees(people, value, value.category, changed);
-  }
-  function lessonControls(host, value, changed, redraw) {
-    const body = el("div", null, "mpr-form");
-    host.append(body);
-    if (M.missed(value.status)) {
-      body.append(el("p", "0 teaching hours · " + value.status, "field-hint"));
-      field(body, "Why was the lesson missed?", value.reason, (v) => {
-        value.reason = v;
-        changed();
-      });
-      return;
-    }
-    const pair = el("div", null, "mpr-pair");
-    body.append(pair);
-    field(
-      pair,
-      "Reporting category",
-      value.category,
-      (v) => {
-        value.category = v;
-        value.useRoster = v === "ECA";
-        value.attendees = [];
-        changed();
-        redraw();
-      },
-      { options: M.categories },
-    );
-    field(
-      pair,
-      "Actual teaching hours",
-      value.hours,
-      (v) => {
-        value.hours = v === "" ? "" : Number(v);
-        value.confirmed = v !== "" && Number(v) > 0;
-        confirm.checked = value.confirmed;
-        changed();
-      },
-      { type: "number", max: 24 },
-    );
-    const confirm = tick(body, "I taught these hours", value.confirmed, (v) => {
-      value.confirmed = v;
-      changed();
-    });
-    if (["ECA", "Master Class"].includes(value.category)) sessionInputs(body, value, changed, true);
-    else if (value.category === "Regular") {
-      const group = el("details");
-      group.open = !value.grade;
-      group.append(el("summary", value.grade ? "Grade " + value.grade : "Choose grade"));
-      body.append(group);
-      field(
-        group,
-        "Report under grade",
-        value.grade,
-        (v) => {
-          value.grade = v;
-          changed();
-          group.querySelector("summary").textContent = "Grade " + v;
-        },
-        { options: ["", ...Array.from({ length: 11 }, (_, i) => String(i + 1))] },
-      );
-      outcomeInputs(body, value, changed);
-    }
-  }
-  function renderInline() {
-    const host = $("#mpr-inline");
-    if (!host) return;
-    const item = selectedLesson();
-    host.hidden = !ready || !item;
-    host.replaceChildren();
-    if (host.hidden) return;
-    const key = M.recordKey(item.id, state.selectedDate);
-    inlineKey = key;
-    const status = currentStatus();
-    const value = drafts.get(key) || baseLesson(item, state.selectedDate, status);
-    if (value.status !== status) {
-      if (M.missed(status)) {
-        value.confirmed = true;
-        value.hours = 0;
-      } else if (status === "Late" || M.missed(value.status)) {
-        value.confirmed = false;
-        value.hours = "";
-      }
-      value.status = status;
-    }
-    const changed = () => {
-      keepDraft(key, value);
-      updateTeachingSaveState();
-    };
-    const details = el("details");
-    details.open = true;
-    details.append(el("summary", "MPR note"));
-    host.append(details);
-    lessonControls(details, value, changed, renderInline);
-    if (returnToDay) details.append(button("Back to MPR", open));
-    if (M.get(records, key) && !drafts.has(key)) details.append(el("p", "MPR note saved", "field-hint"));
-  }
-  function statusChanged() {
-    if (!ready || !selectedLesson()) return;
-    if (!drafts.has(inlineKey))
-      keepDraft(inlineKey, baseLesson(selectedLesson(), state.selectedDate, currentStatus()));
-    renderInline();
-  }
-  function validateEntry(v) {
-    if (v.confirmed && !M.missed(v.status) && v.date > todayInTashkent())
-      throw new Error("Confirm teaching hours after the session has taken place.");
-    if (v.confirmed && !M.missed(v.status) && (!Number.isFinite(v.hours) || v.hours <= 0 || v.hours > 24))
-      throw new Error("Enter the actual teaching hours, or clear the confirmation.");
-    if (v.originalDate && v.originalDate > v.date)
-      throw new Error("The original missed date must be on or before the make-up.");
-  }
-  function prepareInline(key) {
-    const draft = drafts.get(key);
-    if (!draft || !ready) return null;
-    validateEntry(draft);
-    return structuredClone(draft);
-  }
+  const lessonOptions = {
+    model: M,
+    rows: () => records,
+    data: () => state,
+    today: todayInTashkent,
+    feedback,
+    write,
+    unavailable: () =>
+      ready ? "" : loadError || "To save MPR notes, run setupMpr and update your Apps Script deployment.",
+  };
+  const inline = createLessonMpr({
+    ...lessonOptions,
+    element: () => $("#mpr-inline"),
+    lesson: selectedLesson,
+    status: () => document.querySelector('input[name="lesson-record-status"]:checked')?.value || "Done",
+    changed: updateTeachingSaveState,
+    afterRender: (host) => {
+      if (returnToDay) host.append(button("Back to MPR", open));
+    },
+  });
+  const history = createLessonMpr({
+    ...lessonOptions,
+    element: () => $("#record-mpr"),
+    lesson: () =>
+      editingRecord && { id: editingRecord.classId, name: editingRecord.className, date: editingRecord.date },
+    status: () => $("#record-lessonStatus").value,
+    changed: () => {},
+  });
+  const { el, button, field, tick, outcomeInputs, sessionInputs, validateEntry, renderInline } = inline;
   async function saveInline(key, sent) {
-    if (!sent) return true;
     try {
-      const revision = await write(key, sent, draftRevisions.get(key));
-      draftRevisions.set(key, revision);
-      if (JSON.stringify(drafts.get(key)) === JSON.stringify(sent)) {
-        drafts.delete(key);
-        draftRevisions.delete(key);
-      }
-      renderInline();
+      await inline.saveInline(key, sent);
       return true;
-    } catch (e) {
-      feedback("Lesson saved. MPR note still needs saving. " + e.message, true);
-      if (isSessionError(e)) handleError(e);
+    } catch (error) {
+      feedback("Lesson saved. MPR note still needs saving. " + error.message, true);
+      if (isSessionError(error)) handleError(error);
       return false;
     }
   }
@@ -475,7 +142,7 @@ function createMprDesk() {
     render();
     const target = $("#mpr-inline");
     target.scrollIntoView({ block: "center" });
-    target.querySelector("summary")?.focus();
+    target.querySelector(".mpr-note-heading")?.focus();
   }
   function dayRows(date) {
     const rows = lessonsOn(date).map((item) => {
@@ -1125,9 +792,10 @@ function createMprDesk() {
     load,
     reset,
     renderInline,
-    statusChanged,
-    prepareInline,
+    history,
+    statusChanged: inline.statusChanged,
+    prepareInline: inline.prepareInline,
     saveInline,
-    dirty: (key) => drafts.has("lesson|" + key),
+    dirty: inline.dirty,
   };
 }

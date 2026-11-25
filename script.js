@@ -2058,8 +2058,12 @@ function openRecordDialog(item, archive) {
     $("#record-" + key).value = item[key] || (key === "lessonType" ? "Lesson" : key === "lessonStatus" ? "Done" : "");
   });
   showLessonNotes($("#record-notes"), item.notes || "");
+  const history = globalThis.MprDesk?.history;
+  history?.clear();
+  if (!archive) history?.renderInline();
   $("#record-dialog").showModal();
 }
+$("#record-lessonStatus").addEventListener("change", () => globalThis.MprDesk?.history.statusChanged());
 $("#record-cancel").addEventListener("click", () => { if (!state.pending) $("#record-dialog").close(); });
 $("#record-dialog").addEventListener("cancel", event => { if (state.pending) event.preventDefault(); });
 $("#record-form").addEventListener("submit", async event => {
@@ -2078,19 +2082,26 @@ $("#record-form").addEventListener("submit", async event => {
   record.notes = LESSON_NOTES_HTML_START + safe.innerHTML + "</div>";
   state.pending = true;
   $("#record-confirm").disabled = true;
+  $("#record-edit-fields").inert = true;
   try {
     if (archivingRecord) {
       await request("archiveLog", {token: state.token, classId: item.classId, date: item.date, reason});
       state.logs = state.logs.filter(log => !(log.classId === item.classId && log.date === item.date));
       state.drafts.delete(item.classId + "|" + item.date);
     } else {
+      const key = "lesson|" + item.classId + "|" + item.date;
+      const history = globalThis.MprDesk?.history;
+      const note = history?.prepareInline(key);
       const saved = await request("editLog", {token: state.token, log: record});
       upsert(state.logs, log => log.classId === saved.classId && log.date === saved.date, saved);
+      editingRecord = saved;
+      try { await history?.saveInline(key, note); }
+      catch (error) { $("#record-error").textContent = "Lesson changes saved. Retry the MPR note. " + error.message; return; }
     }
     $("#record-dialog").close();
     finishWrite(archivingRecord ? "Lesson moved to ArchivedLessonLogs." : "Lesson record updated.");
   } catch (error) { if (typeof window !== "undefined") window.CrashLog?.record(error); $("#record-error").textContent = error.message; }
-  finally { state.pending = false; $("#record-confirm").disabled = false; }
+  finally { state.pending = false; $("#record-confirm").disabled = false; $("#record-edit-fields").inert = false; }
 });
 
 

@@ -43,7 +43,7 @@ const { randomUUID } = require("node:crypto");
       };
       await page.addInitScript(() => localStorage.setItem("teaching-dashboard-session", "fixture"));
       await page.route("http://localhost/**", (route) => {
-        const name = path.basename(new URL(route.request().url()).pathname) || "index.html";
+        const name = new URL(route.request().url()).pathname.slice(1) || "index.html";
         return route.fulfill({
           contentType: name.endsWith("html")
             ? "text/html"
@@ -56,8 +56,10 @@ const { randomUUID } = require("node:crypto");
       await page.route("https://script.google.com/**", async (route) => {
         const req = route.request().postDataJSON();
         let data;
-        if (req.action === "load") data = payload;
-        else if (req.action === "saveLog") {
+        if (req.action === "load") {
+          assert.equal(req.includeMpr, true);
+          data = payload;
+        } else if (req.action === "saveLog" || req.action === "editLog") {
           data = {
             ...req.log,
             className: group.name,
@@ -66,13 +68,17 @@ const { randomUUID } = require("node:crypto");
             end: group.end,
             updatedAt: "fixture",
           };
-          payload.logs = [data];
+          payload.logs = [
+            ...payload.logs.filter((l) => l.date !== data.date || l.classId !== data.classId),
+            data,
+          ];
         } else if (req.action === "saveChecklist") {
           data = {
             ...req.checklist,
             revision: randomUUID(),
             updatedAt: "fixture",
             studentRecords: req.checklist.records,
+            checklist: { classInfo: group, records: req.checklist.records },
           };
           payload.checklists = [data];
           payload.studentRecords = data.records.map((r) => ({ ...r, classId: group.id, date: data.date }));
@@ -193,6 +199,40 @@ const { randomUUID } = require("node:crypto");
         await inline.getByLabel("Reading · What could students do?").inputValue(),
         "Matched headings and explained choices.",
       );
+      await page.evaluate(() => changeDate("2026-11-25"));
+      await page.locator("#previous-records summary").click();
+      await page.getByRole("button", { name: "Edit lesson record for 2026-11-18" }).click();
+      const past = page.locator("#record-mpr");
+      await past.getByRole("heading", { name: "MPR note" }).waitFor();
+      await past.getByLabel("Reading · What could students do?").fill("Found supporting details.");
+      await page.locator("#record-confirm").click();
+      await page.locator("#record-dialog").waitFor({ state: "hidden" });
+      assert.equal(
+        payload.mprRecords.find((r) => r.key === "lesson|9A|2026-11-18").value.outcomes.Reading,
+        "Found supporting details.",
+      );
+      await page.goto("http://localhost/experiments/lumen-teaching-desk/index.html");
+      await inline.getByRole("heading", { name: "MPR note" }).waitFor();
+      await inline.getByLabel("Writing", { exact: true }).check();
+      await inline.getByLabel("Writing · What could students do?").fill("Wrote an invitation.");
+      await page.locator("#save-button").click();
+      await inline.getByText("MPR note saved").waitFor();
+      await page.reload();
+      assert.equal(
+        await inline.getByLabel("Writing · What could students do?").inputValue(),
+        "Wrote an invitation.",
+      );
+      await page.goto("http://localhost/index.html");
+      assert.equal(
+        await inline.getByLabel("Writing · What could students do?").inputValue(),
+        "Wrote an invitation.",
+      );
+      delete payload.mprRecords;
+      await page.reload();
+      await inline.getByRole("heading", { name: "MPR note" }).waitFor();
+      assert.ok(await inline.getByLabel("Reporting category").isDisabled());
+      assert.ok(await inline.getByText(/setupMpr/).isVisible());
+      assert.ok(await page.locator("#lesson-unit").isEnabled());
       assert.deepEqual(errors, []);
       await context.close();
     }

@@ -10,11 +10,12 @@
   <link rel="stylesheet" href="./styles.css?v=a3eaf2c3522d">
   <script src="./crash-log-messages.js?v=d32c1323ac93" defer></script>
   <script src="./crash-log.js?v=6bd59d855907" defer></script>
-  <link rel="stylesheet" href="./mpr.css?v=e1f5fbb1875c">
+  <link rel="stylesheet" href="./mpr.css?v=74614b6054f4">
   <script src="./mpr-model.js?v=7584b7d6dd08" defer></script>
-  <script src="./mpr-ui.js?v=2707cff83dc5" defer></script>
-  <script src="./script.js?v=21a48b20b8c0" defer></script>
-  <meta name="dashboard-version" content="21a48b20b8c0">
+  <script src="./mpr-lesson.js?v=59b8e4924dc5" defer></script>
+  <script src="./mpr-ui.js?v=9e7b976fd769" defer></script>
+  <script src="./script.js?v=e4d2030b4e13" defer></script>
+  <meta name="dashboard-version" content="e4d2030b4e13">
 </head>
 <body>
   <section id="week-preview" class="week-preview" role="region" aria-labelledby="week-preview-title" hidden>
@@ -81,7 +82,7 @@
         </div>
       </section>
 
-      <div id="workspace" hidden><div class="workspace-toolbar"><div id="class-filters" class="class-filters" role="group" aria-label="Filter classes"></div><span id="workspace-summary" class="workspace-summary"></span></div><nav class="mobile-jump" aria-label="Teaching tools"><button type="button" class="button button-quiet" data-teaching-jump="student-panel">Attendance & points</button><button type="button" class="button button-quiet" data-teaching-jump="lesson-form">Lesson notes</button><button type="button" class="button button-quiet" data-teaching-jump="previous-records">Previous lesson</button></nav><div class="teaching-layout"><aside class="schedule-rail" aria-label="Class navigation"><section class="schedule-controls" aria-label="Timetable controls">
+      <div id="workspace" hidden><div class="workspace-toolbar"><div id="class-filters" class="class-filters" role="group" aria-label="Filter classes"></div><span id="workspace-summary" class="workspace-summary"></span></div><nav class="mobile-jump" aria-label="Teaching tools"><button type="button" class="button button-quiet" data-teaching-jump="student-panel">Attendance & points</button><button type="button" class="button button-quiet" data-teaching-jump="lesson-form">Lesson notes</button><button type="button" class="button button-quiet" data-teaching-jump="mpr-inline">MPR note</button><button type="button" class="button button-quiet" data-teaching-jump="previous-records">Previous lesson</button></nav><div class="teaching-layout"><aside class="schedule-rail" aria-label="Class navigation"><section class="schedule-controls" aria-label="Timetable controls">
           <div class="date-controls">
             <button type="button" class="icon-button" id="previous-date" aria-label="Previous week">‹</button>
             <button type="button" class="button button-quiet today-button" id="today-button">Today</button>
@@ -355,6 +356,7 @@
         <label for="record-lessonStatus">Lesson status</label><select id="record-lessonStatus"><option>Done</option><option>Skipped</option><option>Late</option><option>Cancelled</option></select>
         <label for="record-unit">Unit</label><input id="record-unit" maxlength="120">
         <label for="record-lessonTitle">Lesson title</label><input id="record-lessonTitle" maxlength="200">
+        <section id="record-mpr" aria-label="Monthly performance report note"></section>
         <label for="record-notes">Logs</label><div id="record-notes" class="lesson-notes-editor" contenteditable="true" role="textbox" aria-multiline="true" aria-label="Logs"></div>
         <label for="record-nextClassNotes">Notes for next class</label><textarea id="record-nextClassNotes" maxlength="2000" rows="3"></textarea>
         <label for="record-rating">Class rating</label><select id="record-rating"><option value="">No rating</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option></select>

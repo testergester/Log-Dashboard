@@ -20,13 +20,13 @@
 #mpr-dialog h3 {
   margin: 0;
 }
-#mpr-inline {
+#mpr-inline, #record-mpr {
   padding: 0.9rem;
   border: 1px solid var(--line);
   border-radius: 12px;
   background: #f6f9f5;
 }
-#mpr-inline summary,
+#mpr-inline summary, #record-mpr summary,
 #mpr-dialog summary,
 #mpr-editor summary {
   cursor: pointer;
@@ -243,3 +243,6 @@
     padding: 0.5rem;
   }
 }
+
+.mpr-note-heading { margin:0; font-size:1rem; }
+.mpr-note-fields { border:0; margin:0; padding:0; min-width:0; }

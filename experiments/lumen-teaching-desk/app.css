@@ -29,3 +29,16 @@ html[data-theme="light"]{--canvas:45 20% 97%;--surface:0 0% 100%;--surface-muted
 .student-row[data-attendance="absent"] { background: hsl(var(--warning) / .07); }
 .student-row[data-attendance="late"] { --accent: 271 45% 42%; background: hsl(var(--accent) / .07); }
 .student-row[data-attendance="excused"] { --brand: 210 58% 36%; background: hsl(var(--brand) / .07); }
+.notes-panel #mpr-inline {
+  grid-column: 1 / -1;
+  margin: 12px 0;
+  --navy: hsl(var(--ink));
+  --muted: hsl(var(--ink-muted));
+  border: 1px solid hsl(var(--line));
+}
+.notes-panel #mpr-inline .mpr-field { margin: 0; }
+.notes-panel #mpr-inline .mpr-check { display: inline-flex; align-items: center; margin: 0; }
+.notes-panel #mpr-inline .mpr-chips .mpr-check { border: 1px solid hsl(var(--line)); }
+.notes-panel #mpr-inline .mpr-field :is(textarea,input,select) {
+  width: 100%; min-width: 0; padding: 6px; border: 1px solid hsl(var(--line)); border-radius: 5px;
+}
