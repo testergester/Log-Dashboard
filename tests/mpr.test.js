@@ -51,7 +51,8 @@ function lesson(date, fields = {}, status = "Done") {
 function activity(kind, date, fields) {
   rows.push({ key: "activity|" + randomUUID(), value: { kind, date, ...fields } });
 }
-lesson("2026-11-02");
+const languageOutcomes = { Vocabulary: "Named landmarks.", Grammar: "Used past forms.", Functions: "Asked for directions." };
+lesson("2026-11-02", { languageOutcomes });
 lesson("2026-11-03", { hours: 0.5 }, "Late");
 lesson("2026-11-04", {}, "Cancelled");
 lesson("2026-11-05", { confirmed: false });
@@ -126,6 +127,10 @@ assert.equal(field("cpdApplied"), "Used the mark sheet.");
 assert.match(field("testStatus"), /submitted/);
 assert.match(field("achievement1"), /Result sheet/);
 assert.match(field("priority"), /pair work/);
+for (const [name, text] of Object.entries(languageOutcomes)) {
+  assert.ok(field("g9." + name).includes(text));
+  assert.ok(field("evidence").includes(text));
+}
 assert.match(field("g9.Speaking"), /directions/);
 assert.match(field("g9.Reading"), /Learning · School/);
 assert.ok(r.gaps.some((g) => g.text.includes("original date")));
@@ -221,7 +226,7 @@ ctx.setupMpr();
 assert.equal(sheet.rows.length, 1);
 const record = {
   key: M.recordKey("A", today),
-  value: { classId: "A", date: today, category: "Regular", hours: 1, confirmed: true },
+  value: { classId: "A", date: today, category: "Regular", hours: 1, confirmed: true, languageOutcomes },
 };
 let saved = ctx.saveMpr_({ record });
 assert.ok(saved.revision);
@@ -234,6 +239,7 @@ assert.equal(sheet.rows.length, 2);
 assert.equal(locked, false);
 saved = ctx.saveMpr_({ record: { ...saved, value: { ...saved.value, hours: 0.5 } } });
 assert.equal(ctx.loadMpr_(sheet)[0].value.hours, 0.5);
+assert.deepEqual({ ...ctx.loadMpr_(sheet)[0].value.languageOutcomes }, languageOutcomes);
 assert.throws(() => ctx.saveMpr_({ record: { ...saved, value: { ...saved.value, hours: -1 } } }), /hours/);
 assert.throws(
   () =>

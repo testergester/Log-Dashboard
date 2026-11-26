@@ -2,6 +2,16 @@
 
 const MprModel = (() => {
   const skills = ["Speaking", "Listening", "Reading", "Writing"];
+  const languageAreas = ["Vocabulary", "Grammar", "Functions"];
+  // The four report skills and optional language areas occupy separate fields in a saved lesson.
+  function allOutcomes(note) {
+    const entries = { ...note.outcomes };
+    for (const area of languageAreas) {
+      const text = note.languageOutcomes?.[area];
+      if (typeof text === "string") entries[area] = text;
+    }
+    return entries;
+  }
   const categories = ["Regular", "ECA", "Master Class", "Facultative"];
   const roles = [
     "School director",
@@ -260,30 +270,33 @@ const MprModel = (() => {
         list.every((g) => g.teachers) ? teachers.length : "",
       );
       add(section, prefix + "sharing", "Group sharing arrangements", join(list.map((g) => g.sharing)));
-      for (const skill of skills) {
-        const noted = lessons.filter((e) => e.outcomes?.[skill]);
+      for (const skill of [...skills, ...languageAreas]) {
+        const field = skills.includes(skill) ? "outcomes" : "languageOutcomes";
+        const noted = lessons.filter((e) => typeof e[field]?.[skill] === "string" && e[field][skill].trim());
         const id = prefix + skill;
+        const reviewed = get(records, "answer|" + month + "|" + id)?.text;
+        if (field === "languageOutcomes" && !noted.length && !reviewed) continue;
         add(
           section,
           id,
           skill,
-          join(noted.map((e) => [e.topic, e.outcomes[skill]].filter(Boolean).join(" — "))),
+          join(noted.map((e) => [e.topic, e[field][skill]].filter(Boolean).join(" — "))),
           noted,
         );
-        if (!noted.length && !get(records, "answer|" + month + "|" + id)?.text)
+        if (!noted.length && !reviewed)
           gaps.push({ text: section + " " + skill.toLowerCase() + " has no outcome.", field: id });
       }
     }
     const evidence = regular.filter(
       (e) =>
         e.evidence ||
-        ((e.highlight ?? true) && Object.values(e.outcomes || {}).some((value) => value.trim())),
+        ((e.highlight ?? true) && Object.values(allOutcomes(e)).some((value) => value.trim())),
     );
     add(
       "Regular classes · progress",
       "evidence",
       "Main evidence of student progress",
-      join(evidence.map((e) => e.evidence || join(Object.values(e.outcomes || {})))),
+      join(evidence.map((e) => e.evidence || join(Object.values(allOutcomes(e))))),
       evidence,
     );
     for (const [kind, prefix] of [
@@ -385,6 +398,8 @@ const MprModel = (() => {
   }
   return {
     skills,
+    languageAreas,
+    allOutcomes,
     categories,
     roles,
     activities,

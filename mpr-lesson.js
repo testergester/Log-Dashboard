@@ -1,6 +1,9 @@
 "use strict";
 
-const skillIcons = { Speaking: "🗣️", Listening: "🎧", Reading: "📖", Writing: "✍️" };
+const skillIcons = {
+  Speaking: "🗣️", Listening: "🎧", Reading: "📖", Writing: "✍️",
+  Vocabulary: "🔤", Grammar: "🧩", Functions: "💬",
+};
 
 function createLessonMpr(options) {
   const M = options.model;
@@ -97,26 +100,26 @@ function createLessonMpr(options) {
     const inputs = el("div");
     skills.append(el("legend", "Which skills did students practise?", "mpr-caption"), chips);
     parent.append(skills, inputs);
-    value.outcomes ||= {};
-    for (const skill of M.skills) {
+    for (const skill of [...M.skills, ...M.languageAreas]) {
+      const entries = M.skills.includes(skill) ? (value.outcomes ||= {}) : (value.languageOutcomes ||= {});
       const area = field(
         inputs,
         skill + " · What could students do?",
-        value.outcomes[skill],
+        entries[skill],
         (v) => {
-          value.outcomes[skill] = v;
+          entries[skill] = v;
           changed();
         },
         { area: true },
       );
       const row = area.parentElement;
-      row.hidden = !(skill in value.outcomes);
+      row.hidden = !(skill in entries);
       const pill = button("", () => {
         const on = row.hidden;
         row.hidden = !on;
         pill.setAttribute("aria-pressed", String(on));
-        if (on) value.outcomes[skill] = area.value;
-        else delete value.outcomes[skill];
+        if (on) entries[skill] = area.value;
+        else delete entries[skill];
         changed();
       });
       pill.className = "mpr-pill mpr-skill";

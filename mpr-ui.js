@@ -160,7 +160,7 @@ function createMprDesk() {
       let status = "Needs confirmation";
       if (M.missed(log?.lessonStatus)) status = log.lessonStatus;
       else if (note?.confirmed && log && (log.lessonStatus !== "Late" || note.status === "Late")) {
-        const outcomes = Object.values(note.outcomes || {});
+        const outcomes = Object.values(M.allOutcomes(note));
         status =
           note.category === "Regular" && (!outcomes.length || outcomes.some((v) => !v.trim()))
             ? "Needs outcome"
@@ -241,7 +241,7 @@ function createMprDesk() {
       for (const line of [
         log.unit,
         log.lessonTitle,
-        ...Object.entries(v.outcomes || {}).map(([s, t]) => s + " · " + t),
+        ...Object.entries(M.allOutcomes(v)).map(([s, t]) => s + " · " + t),
         v.evidence,
         v.reason,
       ])

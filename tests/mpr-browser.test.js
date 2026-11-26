@@ -136,6 +136,17 @@ const { randomUUID } = require("node:crypto");
       await inline.getByRole("radio", { name: "ECA", exact: true }).check();
       assert.ok(await inline.getByLabel("ECA type").isVisible());
       await inline.getByRole("radio", { name: "Regular", exact: true }).check();
+      const languageOutcomes = {
+        Vocabulary: "Named landmarks.", Grammar: "Used past forms.", Functions: "Asked for directions.",
+      };
+      for (const [name, text] of Object.entries(languageOutcomes)) {
+        const skill = inline.getByRole("button", { name, exact: true });
+        await skill.hover();
+        assert.equal(await skill.locator(".mpr-skill-tooltip").innerText(), name);
+        assert.ok(await skill.locator(".mpr-skill-tooltip").isVisible());
+        await skill.click();
+        await inline.getByLabel(name + " · What could students do?").fill(text);
+      }
       const reading = inline.getByRole("button", { name: "Reading", exact: true });
       await reading.hover();
       assert.ok(await reading.locator(".mpr-skill-tooltip").isVisible());
@@ -185,6 +196,14 @@ const { randomUUID } = require("node:crypto");
       await inline.getByText("MPR note saved").waitFor();
       await page.waitForFunction(() => !document.querySelector("#save-all-button").disabled);
       assert.equal(payload.mprRecords.length, 1);
+      assert.deepEqual(payload.mprRecords[0].value.languageOutcomes, languageOutcomes);
+      await page.reload();
+      await page.waitForFunction(() => !document.querySelector("#mpr-open").disabled);
+      await page.evaluate(() => changeDate("2026-11-18"));
+      for (const [name, text] of Object.entries(languageOutcomes)) {
+        assert.equal(await inline.getByRole("button", { name, exact: true }).getAttribute("aria-pressed"), "true");
+        assert.equal(await inline.getByLabel(name + " · What could students do?").inputValue(), text);
+      }
       assert.equal(payload.logs[0].lessonStatus, "Taught with another group");
       assert.equal(payload.checklists.length, 1);
       await open.click();
