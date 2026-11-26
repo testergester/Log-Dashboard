@@ -1,0 +1,159 @@
+/* This stylesheet is enabled only while the Folio view is open. */
+:root {
+  --page: #f3f0e9;
+  --navy: #252624;
+  --text: #2c2d29;
+  --muted: #66665d;
+  --line: #dedbd1;
+  --blue: #282925;
+  --blue-dark: #10110f;
+  --blue-pale: #fff0b1;
+  --sun: #ffd34c;
+  --paper: #faf9f5;
+  --round: 22px;
+  --space: clamp(12px, 1.4vw, 22px);
+  font-family: "DM Sans", "Avenir Next", -apple-system, BlinkMacSystemFont, sans-serif;
+}
+.app-shell { width: min(100%, 1680px); margin: auto; padding: 0 clamp(12px, 3vw, 52px) 30px; }
+.topbar { flex-wrap: wrap; padding: 22px 0; gap: 12px 20px; border-bottom: 1px solid var(--line); background: transparent; }
+.topbar-actions { flex: 1 1 auto; flex-wrap: wrap; gap: 7px; margin: 0; }
+.brand { gap: 10px; }
+.brand-name { font-size: 18px; letter-spacing: -.045em; }
+.brand-caption { font-size: 11px; }
+.brand-mark { position: relative; width: 35px; height: 39px; font-size: 0; border-radius: 5px 10px 10px 5px; background: var(--navy); }
+.brand-mark::before { content: ""; position: absolute; inset: 0 auto 0 7px; width: 1px; background: #bdbdb0; }
+.brand-mark::after { content: ""; position: absolute; top: 8px; right: 8px; width: 8px; height: 12px; background: var(--sun); clip-path: polygon(0 0,100% 0,100% 100%,50% 72%,0 100%); }
+.button, .icon-button, .topbar-actions .button { min-height: 38px; border-radius: 24px; font-size: 12px; padding: 8px 14px; }
+.icon-button { width: 38px; padding: 0; font-size: 20px; }
+.button-primary { color: var(--sun); box-shadow: none; }
+.button-quiet:hover:not(:disabled), .class-filter:hover { background: #faf6e7; border-color: #b7b3a4; }
+#folio-switch { background: #fff; border-color: #908e83; }
+#new-ui-beta-link, .topbar-actions .backup-link { display: none; }
+.topbar:has(+ main #workspace[hidden]) #add-class-button { display: none; }
+:focus-visible { outline: 3px solid #806000; outline-offset: 3px; }
+.main-content { max-width: none; padding: var(--space) 0 0; }
+.eyebrow, .folio-date { font-size: 10px; font-weight: 750; letter-spacing: .14em; line-height: 1.5; text-transform: uppercase; }
+
+/* The public-facing cover is a dated planner with a paper-and-cloth illustration. */
+.access-panel { display: flex; flex-wrap: wrap; align-items: stretch; gap: var(--space); max-width: 1140px; margin: clamp(18px, 5vh, 64px) auto; border: none; border-radius: 0; background: transparent; box-shadow: none; }
+.folio-cover, .access-content { background: white; border-radius: var(--round); min-width: 0; }
+.folio-cover { flex: 1.35 1 425px; padding: clamp(20px, 2.6vw, 42px); }
+.folio-date { color: var(--muted); }
+.folio-cover h1, .page-heading h1 { font-size: clamp(32px, 3.7vw, 58px); font-weight: 650; letter-spacing: -.065em; margin: 6px 0 16px; line-height: 1.05; }
+.folio-art { position: relative; isolation: isolate; height: clamp(140px, 16vw, 225px); overflow: hidden; border-radius: 14px; background-color: #eae7da; background-image: radial-gradient(#bdb8a6 .8px, transparent .9px); background-size: 9px 9px; }
+.folio-sun { position: absolute; width: 47%; aspect-ratio: 1; right: -8%; top: -58%; border-radius: 50%; background: var(--sun); }
+.folio-notebook { position: absolute; display: block; width: 41%; height: 87%; border: 1px solid #32342e; border-radius: 3px 10px 10px 3px; box-shadow: 1px 3px #faf8ec, 2px 5px #66685a, 5px 10px 0 #27282024; }
+.notebook-back { top: 15%; left: 17%; transform: rotate(-14deg); background: repeating-linear-gradient(90deg,#d4d5b5 0 10px,#979980 10px 11px); }
+.notebook-front { top: 13%; left: 32%; transform: rotate(12deg); color: #fff; background: #32352e; border-left: 8px solid #22251e; }
+.notebook-front::after { content: ""; position: absolute; inset: 0 12% 0 auto; width: 7px; background: var(--sun); }
+.notebook-front span { position: absolute; left: 9%; top: 16%; padding-bottom: 8px; border-bottom: 1px solid #a2a492; font: 500 clamp(21px, 2.2vw, 34px)/.97 Georgia, serif; letter-spacing: -.06em; }
+.folio-pencil { position: absolute; width: 6px; height: 70%; left: 80%; top: 16%; transform: rotate(27deg); background: #e1ae27; border-right: 2px solid #98762c; box-shadow: 3px 3px 0 #65604b2b; }
+.folio-pencil::after { content: ""; position: absolute; top: 100%; width: 6px; height: 13px; background: linear-gradient(#c6a783 66%,#333 67%); clip-path: polygon(0 0,100% 0,50% 100%); }
+.folio-week { display: flex; gap: 4px; margin-top: 22px; }
+.folio-week time { display: flex; flex: 1; flex-direction: column; align-items: center; gap: 6px; font-size: 11px; color: var(--muted); }
+.folio-week b, .week-day .day-number { display: inline-flex; justify-content: center; align-items: center; width: 32px; height: 32px; border-radius: 50%; color: var(--navy); background: var(--page); font-size: 14px; }
+.folio-week [aria-current] b, .week-day[aria-current="date"] .day-number { background: var(--sun); }
+.access-content { display: flex; flex: 1 1 315px; flex-direction: column; justify-content: center; padding: clamp(22px, 3.6vw, 54px); }
+.access-content h2 { font-size: clamp(25px, 2.5vw, 36px); letter-spacing: -.05em; margin: 4px 0 8px; }
+.access-content .eyebrow { color: var(--muted); }
+.access-content > p:not(.eyebrow) { font-size: 14px; line-height: 1.6; }
+.access-form { gap: 6px; margin-top: 10px; }
+.access-form input:not([type=radio]) { background: var(--paper); border-color: var(--line); border-radius: 10px; min-height: 44px; margin-bottom: 4px; }
+.access-form .button { min-height: 44px; }
+
+/* The timetable, student record and lesson journal can wrap independently. */
+.page-heading { display: flex; align-items: center; position: relative; isolation: isolate; overflow: hidden; margin: 0 0 var(--space); padding: clamp(18px, 2.4vw, 34px); border-radius: var(--round); background: #fff; }
+.main-content:has(#workspace[hidden]) .page-heading { display: none; }
+.page-heading > div { max-width: 75%; }
+.page-heading::after { content: ""; position: absolute; z-index: -1; right: -25px; top: -65%; height: 240%; aspect-ratio: 1; border-radius: 50%; background: repeating-radial-gradient(circle, var(--sun) 0 11px,#282923 12px 13px,var(--sun) 14px 19px); clip-path: inset(0 0 0 42%); transform: rotate(-24deg); }
+.page-heading h1 { font-size: clamp(26px, 2.8vw, 43px); margin: 4px 0 6px; }
+.heading-detail { font-size: 13px; }
+.workspace-toolbar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin: 0 0 var(--space); }
+.class-filters { justify-content: flex-start; flex: 1 1 420px; gap: 5px; }
+.class-filter, .class-filter.group-filter { background: #fff; border: 1px solid var(--line); padding: 7px 12px; }
+.class-filter[aria-pressed=true], .class-filter.group-filter[aria-pressed=true] { background: var(--navy); border-color: var(--navy); color: var(--sun); box-shadow: none; }
+.workspace-summary { font-size: 12px; }
+.teaching-layout, .live-grid { display: flex; flex-wrap: wrap; gap: var(--space); align-items: flex-start; }
+.schedule-rail, .group-view-heading, .student-panel, .lesson-surface, .previous-records, .teaching-empty { border: 0; background: white; border-radius: var(--round); }
+.schedule-rail { flex: 1 1 240px; min-width: 0; position: static; margin: 0; }
+.teaching-workspace { flex: 4 1 600px; min-width: 0; }
+.schedule-controls { padding: 16px; gap: 9px; border: 0; }
+.chosen-date { order: -1; text-align: left; font-size: 15px; letter-spacing: -.025em; }
+.date-controls { flex: 1 1 100px; }
+.date-controls .button, .date-controls .icon-button { min-height: 34px; }
+.view-switch { background: var(--page); border-radius: 20px; }
+.view-switch button { min-height: 30px; border-radius: 20px; }
+.week-strip { border: 0; padding: 0 10px 14px; background: white; gap: 0; }
+.week-day, .week-day[aria-current="date"] { background: transparent; box-shadow: none; border: 0; padding: 4px 0; border-radius: 10px; }
+.week-day:hover { background: var(--paper); }
+.week-day .day-number { width: 28px; height: 28px; margin-top: 5px; }
+.schedule-surface .surface-heading { display: flex; border-block: 1px solid var(--line); padding: 12px 16px; }
+.schedule-surface h2, .student-panel-heading h2 { font-size: 17px; letter-spacing: -.035em; }
+.count-chip, .checklist-stat { border-radius: 20px; padding: 3px 8px; }
+.count-chip { background: var(--sun); color: var(--navy); }
+.school-day-note { padding-inline: 16px; }
+.schedule-list { padding: 9px 14px; max-height: min(60vh, 650px); }
+.day-period h3 { margin: 8px 0 5px; font-size: 11px; }
+.schedule-card, .schedule-card.is-selected { border-radius: 12px; background: var(--paper); border: 1px solid var(--line); border-left: 4px solid hsl(var(--group-hue) 45% 52%); box-shadow: none; }
+.schedule-card.is-selected { background: #fff4c3; border-color: #ac8826; }
+.schedule-card:hover { background: #fff1bb; }
+.day-period .schedule-card { min-height: 55px; }
+.period-empty { border-radius: 10px; background: white; min-height: 36px; }
+.group-view { background: transparent; border: 0; border-radius: 0; overflow: visible; gap: var(--space); }
+.group-view-heading { justify-content: space-between; flex-direction: row-reverse; flex-wrap: wrap; padding: 16px 20px; }
+.group-view-heading > div { display: block; min-width: min(100%, 185px); }
+.group-view-heading h2, .group-view-heading p { text-align: left; overflow-wrap: anywhere; }
+.live-grid .student-panel { flex: 2 1 420px; min-width: 0; padding: 6px 2px 14px; }
+.student-panel-heading { padding: 12px; }
+.student-panel-heading p { font-size: 12px; }
+.attendance-toolbar > .button, .student-panel-actions .button { min-height: 34px; padding: 5px 9px; }
+.lesson-column { display: flex; flex: 1 1 258px; flex-direction: column; gap: var(--space); padding: 0; background: transparent; border: 0; }
+.lesson-surface { width: 100%; padding: 8px; }
+.lesson-heading h2 { font-size: 15px; color: var(--navy); }
+#lesson-form { display: block; }
+.previous-records > summary, .previous-records[open] > summary { padding: 16px; background: white; }
+.previous-records > summary:hover { background: var(--paper); }
+.previous-records-toggle { color: var(--navy); }
+.teaching-empty { padding: clamp(24px, 4vw, 60px); }
+.teaching-empty h2 { font-size: 23px; letter-spacing: -.04em; }
+.live-savebar { padding: 10px 14px; border: 1px solid var(--line); border-radius: 18px; background: #fffdf8; }
+.week-preview { border-color: var(--line); border-radius: 18px; }
+.week-preview-heading { background: var(--paper); }
+@media (max-width: 960px) {
+  .schedule-rail, .teaching-workspace { flex-basis: 100%; }
+  .schedule-list { display: flex; flex-wrap: wrap; gap: 8px 12px; max-height: 250px; }
+  .day-period { flex: 1 1 190px; }
+  .schedule-controls { align-items: center; }
+  .date-controls { flex: 0 1 160px; }
+  .chosen-date { width: auto; flex: 1 1 160px; }
+}
+@media (max-width: 700px) {
+  .app-shell { padding-bottom: max(90px, env(safe-area-inset-bottom)); }
+  .topbar { padding: 12px 0; }
+  .topbar-actions { justify-content: flex-start; }
+  .topbar-actions .button { padding: 7px 10px; min-height: 36px; }
+  .access-panel { margin: 4px 0; }
+  .access-content, .folio-cover { flex-basis: 100%; }
+  .folio-cover { padding: 18px; }
+  .folio-cover h1 { margin-bottom: 12px; }
+  .folio-art { height: 112px; }
+  .folio-week { margin-top: 12px; }
+  .folio-week b { height: 26px; width: 26px; }
+  .page-heading::after { right: -85px; }
+  .page-heading > div { max-width: 80%; }
+  .day-period { flex-basis: 135px; }
+  .schedule-list { max-height: 235px; }
+  .chosen-date { flex-basis: 100%; }
+  .workspace-summary { white-space: normal; }
+  .mobile-jump { top: 0; gap: 4px; }
+  .mobile-jump .button { min-height: 36px; padding: 5px; white-space: normal; }
+  #workspace:has(#group-view[hidden]) .mobile-jump { display: none; }
+  #student-panel, #previous-records, #lesson-form { scroll-margin-top: 54px; }
+  .group-view-heading > div { width: auto; }
+  .student-list-head { display: none; }
+  .student-row { display: flex; flex-wrap: wrap; gap: 8px; border-radius: 12px; margin: 5px 0; padding: 10px; }
+  .student-row .student-identity, .student-row .student-note-wrap { flex: 1 1 100%; position: static; }
+  .student-row .choice-group { flex: 1 1 100px; }
+  .attendance-group .choice-button, .choice-button { min-height: 34px; }
+  .live-savebar { left: 6px; right: 6px; bottom: max(4px, env(safe-area-inset-bottom)); }
+}

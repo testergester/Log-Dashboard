@@ -17,6 +17,8 @@
   <script src="./mpr-ui.js?v=8bc7ba38e4fd" defer></script>
   <script src="./lesson-studio.js?v=f2e5775eb2d5" defer></script>
   <script src="./script.js?v=af68c23f8d6f" defer></script>
+  <link rel="stylesheet" href="./folio.css?v=cb52cfb26a45" id="folio-styles" disabled>
+  <script src="./folio.js?v=656edd030e81" defer></script>
   <meta name="dashboard-version" content="af68c23f8d6f">
 </head>
 <body>
@@ -36,16 +38,17 @@
           <div class="brand-caption">Timetable · Attendance · Lesson notes</div>
         </div>
       </div>
-      <div class="topbar-actions"><button type="button" class="button button-primary" id="add-class-button" disabled>
+      <nav class="topbar-actions" aria-label="Dashboard navigation"><button type="button" class="button button-primary" id="add-class-button" disabled>
           <span aria-hidden="true">＋</span> Add class
         </button>
+        <a class="button button-quiet" href="#folio" id="folio-switch">Folio view</a>
         <a class="button button-quiet" href="./analysis.html">↗ Analysis</a>
         <button type="button" class="button button-quiet" id="mpr-open" disabled>MPR</button>
         <a class="button button-quiet" id="new-ui-beta-link" href="./experiments/lumen-teaching-desk/">new UI BETTA</a>
         <span class="connection-state" id="connection-state">Not connected</span>
         <button type="button" class="button button-quiet" id="settings-button" aria-label="Connection settings">Settings</button>
         <button type="button" class="button button-quiet" id="sign-out-button" hidden>Sign out</button>
-      <a class="button button-quiet backup-link" href="./backups/dashboard-before-teaching-desk-2026-10-06/index.html">Previous design ↗</a></div>
+      <a class="button button-quiet backup-link" href="./backups/dashboard-before-teaching-desk-2026-10-06/index.html">Previous design ↗</a></nav>
     </header>
 
     <main class="main-content">
